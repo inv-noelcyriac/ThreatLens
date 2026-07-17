@@ -1,0 +1,346 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+/* ── CSS custom properties — theme tokens ── */
+:root {
+  --bg-primary: #eef0f6;
+  --bg-secondary: #fafaf8;
+  --bg-card: #fafaf8;
+  --bg-header: rgba(255, 255, 255, 0.92);
+  --bg-input: #ffffff;
+  --bg-badge: #f0efec;
+  --bg-panel: #fafaf8;
+  --bg-overlay: rgba(0, 0, 0, 0.32);
+  --bg-table-head: #f0efec;
+  --bg-table-row: #fafaf8;
+  --bg-table-alt: #f0efec;
+
+  --text-primary: #1c1b18;
+  --text-secondary: #545454;
+  --text-muted: #9e9e9e;
+  --text-heading: #111110;
+
+  --border-color: #d0ceca;
+  --border-input: #c0bfbb;
+  --border-card: #d0ceca;
+
+  --accent-blue: #2563eb;
+  --accent-blue-hover: #1d4ed8;
+  --accent-blue-light: #dbeafe;
+
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.13), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.13), 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.16), 0 4px 16px rgba(0, 0, 0, 0.10);
+  --shadow-panel: -8px 0 40px rgba(0, 0, 0, 0.16);
+
+  --hero-gradient: linear-gradient(145deg, #eff1fa 0%, #f4f6fc 35%, #eef5fc 70%, #f5f8fd 100%);
+  --hero-border: rgba(99, 102, 241, 0.28);
+}
+
+[data-theme="dark"] {
+  --bg-primary: #141414;
+  --bg-secondary: #1c1c1c;
+  --bg-card: #202020;
+  --bg-header: rgba(20, 20, 20, 0.90);
+  --bg-input: #252525;
+  --bg-badge: #2a2a2a;
+  --bg-panel: #1c1c1c;
+  --bg-overlay: rgba(0, 0, 0, 0.70);
+  --bg-table-head: #252525;
+  --bg-table-row: #202020;
+  --bg-table-alt: #252525;
+
+  --text-primary: #ededed;
+  --text-secondary: #a3a3a3;
+  --text-muted: #555555;
+  --text-heading: #f5f5f5;
+
+  --border-color: #2e2e2e;
+  --border-input: #383838;
+  --border-card: #2e2e2e;
+
+  --accent-blue: #3b82f6;
+  --accent-blue-hover: #2563eb;
+  --accent-blue-light: #1e3a5f;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.50), 0 2px 6px rgba(0, 0, 0, 0.40);
+  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.65), 0 4px 16px rgba(0, 0, 0, 0.50);
+  --shadow-panel: -8px 0 40px rgba(0, 0, 0, 0.70);
+
+  --hero-gradient: linear-gradient(160deg, #1a1a1a 0%, #141414 60%, #1a1a1a 100%);
+  --hero-border: rgba(255, 255, 255, 0.06);
+}
+
+/* ── Map CSS vars → Tailwind design tokens ── */
+@theme {
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+
+  /* Colors */
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-card: var(--bg-card);
+  --color-bg-header: var(--bg-header);
+  --color-bg-input: var(--bg-input);
+  --color-bg-badge: var(--bg-badge);
+  --color-bg-panel: var(--bg-panel);
+  --color-bg-overlay: var(--bg-overlay);
+  --color-bg-table-head: var(--bg-table-head);
+  --color-bg-table-alt: var(--bg-table-alt);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-heading: var(--text-heading);
+
+  --color-border: var(--border-color);
+  --color-border-input: var(--border-input);
+  --color-border-card: var(--border-card);
+
+  --color-accent: var(--accent-blue);
+  --color-accent-hover: var(--accent-blue-hover);
+  --color-accent-light: var(--accent-blue-light);
+
+  /* Shadows */
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-panel: var(--shadow-panel);
+
+  /* Border radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* Keyframe animations */
+  --animate-fade-in: fadeIn 0.2s ease;
+  --animate-slide-in: slideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slide-out: slideOut 0.28s cubic-bezier(0.7, 0, 0.84, 0) forwards;
+  --animate-fade-slide-in: fadeSlideIn 0.25s ease;
+  --animate-fade-out: fadeOut 0.2s ease forwards;
+  --animate-pulse-dot: pulse-dot 2s infinite;
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0.5;
+    }
+
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes fadeSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulse-dot {
+
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    50% {
+      opacity: 0.7;
+      transform: scale(0.85);
+    }
+  }
+
+  @keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to   { transform: translateX(100%); opacity: 0.5; }
+  }
+
+  @keyframes fadeOut {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+  }
+}
+
+/* ── Global base styles ── */
+@layer base {
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+    min-height: 100vh;
+  }
+
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+}
+
+/* ── Severity & status badge colours ── */
+@layer components {
+  .badge-critical {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+  }
+
+  .badge-high {
+    background: rgba(249, 115, 22, 0.15);
+    color: #f97316;
+    border: 1px solid rgba(249, 115, 22, 0.25);
+  }
+
+  .badge-medium {
+    background: rgba(234, 179, 8, 0.15);
+    color: #ca8a04;
+    border: 1px solid rgba(234, 179, 8, 0.25);
+  }
+
+  .badge-low {
+    background: rgba(34, 197, 94, 0.15);
+    color: #16a34a;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+  }
+
+  [data-theme="dark"] .badge-medium {
+    color: #eab308;
+  }
+
+  [data-theme="dark"] .badge-low {
+    color: #22c55e;
+  }
+
+  .status-vulnerable {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+  }
+
+  .status-patched {
+    background: rgba(34, 197, 94, 0.15);
+    color: #16a34a;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+  }
+
+  [data-theme="dark"] .status-patched {
+    color: #22c55e;
+  }
+
+  /* Severity filter chips — coloured hover/selected states */
+  .sev-chip--critical:hover,
+  .sev-chip--critical.sev-chip--selected {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #ef4444;
+  }
+
+  .sev-chip--high:hover,
+  .sev-chip--high.sev-chip--selected {
+    background: rgba(249, 115, 22, 0.12);
+    border-color: rgba(249, 115, 22, 0.5);
+    color: #f97316;
+  }
+
+  .sev-chip--medium:hover,
+  .sev-chip--medium.sev-chip--selected {
+    background: rgba(234, 179, 8, 0.12);
+    border-color: rgba(234, 179, 8, 0.5);
+    color: #ca8a04;
+  }
+
+  [data-theme="dark"] .sev-chip--medium:hover,
+  [data-theme="dark"] .sev-chip--medium.sev-chip--selected {
+    color: #eab308;
+  }
+
+  .sev-chip--low:hover,
+  .sev-chip--low.sev-chip--selected {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.5);
+    color: #16a34a;
+  }
+
+  [data-theme="dark"] .sev-chip--low:hover,
+  [data-theme="dark"] .sev-chip--low.sev-chip--selected {
+    color: #22c55e;
+  }
+
+  /* Search highlight */
+  .highlight-match {
+    background: rgba(37, 99, 235, 0.15);
+    color: var(--accent-blue);
+    border-radius: 3px;
+    padding: 0 2px;
+    font-weight: inherit;
+    font-style: normal;
+  }
+  [data-theme="dark"] .highlight-match {
+    background: rgba(59, 130, 246, 0.22);
+  }
+
+  /* Dark-mode dot-texture on hero */
+  [data-theme="dark"] .hero-dark-texture::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, #3a3a3a 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: 0.18;
+    pointer-events: none;
+  }
+}

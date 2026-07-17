@@ -101,9 +101,16 @@ export default function App() {
     setCurrentPage(p);
   };
 
+  const handleToggleTheme = () => {
+    const html = document.documentElement;
+    html.classList.add('theme-transitioning');
+    setTheme(t => t === 'dark' ? 'light' : 'dark');
+    setTimeout(() => html.classList.remove('theme-transitioning'), 400);
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
-      <Header theme={theme} onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} />
+      <Header theme={theme} onToggleTheme={handleToggleTheme} />
 
       <main className="flex-1 pb-12" style={{ background: 'var(--main-bg, transparent)' }}>
         <Hero totalCount={allVulns.length} />

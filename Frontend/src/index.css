@@ -206,6 +206,19 @@
     padding: 0;
   }
 
+  /* Smooth theme transition on all elements */
+  .theme-transitioning,
+  .theme-transitioning *,
+  .theme-transitioning *::before,
+  .theme-transitioning *::after {
+    transition:
+      background-color 0.35s ease,
+      background 0.35s ease,
+      color 0.35s ease,
+      border-color 0.35s ease,
+      box-shadow 0.35s ease !important;
+  }
+
   html {
     font-family: var(--font-sans);
     font-size: 16px;
@@ -217,7 +230,6 @@
   body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
-    transition: background-color 0.3s ease, color 0.3s ease;
     min-height: 100vh;
   }
 

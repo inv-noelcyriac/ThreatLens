@@ -1,8 +1,23 @@
 import json
 import logging
+import time
+from urllib.parse import urlencode
 from ingestion.tasks import BaseIngestionTask
 
+# Single, unified logger setup
 logger = logging.getLogger('ingestion_logger')
+
+# ==========================================================
+# Docker ecosystem identifiers.
+# ==========================================================
+DOCKER_ECOSYSTEM_CPES = [
+    ("docker", "cpe:2.3:a:docker:docker"),
+    ("docker_engine", "cpe:2.3:a:docker:engine"),
+    ("moby", "cpe:2.3:a:mobyproject:moby"),
+    ("containerd", "cpe:2.3:a:containerd:containerd"),
+    ("runc", "cpe:2.3:a:opencontainers:runc"),
+    ("buildkit", "cpe:2.3:a:mobyproject:buildkit"),
+]
 
 class DockerHardenedOSVTask(BaseIngestionTask):
     """
@@ -51,31 +66,6 @@ class DockerHardenedOSVTask(BaseIngestionTask):
             logger.error(f"[{self.source_name.upper()}] PIPELINE CRASHED: {str(e)}")
 
 
-import json
-import logging
-from urllib.parse import urlencode
-
-logger = logging.getLogger(__name__)
-
-
-import json
-import logging
-import time
-from urllib.parse import urlencode
-
-logger = logging.getLogger(__name__)
-
-# ==========================================================
-# Docker ecosystem identifiers.
-# ==========================================================
-DOCKER_ECOSYSTEM_CPES = [
-    ("docker", "cpe:2.3:a:docker:docker"),
-    ("docker_engine", "cpe:2.3:a:docker:engine"),
-    ("moby", "cpe:2.3:a:mobyproject:moby"),
-    ("containerd", "cpe:2.3:a:containerd:containerd"),
-    ("runc", "cpe:2.3:a:opencontainers:runc"),
-    ("buildkit", "cpe:2.3:a:mobyproject:buildkit"),
-]
 
 
 class DockerEcosystemTask(BaseIngestionTask):

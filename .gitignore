@@ -1,0 +1,25 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments (This is the critical part!)
+venv/
+**/venv/
+.venv/
+env/
+
+# Database
+db.sqlite3
+*.db
+*.sqlite3
+
+# Secret files
+.env
+
+# Logs
+logs/
+*.log
+
+# Mock Data & Tests
+**/tests/mock_data/

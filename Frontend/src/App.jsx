@@ -105,7 +105,7 @@ export default function App() {
     <div className="min-h-screen flex flex-col">
       <Header theme={theme} onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} />
 
-      <main className="flex-1 pb-12">
+      <main className="flex-1 pb-12" style={{ background: 'var(--main-bg, transparent)' }}>
         <Hero totalCount={allVulns.length} />
 
         <div className="max-w-[1200px] mx-auto pt-6 flex flex-col gap-3.5">

@@ -1,5 +1,6 @@
 import xml.etree.ElementTree as ET
 import logging
+import os
 from ingestion.tasks import BaseIngestionTask
 
 logger = logging.getLogger('ingestion_logger')
@@ -9,9 +10,7 @@ class AWSIngestionTask(BaseIngestionTask):
     Worker task dedicated to extracting, structuralizing, and storing
     vulnerability metrics directly from the AWS Security Alerts feed.
     """
-    source_name = 'aws'
-    # Live RSS feed for Amazon Web Services security notifications
-    target_url = 'https://aws.amazon.com/security/security-bulletins/rss/feed/'
+    source_name: str = 'aws'
     
     # Structural keys expected by downstream processors
     required_keys = ['title', 'link', 'description', 'pubDate']
@@ -20,9 +19,17 @@ class AWSIngestionTask(BaseIngestionTask):
         """Executes the ingestion run loop for the AWS Security feed."""
         logger.info("[AWS] Starting ingestion run loop...")
         
+        target_url = os.environ.get('AWS_RSS_URL')
+        if not target_url:
+            logger.error("[AWS] AWS_RSS_URL environment variable is missing.")
+            return
+        
         try:
-            # 1. Fetch raw XML using the inherited full jitter backoff loop
-            raw_xml = self.fetch_with_retry()
+            # 1. Fetch raw XML by passing the target_url explicitly down functionally
+            raw_xml = self.fetch_with_retry(target_url=target_url)
+            if not raw_xml:
+                logger.error("[AWS] Raw XML payload is empty or None.")
+                return
             
             # 2. Unpack the XML structure safely
             root = ET.fromstring(raw_xml)

@@ -1,6 +1,7 @@
 from django.db import models
 
 class SourceAdvisory(models.Model):
+    objects = models.Manager()
     # A simple row tracking number that automatically grows
     id = models.BigAutoField(primary_key=True)
     

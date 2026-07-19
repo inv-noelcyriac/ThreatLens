@@ -11,19 +11,23 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Tell python-dotenv to find and load your .env file
+load_dotenv(BASE_DIR.parent / '.env')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-g-6p4h&!6w_+76t!zflb1wtp*@p5kn-48i#s64%!8xa(n2cb4&'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() in ('true', '1', 't')
 
 ALLOWED_HOSTS = []
 
@@ -80,11 +84,11 @@ WSGI_APPLICATION = 'core.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'vulnerability_db',       # The name you just set in pgAdmin
-        'USER': 'postgres',                # Your local PostgreSQL default username
-        'PASSWORD': '12345678', # The password you set when installing Postgres
-        'HOST': '127.0.0.1',               # Points to your local machine
-        'PORT': '5432',                    # Standard PostgreSQL communication port
+        'NAME': os.environ.get('DB_NAME'),
+        'USER': os.environ.get('DB_USER'),
+        'PASSWORD': os.environ.get('DB_PASSWORD'),
+        'HOST': os.environ.get('DB_HOST'),
+        'PORT': os.environ.get('DB_PORT'),
     }
 }
 
@@ -126,7 +130,7 @@ STATIC_URL = 'static/'
 
 #-------------- LOGS ----------------------------------
 
-import os
+
 
 # 1. Create a 'logs' directory inside your project root folder if it doesn't exist
 LOGS_DIR = os.path.join(BASE_DIR, 'logs')

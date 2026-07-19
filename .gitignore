@@ -23,3 +23,8 @@ logs/
 
 # Mock Data & Tests
 **/tests/mock_data/
+
+.env
+
+# IDE settings (personal, not for version control)
+.vscode/

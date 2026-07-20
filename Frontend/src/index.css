@@ -33,6 +33,10 @@
   --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.16), 0 4px 16px rgba(0, 0, 0, 0.10);
   --shadow-panel: -8px 0 40px rgba(0, 0, 0, 0.16);
 
+  /* Fix-note avatar — neutral, not accent-blue */
+  --avatar-bg: #e4e1dc;
+  --avatar-text: #2a2826;
+
   --hero-gradient: linear-gradient(145deg, #eff1fa 0%, #f4f6fc 35%, #eef5fc 70%, #f5f8fd 100%);
   --hero-border: rgba(99, 102, 241, 0.28);
 }
@@ -67,6 +71,10 @@
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.50), 0 2px 6px rgba(0, 0, 0, 0.40);
   --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.65), 0 4px 16px rgba(0, 0, 0, 0.50);
   --shadow-panel: -8px 0 40px rgba(0, 0, 0, 0.70);
+
+  /* Fix-note avatar — warm dark neutral */
+  --avatar-bg: #2e2c2a;
+  --avatar-text: #e8e5e0;
 
   /* Warm charcoal gradient — depth without blue tint */
   --hero-gradient: linear-gradient(

@@ -49,12 +49,18 @@ function formatTimestamp(ts) {
   });
 }
 
-function FixThread({ fixes, onAddFix }) {
+function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
   const [author, setAuthor] = useState('');
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
+  const [editingIdx, setEditingIdx] = useState(null);
+  const [editText, setEditText] = useState('');
+  const [expandedIdx, setExpandedIdx] = useState(null);
 
+  const TRUNCATE_LINES = 4;
   const inputStyle = { borderColor: 'var(--border-input)', background: 'var(--bg-input)', color: 'var(--text-primary)' };
+  const focusStyle = (e) => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; };
+  const blurStyle  = (e) => { e.currentTarget.style.borderColor = 'var(--border-input)'; e.currentTarget.style.boxShadow = 'none'; };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -64,56 +70,202 @@ function FixThread({ fixes, onAddFix }) {
     setAuthor(''); setDescription(''); setError('');
   };
 
+  const startEdit = (i) => { setEditingIdx(i); setEditText(fixes[i].description); };
+  const cancelEdit = () => { setEditingIdx(null); setEditText(''); };
+  const saveEdit = (i) => {
+    if (!editText.trim()) return;
+    onEditFix(i, editText.trim());
+    setEditingIdx(null); setEditText('');
+  };
+
   return (
     <section className="mb-[22px]">
-      <h3 className="flex items-center gap-1.5 text-[0.72rem] font-bold tracking-[0.08em] uppercase mb-3" style={{ color: 'var(--text-muted)' }}>
+      <h3 className="flex items-center gap-1.5 text-[0.72rem] font-bold tracking-[0.08em] uppercase mb-4" style={{ color: 'var(--text-muted)' }}>
         <WrenchIcon /> FIX NOTES
       </h3>
-      {fixes.length === 0 ? (
-        <p className="text-[0.875rem] italic mb-4" style={{ color: 'var(--text-muted)' }}>No fix notes yet. Add the first one below.</p>
-      ) : (
-        <div className="flex flex-col mb-5 border rounded-[10px] overflow-hidden" style={{ borderColor: 'var(--border-color)' }}>
-          {fixes.map((fix, i) => (
-            <div key={i} className="flex gap-3.5 px-4 py-3.5 border-b last:border-b-0 transition-colors duration-300"
-              style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-color)', animation: 'var(--animate-fade-slide-in)' }}>
-              <div className="w-[34px] h-[34px] rounded-full text-white text-[0.875rem] font-bold flex items-center justify-center flex-shrink-0 select-none" style={{ background: 'var(--accent-blue)' }}>
-                {fix.author.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2.5 mb-[5px] flex-wrap">
-                  <span className="text-[0.875rem] font-bold" style={{ color: 'var(--text-primary)' }}>{fix.author}</span>
-                  <span className="text-[0.75rem]" style={{ color: 'var(--text-muted)' }}>{formatTimestamp(fix.timestamp)}</span>
+
+      <div className="flex flex-col">
+        {/* ── Thread entries ── */}
+        {fixes.map((fix, i) => {
+          const isExpanded = expandedIdx === i;
+          const isEditing = editingIdx === i;
+          const descWords = fix.description.split('\n');
+          const needsTruncate = fix.description.length > 300 || descWords.length > TRUNCATE_LINES;
+          return (
+            <div key={i} className="flex gap-3" style={{ animation: 'var(--animate-fade-slide-in)' }}>
+              {/* Avatar + connector line */}
+              <div className="flex flex-col items-center flex-shrink-0" style={{ width: '36px' }}>
+                <div
+                  className="w-9 h-9 rounded-full text-[0.875rem] font-bold flex items-center justify-center select-none flex-shrink-0 transition-colors duration-300"
+                  style={{ background: 'var(--avatar-bg)', color: 'var(--avatar-text)' }}
+                >
+                  {fix.author.charAt(0).toUpperCase()}
                 </div>
-                <p className="text-[0.875rem] leading-[1.6] break-words" style={{ color: 'var(--text-secondary)' }}>{fix.description}</p>
+                {/* Thread connector line */}
+                <div className="w-[2px] flex-1 mt-2" style={{ background: 'var(--border-color)', minHeight: '28px' }} />
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 min-w-0 pb-6">
+                {/* Header: name + timestamp stacked */}
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex flex-col">
+                    <span className="text-[0.875rem] font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>{fix.author}</span>
+                    <span className="text-[0.72rem] mt-[2px]" style={{ color: 'var(--text-muted)' }}>{formatTimestamp(fix.timestamp)}</span>
+                  </div>
+                  {/* Edit / Delete actions */}
+                  {!isEditing && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => startEdit(i)}
+                        title="Edit note"
+                        className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent"
+                        style={{ color: 'var(--text-muted)' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-badge)'; e.currentTarget.style.color = 'var(--accent-blue)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => onDeleteFix(i)}
+                        title="Delete note"
+                        className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent"
+                        style={{ color: 'var(--text-muted)' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#ef4444'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                          <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Description — with expand/collapse */}
+                {isEditing ? (
+                  <div className="flex flex-col gap-2">
+                    <textarea
+                      value={editText}
+                      onChange={e => setEditText(e.target.value)}
+                      rows={4}
+                      className="px-3.5 py-2.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-[inherit] outline-none resize-y min-h-[72px] leading-[1.5] transition-all duration-200 w-full"
+                      style={inputStyle}
+                      onFocus={focusStyle}
+                      onBlur={blurStyle}
+                      autoFocus
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={cancelEdit}
+                        className="h-8 px-3.5 rounded-[8px] border-[1.5px] text-[0.8rem] font-semibold font-[inherit] cursor-pointer transition-all duration-150"
+                        style={{ borderColor: 'var(--border-input)', background: 'transparent', color: 'var(--text-secondary)' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-badge)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                      >Cancel</button>
+                      <button onClick={() => saveEdit(i)}
+                        className="h-8 px-3.5 rounded-[8px] border-0 text-white text-[0.8rem] font-semibold font-[inherit] cursor-pointer transition-all duration-150"
+                        style={{ background: 'var(--accent-blue)' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent-blue)'; }}
+                      >Save</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p
+                      className="text-[0.9rem] leading-[1.65] break-words whitespace-pre-wrap"
+                      style={{
+                        color: 'var(--text-secondary)',
+                        display: '-webkit-box',
+                        WebkitBoxOrient: 'vertical',
+                        WebkitLineClamp: isExpanded ? 'unset' : (needsTruncate ? TRUNCATE_LINES : 'unset'),
+                        overflow: isExpanded ? 'visible' : (needsTruncate ? 'hidden' : 'visible'),
+                      }}
+                    >{fix.description}</p>
+                    {needsTruncate && (
+                      <button
+                        onClick={() => setExpandedIdx(isExpanded ? null : i)}
+                        className="mt-1 text-[0.8rem] font-semibold bg-transparent border-0 cursor-pointer px-0 py-0 transition-opacity duration-150 hover:opacity-70"
+                        style={{ color: 'var(--accent-blue)' }}
+                      >{isExpanded ? 'Show less' : 'Show more'}</button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
-          ))}
+          );
+        })}
+
+        {/* ── Compose / reply row ── */}
+        <div className="flex gap-3">
+          {/* Live avatar preview */}
+          <div className="flex-shrink-0 pt-[3px]" style={{ width: '36px' }}>
+            <div
+              className="w-9 h-9 rounded-full border-[1.5px] text-[0.875rem] font-bold flex items-center justify-center select-none transition-all duration-200"
+              style={author.trim()
+                ? { background: 'var(--accent-blue)', borderColor: 'transparent', color: '#fff' }
+                : { background: 'var(--bg-input)', borderColor: 'var(--border-input)', color: 'var(--text-muted)' }}
+            >
+              {author.trim() ? author.trim().charAt(0).toUpperCase() : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                </svg>
+              )}
+            </div>
+          </div>
+
+          {/* Form */}
+          <form className="flex-1 min-w-0 flex flex-col gap-2.5 pt-[3px]" onSubmit={handleSubmit} noValidate>
+            {fixes.length === 0 && !author && !description && (
+              <p className="text-[0.875rem] italic mb-0.5" style={{ color: 'var(--text-muted)' }}>No fix notes yet. Be the first to add one.</p>
+            )}
+            <input
+              id="fix-author-input"
+              type="text"
+              placeholder="Your name"
+              value={author}
+              onChange={(e) => { setAuthor(e.target.value); setError(''); }}
+              aria-label="Author name"
+              className="h-10 px-3.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-[inherit] outline-none transition-all duration-200"
+              style={inputStyle}
+              onFocus={focusStyle}
+              onBlur={blurStyle}
+            />
+            <textarea
+              id="fix-desc-input"
+              placeholder="What's the fix or remediation note?"
+              value={description}
+              onChange={(e) => { setDescription(e.target.value); setError(''); }}
+              rows={3}
+              aria-label="Fix description"
+              className="px-3.5 py-2.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-[inherit] outline-none resize-y min-h-[72px] leading-[1.5] transition-all duration-200 w-full"
+              style={inputStyle}
+              onFocus={focusStyle}
+              onBlur={blurStyle}
+            />
+            {error && (
+              <p className="text-[0.8125rem] rounded-[6px] px-3 py-2" style={{ color: '#ef4444', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>{error}</p>
+            )}
+            <div className="flex justify-end">
+              <button
+                id="fix-submit-btn"
+                type="submit"
+                aria-label="Submit fix note"
+                className="flex items-center gap-[7px] h-9 px-4 rounded-[20px] border-0 text-white text-[0.85rem] font-semibold font-[inherit] cursor-pointer flex-shrink-0 whitespace-nowrap transition-all duration-200 hover:-translate-y-px active:translate-y-0"
+                style={{ background: 'var(--accent-blue)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent-blue)'; }}
+              >
+                <SendIcon /><span>Post Note</span>
+              </button>
+            </div>
+          </form>
         </div>
-      )}
-      <form className="flex flex-col gap-2.5" onSubmit={handleSubmit} noValidate>
-        {error && <p className="text-[0.8125rem] rounded-[6px] px-3 py-2" style={{ color: '#ef4444', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>{error}</p>}
-        <div className="flex gap-2">
-          <input id="fix-author-input" type="text" placeholder="Your name" value={author}
-            onChange={(e) => { setAuthor(e.target.value); setError(''); }} aria-label="Author name"
-            className="flex-1 h-10 px-3.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-[inherit] outline-none transition-all duration-200" style={inputStyle}
-            onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; }}
-            onBlur={e => { e.currentTarget.style.borderColor = 'var(--border-input)'; e.currentTarget.style.boxShadow = 'none'; }} />
-        </div>
-        <div className="flex gap-2 items-end sm:flex-row flex-col">
-          <textarea id="fix-desc-input" placeholder="Describe the fix or remediation note…" value={description}
-            onChange={(e) => { setDescription(e.target.value); setError(''); }} rows={3} aria-label="Fix description"
-            className="flex-1 px-3.5 py-2.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-[inherit] outline-none resize-y min-h-[72px] leading-[1.5] transition-all duration-200 w-full" style={inputStyle}
-            onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; }}
-            onBlur={e => { e.currentTarget.style.borderColor = 'var(--border-input)'; e.currentTarget.style.boxShadow = 'none'; }} />
-          <button id="fix-submit-btn" type="submit" aria-label="Submit fix note"
-            className="flex items-center gap-[7px] h-10 px-4 rounded-[10px] border-0 text-white text-[0.85rem] font-semibold font-[inherit] cursor-pointer flex-shrink-0 self-end whitespace-nowrap transition-all duration-200 hover:-translate-y-px active:translate-y-0"
-            style={{ background: 'var(--accent-blue)' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent-blue)'; }}>
-            <SendIcon /><span>Add Note</span>
-          </button>
-        </div>
-      </form>
+      </div>
     </section>
   );
 }
@@ -167,7 +319,7 @@ export default function DetailPanel({ vuln, onClose }) {
       >
         {/* Breadcrumb */}
         <nav className="flex items-center gap-1.5 px-6 pt-[18px] flex-shrink-0" aria-label="Breadcrumb">
-          {['Dashboard', 'Vulnerabilities'].map((item) => (
+          {['Vulnerabilities'].map((item) => (
             <span key={item} className="flex items-center gap-1">
               <span className="text-[0.8125rem]" style={{ color: 'var(--text-muted)' }}>{item}</span>
               <ChevronIcon />
@@ -225,7 +377,7 @@ export default function DetailPanel({ vuln, onClose }) {
           {/* Affected Components */}
           <section className="mb-[22px]">
             <h3 className="text-[0.72rem] font-bold tracking-[0.08em] uppercase mb-3" style={{ color: 'var(--text-muted)' }}>AFFECTED COMPONENTS</h3>
-            <div className="border rounded-[10px] overflow-hidden" style={{ borderColor: 'var(--border-color)' }}>
+            <div className="border rounded-[10px] overflow-x-auto" style={{ borderColor: 'var(--border-color)' }}>
               <table className="w-full border-collapse text-[0.875rem]">
                 <thead style={{ background: 'var(--bg-table-head)' }}>
                   <tr>
@@ -270,7 +422,12 @@ export default function DetailPanel({ vuln, onClose }) {
 
           <hr className="border-t mb-5 transition-colors duration-300" style={{ borderColor: 'var(--border-color)' }} />
 
-          <FixThread fixes={fixes} onAddFix={(fix) => setFixes((prev) => [...prev, fix])} />
+          <FixThread
+            fixes={fixes}
+            onAddFix={(fix) => setFixes((prev) => [...prev, fix])}
+            onEditFix={(i, newDesc) => setFixes((prev) => prev.map((f, idx) => idx === i ? { ...f, description: newDesc } : f))}
+            onDeleteFix={(i) => setFixes((prev) => prev.filter((_, idx) => idx !== i))}
+          />
         </div>
       </aside>
     </>

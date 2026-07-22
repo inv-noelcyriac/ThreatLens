@@ -60,7 +60,7 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
   const TRUNCATE_LINES = 4;
   const inputStyle = { borderColor: 'var(--border-input)', background: 'var(--bg-input)', color: 'var(--text-primary)' };
   const focusStyle = (e) => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; };
-  const blurStyle  = (e) => { e.currentTarget.style.borderColor = 'var(--border-input)'; e.currentTarget.style.boxShadow = 'none'; };
+  const blurStyle = (e) => { e.currentTarget.style.borderColor = 'var(--border-input)'; e.currentTarget.style.boxShadow = 'none'; };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -81,7 +81,7 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
   return (
     <section className="mb-[22px]">
       <h3 className="flex items-center gap-1.5 text-[0.72rem] font-bold tracking-[0.08em] uppercase mb-4" style={{ color: 'var(--text-muted)' }}>
-        <WrenchIcon /> FIX NOTES
+        <WrenchIcon /> USER SUGGESTIONS
       </h3>
 
       <div className="flex flex-col">
@@ -125,8 +125,8 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                       >
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                         </svg>
                       </button>
                       <button
@@ -138,8 +138,8 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                       >
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                          <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                          <path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
                         </svg>
                       </button>
                     </div>
@@ -212,7 +212,7 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
             >
               {author.trim() ? author.trim().charAt(0).toUpperCase() : (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
                 </svg>
               )}
             </div>
@@ -221,7 +221,7 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
           {/* Form */}
           <form className="flex-1 min-w-0 flex flex-col gap-2.5 pt-[3px]" onSubmit={handleSubmit} noValidate>
             {fixes.length === 0 && !author && !description && (
-              <p className="text-[0.875rem] italic mb-0.5" style={{ color: 'var(--text-muted)' }}>No fix notes yet. Be the first to add one.</p>
+              <p className="text-[0.875rem] italic mb-0.5" style={{ color: 'var(--text-muted)' }}>No suggestions yet. Be the first to add one.</p>
             )}
             <input
               id="fix-author-input"
@@ -237,7 +237,7 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
             />
             <textarea
               id="fix-desc-input"
-              placeholder="What's the fix or remediation note?"
+              placeholder="What's the suggestion?"
               value={description}
               onChange={(e) => { setDescription(e.target.value); setError(''); }}
               rows={3}

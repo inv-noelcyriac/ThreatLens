@@ -29,10 +29,10 @@ const SEVERITY_ACCENT = {
 
 /* Severity block tokens resolved via CSS variables — theme-aware */
 const SEV_VARS = {
-  CRITICAL: { bg: 'var(--sev-critical-bg)', color: 'var(--sev-critical-text)' },
-  HIGH: { bg: 'var(--sev-high-bg)', color: 'var(--sev-high-text)' },
-  MEDIUM: { bg: 'var(--sev-medium-bg)', color: 'var(--sev-medium-text)' },
-  LOW: { bg: 'var(--sev-low-bg)', color: 'var(--sev-low-text)' },
+  CRITICAL: { bg: 'var(--sev-critical-bg)', color: 'var(--sev-critical-text)', border: 'var(--sev-critical-border)' },
+  HIGH: { bg: 'var(--sev-high-bg)', color: 'var(--sev-high-text)', border: 'var(--sev-high-border)' },
+  MEDIUM: { bg: 'var(--sev-medium-bg)', color: 'var(--sev-medium-text)', border: 'var(--sev-medium-border)' },
+  LOW: { bg: 'var(--sev-low-bg)', color: 'var(--sev-low-text)', border: 'var(--sev-low-border)' },
 };
 
 /* Small pill badge — list view only */
@@ -76,10 +76,10 @@ function CardView({ vuln, onClick, activeQuery }) {
       }}
       onMouseEnter={e => {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-        e.currentTarget.style.borderColor = accent;
+        e.currentTarget.style.borderColor = isDark ? `${accent}88` : accent;
         e.currentTarget.style.transform = 'translateY(-2px)';
         e.currentTarget.style.boxShadow = isDark
-          ? `0 8px 28px rgba(0,0,0,0.55), 0 0 0 1px ${accent}55`
+          ? `0 12px 32px rgba(0,0,0,0.6), 0 0 10px -2px ${accent}22`
           : 'var(--shadow-md)';
       }}
       onMouseLeave={e => {
@@ -132,7 +132,7 @@ function CardView({ vuln, onClick, activeQuery }) {
         {/* Severity — flex:1, colored bg */}
         <div
           className="flex-1 px-[10px] py-1 rounded-[6px] flex flex-col gap-[2px]"
-          style={{ background: sev.bg }}
+          style={{ background: sev.bg, border: '1px solid transparent' }}
         >
           <span
             className="text-[0.6875rem] uppercase tracking-[0.06em]"

@@ -19,14 +19,23 @@ const ChevronRightIcon = () => (
   </svg>
 );
 
-/* Severity → border colour on hover */
+/* Hover border accent — per severity */
 const SEVERITY_ACCENT = {
   CRITICAL: '#ef4444',
-  HIGH:     '#f97316',
-  MEDIUM:   '#eab308',
-  LOW:      '#22c55e',
+  HIGH: '#f97316',
+  MEDIUM: '#eab308',
+  LOW: '#22c55e',
 };
 
+/* Severity block tokens resolved via CSS variables — theme-aware */
+const SEV_VARS = {
+  CRITICAL: { bg: 'var(--sev-critical-bg)', color: 'var(--sev-critical-text)' },
+  HIGH: { bg: 'var(--sev-high-bg)', color: 'var(--sev-high-text)' },
+  MEDIUM: { bg: 'var(--sev-medium-bg)', color: 'var(--sev-medium-text)' },
+  LOW: { bg: 'var(--sev-low-bg)', color: 'var(--sev-low-text)' },
+};
+
+/* Small pill badge — list view only */
 function SeverityBadge({ severity, cvss }) {
   return (
     <span className={`badge-${severity.toLowerCase()} text-[0.68rem] font-bold tracking-[0.05em] px-2.5 py-[3px] rounded-[5px] uppercase whitespace-nowrap flex-shrink-0`}>
@@ -51,22 +60,27 @@ function HighlightText({ text, query }) {
   );
 }
 
-/* ── Card view (grid) ── */
+/* ── Card view (grid) — matches design spec ── */
 function CardView({ vuln, onClick, activeQuery }) {
   const accent = SEVERITY_ACCENT[vuln.severity] || '#9e9e9e';
+  const sev = SEV_VARS[vuln.severity] || { bg: 'var(--bg-badge)', color: 'var(--text-secondary)' };
 
   return (
     <article
-      className="rounded-[14px] border cursor-pointer flex flex-col transition-all duration-[200ms] outline-none overflow-hidden"
+      className="vuln-card rounded-[12px] border cursor-pointer flex flex-col transition-all duration-200 outline-none"
       style={{
         background: 'var(--bg-card)',
         borderColor: 'var(--border-card)',
         boxShadow: 'var(--shadow-sm)',
+        padding: '10px 16px',
       }}
       onMouseEnter={e => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         e.currentTarget.style.borderColor = accent;
-        e.currentTarget.style.transform = 'translateY(-3px)';
-        e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = isDark
+          ? `0 8px 28px rgba(0,0,0,0.55), 0 0 0 1px ${accent}55`
+          : 'var(--shadow-md)';
       }}
       onMouseLeave={e => {
         e.currentTarget.style.borderColor = 'var(--border-card)';
@@ -79,63 +93,106 @@ function CardView({ vuln, onClick, activeQuery }) {
       onKeyDown={(e) => e.key === 'Enter' && onClick(vuln)}
       aria-label={`View details for ${vuln.title}`}
     >
-      {/* ── Top: ecosystem pill + severity badge ── */}
-      <div className="flex items-center justify-between gap-2 px-5 pt-[18px] pb-3">
+      {/* Header: ecosystem pill */}
+      <div className="mb-1">
         <span
-          className="text-[0.72rem] font-semibold px-2.5 py-[3px] rounded-[5px] border"
+          className="vuln-card-badge text-[0.72rem] px-[10px] py-[3px] rounded-[6px]"
           style={{
             background: 'var(--bg-badge)',
-            borderColor: 'var(--border-card)',
             color: 'var(--text-secondary)',
+            fontWeight: 400,
           }}
         >
-          {vuln.ecosystem}
+          {vuln.ecosystem} ecosystem
         </span>
-        <SeverityBadge severity={vuln.severity} cvss={vuln.cvss} />
       </div>
 
-      {/* ── CVE ID ── */}
-      <div className="px-5 mb-1.5">
-        <span
-          className="text-[0.74rem] font-semibold tracking-[0.02em]"
+      {/* Title + CVE ID */}
+      <div className="mb-2" style={{ minHeight: '4rem' }}>
+        <h2
+          className="text-[0.9875rem] leading-snug mb-0.5 transition-colors duration-150 line-clamp-2"
+          style={{ color: 'var(--text-heading)', fontWeight: 500 }}
+        >
+          <HighlightText text={vuln.title} query={activeQuery} />
+        </h2>
+        <p
+          className="text-[0.75rem]"
           style={{
             color: 'var(--text-muted)',
             fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace",
+            fontWeight: 400,
           }}
         >
           <HighlightText text={vuln.id} query={activeQuery} />
-        </span>
-      </div>
-
-      {/* ── Title ── */}
-      <div className="px-5 pb-4 flex-1">
-        <h2 className="text-[0.9875rem] font-semibold leading-[1.4]" style={{ color: 'var(--text-primary)' }}>
-          <HighlightText text={vuln.title} query={activeQuery} />
-        </h2>
-      </div>
-
-      {/* ── Divider ── */}
-      <div className="border-t" style={{ borderColor: 'var(--border-card)' }} />
-
-      {/* ── Remediation ── */}
-      <div className="px-5 py-3.5 flex items-start gap-2">
-        <span className="flex-shrink-0 mt-[2px]" style={{ color: 'var(--text-muted)' }}>
-          <WrenchIcon />
-        </span>
-        <p className="text-[0.8375rem] leading-[1.55]" style={{ color: 'var(--text-secondary)' }}>
-          <HighlightText text={vuln.remediation} query={activeQuery} />
         </p>
       </div>
 
-      {/* ── Footer: source + date ── */}
+      {/* Severity + CVSS stat blocks */}
+      <div className="flex gap-[8px] mb-2">
+        {/* Severity — flex:1, colored bg */}
+        <div
+          className="flex-1 px-[10px] py-1 rounded-[6px] flex flex-col gap-[2px]"
+          style={{ background: sev.bg }}
+        >
+          <span
+            className="text-[0.6875rem] uppercase tracking-[0.06em]"
+            style={{ color: 'var(--text-secondary)', fontWeight: 400 }}
+          >
+            severity
+          </span>
+          <span
+            className="text-[0.875rem] lowercase"
+            style={{ color: sev.color, fontWeight: 500 }}
+          >
+            {vuln.severity.toLowerCase()}
+          </span>
+        </div>
+
+        {/* CVSS — compact, neutral bg */}
+        <div
+          className="vuln-card-badge px-[10px] py-1 rounded-[6px] flex flex-col gap-[2px] min-w-[58px]"
+          style={{ background: 'var(--bg-badge)' }}
+        >
+          <span
+            className="text-[0.6875rem] uppercase tracking-[0.06em]"
+            style={{ color: 'var(--text-secondary)', fontWeight: 400 }}
+          >
+            cvss
+          </span>
+          <span
+            className="text-[0.875rem]"
+            style={{ color: 'var(--text-primary)', fontWeight: 500 }}
+          >
+            {vuln.cvss}
+          </span>
+        </div>
+      </div>
+
+      {/* Remediation — separated by hairline */}
+      {vuln.remediation && (
+        <div className="pt-1.5 mb-2" style={{ borderTop: '1px solid var(--border-card)' }}>
+          <p
+            className="text-[0.7rem] mb-0.5"
+            style={{ color: 'var(--text-secondary)', fontWeight: 400 }}
+          >
+            remediation
+          </p>
+          <div className="flex items-center gap-1.5" style={{ color: 'var(--accent-blue)' }}>
+            <span className="flex-shrink-0"><WrenchIcon /></span>
+            <p className="text-[0.8375rem]" style={{ fontWeight: 400 }}>
+              <HighlightText text={vuln.remediation} query={activeQuery} />
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Footer: source + date */}
       <div
-        className="flex items-center justify-between px-5 pb-4 pt-3 border-t"
-        style={{ borderColor: 'var(--border-card)' }}
+        className="flex items-center justify-between text-[0.75rem]"
+        style={{ color: 'var(--text-muted)', fontWeight: 400 }}
       >
-        <span className="text-[0.775rem] font-semibold" style={{ color: 'var(--text-secondary)' }}>
-          {vuln.source}
-        </span>
-        <span className="flex items-center gap-1.5 text-[0.775rem]" style={{ color: 'var(--text-muted)' }}>
+        <span>source: {vuln.source}</span>
+        <span className="flex items-center gap-1.5">
           <CalendarIcon />
           {vuln.date}
         </span>

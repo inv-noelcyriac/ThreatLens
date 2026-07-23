@@ -45,6 +45,16 @@
   --fix-label-color: #16a34a;
   --fix-text-color: #1c1b18;
 
+  /* Severity info-block tokens (card stat blocks) */
+  --sev-critical-bg: rgba(220, 38, 38, 0.09);
+  --sev-critical-text: #dc2626;
+  --sev-high-bg: rgba(234, 88, 12, 0.09);
+  --sev-high-text: #ea580c;
+  --sev-medium-bg: rgba(161, 98, 7, 0.09);
+  --sev-medium-text: #a16207;
+  --sev-low-bg: rgba(21, 128, 61, 0.09);
+  --sev-low-text: #15803d;
+
   --hero-gradient: linear-gradient(145deg, #eff1fa 0%, #f4f6fc 35%, #eef5fc 70%, #f5f8fd 100%);
   --hero-border: rgba(99, 102, 241, 0.28);
 }
@@ -69,7 +79,7 @@
 
   --border-color: #2c2b29;
   --border-input: #363432;
-  --border-card: #2c2b29;
+  --border-card: #383533;
 
   --accent-blue: #3b82f6;
   --accent-blue-hover: #2563eb;
@@ -91,6 +101,16 @@
   --fix-icon-color: #22c55e;
   --fix-label-color: #22c55e;
   --fix-text-color: #e8e5e0;
+
+  /* Severity info-block tokens (card stat blocks) */
+  --sev-critical-bg: rgba(239, 68, 68, 0.08);
+  --sev-critical-text: #f87171;
+  --sev-high-bg: rgba(249, 115, 22, 0.08);
+  --sev-high-text: #fb923c;
+  --sev-medium-bg: rgba(234, 179, 8, 0.08);
+  --sev-medium-text: #fbbf24;
+  --sev-low-bg: rgba(34, 197, 94, 0.08);
+  --sev-low-text: #4ade80;
 
   /* Warm charcoal gradient — depth without blue tint */
   --hero-gradient: linear-gradient(
@@ -406,5 +426,14 @@
       transparent 65%
     );
     pointer-events: none;
+  }
+
+  /* VulnCard dark mode enhancements */
+  [data-theme="dark"] .vuln-card {
+    background: linear-gradient(180deg, #232323 0%, #1b1b1b 100%);
+  }
+
+  [data-theme="dark"] .vuln-card-badge {
+    background: #2b2929 !important;
   }
 }

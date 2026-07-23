@@ -37,6 +37,14 @@
   --avatar-bg: #e4e1dc;
   --avatar-text: #2a2826;
 
+  /* Official Fix callout */
+  --fix-card-bg: rgba(22, 163, 74, 0.07);
+  --fix-card-border: rgba(22, 163, 74, 0.28);
+  --fix-icon-bg: rgba(22, 163, 74, 0.14);
+  --fix-icon-color: #16a34a;
+  --fix-label-color: #16a34a;
+  --fix-text-color: #1c1b18;
+
   --hero-gradient: linear-gradient(145deg, #eff1fa 0%, #f4f6fc 35%, #eef5fc 70%, #f5f8fd 100%);
   --hero-border: rgba(99, 102, 241, 0.28);
 }
@@ -75,6 +83,14 @@
   /* Fix-note avatar — warm dark neutral */
   --avatar-bg: #2e2c2a;
   --avatar-text: #e8e5e0;
+
+  /* Official Fix callout */
+  --fix-card-bg: rgba(34, 197, 94, 0.07);
+  --fix-card-border: rgba(34, 197, 94, 0.22);
+  --fix-icon-bg: rgba(34, 197, 94, 0.14);
+  --fix-icon-color: #22c55e;
+  --fix-label-color: #22c55e;
+  --fix-text-color: #e8e5e0;
 
   /* Warm charcoal gradient — depth without blue tint */
   --hero-gradient: linear-gradient(

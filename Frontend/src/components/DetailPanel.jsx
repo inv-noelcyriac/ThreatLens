@@ -27,6 +27,12 @@ const WrenchIcon = () => (
     <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
   </svg>
 );
+const ShieldCheckIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    <polyline points="9 12 11 14 15 10" />
+  </svg>
+);
 
 /* ─── Sub-components ─── */
 function SeverityBadge({ severity, cvss }) {
@@ -371,6 +377,32 @@ export default function DetailPanel({ vuln, onClose }) {
             <h3 className="text-[0.72rem] font-bold tracking-[0.08em] uppercase mb-3" style={{ color: 'var(--text-muted)' }}>DESCRIPTION</h3>
             <p className="text-[0.9375rem] leading-[1.7] transition-colors duration-300" style={{ color: 'var(--text-secondary)' }}>{vuln.description}</p>
           </section>
+
+          {/* Official Fix */}
+          {vuln.remediation && (
+            <section className="mb-[22px]">
+              <h3 className="flex items-center gap-1.5 text-[0.72rem] font-bold tracking-[0.08em] uppercase mb-3" style={{ color: 'var(--text-muted)' }}>
+                OFFICIAL FIX
+              </h3>
+              <div
+                className="flex items-center gap-3 px-4 py-3.5 rounded-[12px] border-[1.5px] transition-colors duration-300"
+                style={{
+                  background: 'var(--fix-card-bg)',
+                  borderColor: 'var(--fix-card-border)',
+                }}
+              >
+                <span
+                  className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
+                  style={{ background: 'var(--fix-icon-bg)', color: 'var(--fix-icon-color)' }}
+                >
+                  <ShieldCheckIcon />
+                </span>
+                <p className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300" style={{ color: 'var(--fix-text-color)' }}>
+                  {vuln.remediation}
+                </p>
+              </div>
+            </section>
+          )}
 
           <hr className="border-t mb-5 transition-colors duration-300" style={{ borderColor: 'var(--border-color)' }} />
 

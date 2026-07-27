@@ -26,10 +26,7 @@ class SourceAdvisory(models.Model):
 
     normalized_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
-    # Counter for consecutive normalization failures.
-    # When this reaches the threshold the advisory is
-    # treated as a dead-letter and skipped.
-    normalization_failures = models.IntegerField(default=0)
+
 
     class Meta:
         db_table = 'source_advisories'

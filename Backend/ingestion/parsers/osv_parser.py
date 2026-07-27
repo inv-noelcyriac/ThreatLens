@@ -1,7 +1,7 @@
 import logging
 
 # Standard Python library for parsing CVSS vectors (v2, v3, v4)
-from cvss import parse_vector
+from cvss import CVSS3, CVSS4
 
 from ingestion.models import SourceAdvisory
 
@@ -93,14 +93,20 @@ class OSVParser(BaseParser):
                     continue
 
                 # A. Try parsing CVSS Vector string using the official cvss library
-                # parse_vector() supports CVSS v2, v3, and v4 vectors automatically!
                 try:
-                    cvss_objects = parse_vector(score_str)
-                    if cvss_objects:
-                        # cvss_objects contains parsed CVSS instances
-                        # severities()[0] gives the qualitative severity ("Critical", "High", "Medium", "Low")
-                        qualitative_severity = cvss_objects[0].severities()[0]
+                    qualitative_severity = None
+
+                    if score_str.startswith("CVSS:4.0"):
+                        c_obj = CVSS4(score_str)
+                        # CVSS4 severities() returns tuple: ('Critical', 'High', 'Medium', 'Low', 'None')
+                        qualitative_severity = c_obj.severities()[0]
+                    elif score_str.startswith("CVSS:3"):
+                        c_obj = CVSS3(score_str)
+                        qualitative_severity = c_obj.severities()[0]
+
+                    if qualitative_severity:
                         return self.normalize_severity(qualitative_severity)
+
                 except Exception as e:
                     logger.debug(
                         f"[OSV Parser] Failed to parse CVSS vector string '{score_str}': {e}"

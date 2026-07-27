@@ -1,37 +1,46 @@
+import uuid
+
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
-#----TABLE 1--------
+
+# ---- TABLE 1 --------
 
 class SourceAdvisory(models.Model):
     objects = models.Manager()
-    
-    # A simple row tracking number that automatically grows[cite: 2]
+
+    # A simple row tracking number that automatically grows
     id = models.BigAutoField(primary_key=True)
-    
-    # The name of the vendor who sent us the data (like 'nvd' or 'github')[cite: 2]
+
+    # The name of the vendor who sent us the data (like 'nvd' or 'github')
     source = models.CharField(max_length=50)
-    
-    # The original tracking code used by the vendor[cite: 2]
+
+    # The original tracking code used by the vendor
     external_id = models.CharField(max_length=100)
-    
-    # A highly flexible storage container that holds the raw layout exactly as it came to us[cite: 2]
+
+    # A highly flexible storage container that holds the raw layout exactly as it came to us
     raw_payload = models.JSONField()
-    
-    # Logs the exact date and time we downloaded the file, normalized to UTC[cite: 2]
+
+    # Logs the exact date and time we downloaded the file, normalized to UTC
     fetched_at = models.DateTimeField(auto_now_add=True)
 
     normalized_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
+    # Counter for consecutive normalization failures.
+    # When this reaches the threshold the advisory is
+    # treated as a dead-letter and skipped.
+    normalization_failures = models.IntegerField(default=0)
+
     class Meta:
         db_table = 'source_advisories'
-        # Ensures that a single vendor source cannot have identical duplicate tracking codes saved[cite: 2]
+        # Ensures that a single vendor source cannot have identical duplicate tracking codes saved
         unique_together = ('source', 'external_id')
 
     def __str__(self):
         return f"{self.source} - {self.external_id}"
 
 
-#-----TABLE 6-------
+# ----- TABLE 6 -------
 
 class SyncState(models.Model):
     """
@@ -90,9 +99,7 @@ class SyncState(models.Model):
         return f"[{self.created_at.strftime('%Y-%m-%d %H:%M')}] {self.source} - {self.last_run_status}"
 
 
-#----------TABLE 2----------
-import uuid
-from django.db import models
+# ---------- TABLE 2 ----------
 
 class MasterVulnerability(models.Model):
     """Table 2: master_vulnerabilities"""
@@ -109,7 +116,9 @@ class MasterVulnerability(models.Model):
     def __str__(self):
         return f"{self.display_id} [{self.severity}]"
 
-#------------TABLE 3-------
+
+# ------------ TABLE 3 -------
+
 class VulnerabilityTag(models.Model):
     """Table 3: vulnerability_tags"""
     id = models.BigAutoField(primary_key=True)
@@ -118,16 +127,37 @@ class VulnerabilityTag(models.Model):
     ecosystem = models.CharField(max_length=50)
     introduced_version = models.CharField(max_length=100, null=True, blank=True)
     fixed_version = models.CharField(max_length=100, null=True, blank=True)
-    raw_version_expression = models.CharField(max_length=100, null=True, blank=True)
+
+    # Increased from 100 to 512 — CPE strings and complex
+    # version expressions regularly exceed 100 characters.
+    raw_version_expression = models.CharField(max_length=512, null=True, blank=True)
 
     class Meta:
         db_table = 'vulnerability_tags'
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    'master_vuln',
+                    'tech_name',
+                    'ecosystem',
+                    'raw_version_expression',
+                ],
+                name='uq_tag_per_vuln',
+            ),
+        ]
 
-#------TABLE 4------
+
+# ------ TABLE 4 ------
+
 class VulnerabilityReference(models.Model):
-    """Table 5: vulnerability_references"""
+    """Table 4: vulnerability_references"""
     id = models.BigAutoField(primary_key=True)
-    master_vuln = models.ForeignKey(MasterVulnerability, on_delete=models.CASCADE, db_column='master_vuln_id', related_name='references')
+    master_vuln = models.ForeignKey(
+        MasterVulnerability,
+        on_delete=models.CASCADE,
+        db_column='master_vuln_id',
+        related_name='references',
+    )
     url = models.TextField()
 
     class Meta:

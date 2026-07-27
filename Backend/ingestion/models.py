@@ -120,8 +120,8 @@ class VulnerabilityTag(models.Model):
     """Table 3: vulnerability_tags"""
     id = models.BigAutoField(primary_key=True)
     master_vuln = models.ForeignKey(MasterVulnerability, on_delete=models.CASCADE, db_column='master_vuln_id', related_name='tags')
-    tech_name = models.CharField(max_length=150)
-    ecosystem = models.CharField(max_length=50)
+    tech_name = models.CharField(max_length=255)
+    ecosystem = models.CharField(max_length=150)
     introduced_version = models.CharField(max_length=100, null=True, blank=True)
     fixed_version = models.CharField(max_length=100, null=True, blank=True)
 

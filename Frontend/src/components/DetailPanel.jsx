@@ -27,6 +27,12 @@ const WrenchIcon = () => (
     <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
   </svg>
 );
+const ShieldCheckIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    <polyline points="9 12 11 14 15 10" />
+  </svg>
+);
 
 /* ─── Sub-components ─── */
 function SeverityBadge({ severity, cvss }) {
@@ -60,7 +66,7 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
   const TRUNCATE_LINES = 4;
   const inputStyle = { borderColor: 'var(--border-input)', background: 'var(--bg-input)', color: 'var(--text-primary)' };
   const focusStyle = (e) => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; };
-  const blurStyle  = (e) => { e.currentTarget.style.borderColor = 'var(--border-input)'; e.currentTarget.style.boxShadow = 'none'; };
+  const blurStyle = (e) => { e.currentTarget.style.borderColor = 'var(--border-input)'; e.currentTarget.style.boxShadow = 'none'; };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -81,7 +87,7 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
   return (
     <section className="mb-[22px]">
       <h3 className="flex items-center gap-1.5 text-[0.72rem] font-bold tracking-[0.08em] uppercase mb-4" style={{ color: 'var(--text-muted)' }}>
-        <WrenchIcon /> FIX NOTES
+        <WrenchIcon /> USER SUGGESTIONS
       </h3>
 
       <div className="flex flex-col">
@@ -125,8 +131,8 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                       >
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                         </svg>
                       </button>
                       <button
@@ -138,8 +144,8 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                       >
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                          <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                          <path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
                         </svg>
                       </button>
                     </div>
@@ -212,7 +218,7 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
             >
               {author.trim() ? author.trim().charAt(0).toUpperCase() : (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
                 </svg>
               )}
             </div>
@@ -221,7 +227,7 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
           {/* Form */}
           <form className="flex-1 min-w-0 flex flex-col gap-2.5 pt-[3px]" onSubmit={handleSubmit} noValidate>
             {fixes.length === 0 && !author && !description && (
-              <p className="text-[0.875rem] italic mb-0.5" style={{ color: 'var(--text-muted)' }}>No fix notes yet. Be the first to add one.</p>
+              <p className="text-[0.875rem] italic mb-0.5" style={{ color: 'var(--text-muted)' }}>No suggestions yet. Be the first to add one.</p>
             )}
             <input
               id="fix-author-input"
@@ -237,7 +243,7 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
             />
             <textarea
               id="fix-desc-input"
-              placeholder="What's the fix or remediation note?"
+              placeholder="What's the suggestion?"
               value={description}
               onChange={(e) => { setDescription(e.target.value); setError(''); }}
               rows={3}
@@ -371,6 +377,32 @@ export default function DetailPanel({ vuln, onClose }) {
             <h3 className="text-[0.72rem] font-bold tracking-[0.08em] uppercase mb-3" style={{ color: 'var(--text-muted)' }}>DESCRIPTION</h3>
             <p className="text-[0.9375rem] leading-[1.7] transition-colors duration-300" style={{ color: 'var(--text-secondary)' }}>{vuln.description}</p>
           </section>
+
+          {/* Official Fix */}
+          {vuln.remediation && (
+            <section className="mb-[22px]">
+              <h3 className="flex items-center gap-1.5 text-[0.72rem] font-bold tracking-[0.08em] uppercase mb-3" style={{ color: 'var(--text-muted)' }}>
+                OFFICIAL FIX
+              </h3>
+              <div
+                className="flex items-center gap-3 px-4 py-3.5 rounded-[12px] border-[1.5px] transition-colors duration-300"
+                style={{
+                  background: 'var(--fix-card-bg)',
+                  borderColor: 'var(--fix-card-border)',
+                }}
+              >
+                <span
+                  className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
+                  style={{ background: 'var(--fix-icon-bg)', color: 'var(--fix-icon-color)' }}
+                >
+                  <ShieldCheckIcon />
+                </span>
+                <p className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300" style={{ color: 'var(--fix-text-color)' }}>
+                  {vuln.remediation}
+                </p>
+              </div>
+            </section>
+          )}
 
           <hr className="border-t mb-5 transition-colors duration-300" style={{ borderColor: 'var(--border-color)' }} />
 

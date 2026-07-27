@@ -26,6 +26,14 @@ wcwidth==0.8.2
 xmltodict==1.0.4
 lxml==6.1.1
 python-dotenv==1.2.2
-GitPython=3.1.52 
-gitdb=4.0.12
-smmap=5.0.3
+GitPython==3.1.52 
+gitdb==4.0.12
+smmap==5.0.3
+cron-descriptor==1.4.5
+django-timezone-field==7.2.2
+python-crontab==3.3.0
+django-apscheduler==0.7.0
+beautifulsoup4==4.15.0
+cvss==3.6
+djangorestframework==3.17.1
+django-filter==26.1

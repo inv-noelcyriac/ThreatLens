@@ -28,3 +28,7 @@ logs/
 
 # IDE settings (personal, not for version control)
 .vscode/
+
+
+data/
+test_osv.py

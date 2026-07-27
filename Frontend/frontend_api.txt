@@ -1,0 +1,203 @@
+http://127.0.0.1:8000/api/v1/vulnerabilities/
+
+{
+    "count": 201980,
+    "next": "http://127.0.0.1:8000/api/v1/vulnerabilities/?page=2",
+    "previous": null,
+    "results": [
+        {
+            "id": "d1464897-8510-4299-8429-5bc0c409cac8",
+            "display_id": "CVE-2026-12736",
+            "severity": "HIGH",
+            "published_at": "2026-07-24T06:34:11Z",
+            "tags": [],
+            "references": [
+                {
+                    "id": 34249,
+                    "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-12736"
+                },
+                {
+                    "id": 34250,
+                    "url": "https://plugins.trac.wordpress.org/browser/wpify-woo/tags/5.4.10/src/Api/SettingsApi.php#L39"
+                },
+                {
+                    "id": 34251,
+                    "url": "https://plugins.trac.wordpress.org/browser/wpify-woo/tags/5.4.10/src/Api/SettingsApi.php#L67"
+                },
+                {
+                    "id": 34252,
+                    "url": "https://plugins.trac.wordpress.org/browser/wpify-woo/tags/5.4.10/src/Managers/ApiManager.php#L18"
+                },
+                {
+                    "id": 34253,
+                    "url": "https://plugins.trac.wordpress.org/browser/wpify-woo/tags/5.4.9/src/Api/SettingsApi.php#L39"
+                },
+                {
+                    "id": 34254,
+                    "url": "https://plugins.trac.wordpress.org/browser/wpify-woo/tags/5.4.9/src/Api/SettingsApi.php#L67"
+                },
+                {
+                    "id": 34255,
+                    "url": "https://plugins.trac.wordpress.org/browser/wpify-woo/tags/5.4.9/src/Managers/ApiManager.php#L18"
+                },
+                {
+                    "id": 34256,
+                    "url": "https://plugins.trac.wordpress.org/changeset?reponame=&old=3614762%40wpify-woo&new=3614762%40wpify-woo"
+                },
+                {
+                    "id": 34257,
+                    "url": "https://www.wordfence.com/threat-intel/vulnerabilities/id/a9b8f2d5-a2c5-4f90-ab1d-4e17f7a7996e?source=cve"
+                }
+            ]
+        },
+        {
+            "id": "e36ad69b-7a61-4b09-a7f3-5867ed180fda",
+            "display_id": "CVE-2026-11922",
+            "severity": "MEDIUM",
+            "published_at": "2026-07-24T06:34:11Z",
+            "tags": [],
+            "references": [
+                {
+                    "id": 34271,
+                    "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-11922"
+                },
+                {
+                    "id": 34272,
+                    "url": "https://github.com/zenml-io/zenml/commit/8a2214bdd63eb8200ce4719d82c6f0d935e922d1"
+                },
+                {
+                    "id": 34273,
+                    "url": "https://huntr.com/bounties/3cb8bf6a-ae55-4b38-8da3-601c666a210e"
+                }
+            ]
+        },
+        {
+            "id": "2c4e6898-59ed-44da-a015-eb07b6e04b72",
+            "display_id": "CVE-2026-66140",
+            "severity": "HIGH",
+            "published_at": "2026-07-24T06:34:11Z",
+            "tags": [],
+            "references": [
+                {
+                    "id": 34304,
+                    "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-66140"
+                },
+                {
+                    "id": 34305,
+                    "url": "https://openwall.com/lists/oss-security/2026/07/22/9"
+                }
+            ]
+        },
+        {
+            "id": "1cab67f7-79ee-4f71-b8ba-c7196dbf883f",
+            "display_id": "CVE-2026-13464",
+            "severity": "MEDIUM",
+            "published_at": "2026-07-24T06:34:11Z",
+            "tags": [],
+            "references": [
+                {
+                    "id": 34321,
+                    "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-13464"
+                },
+                {
+                    "id": 34322,
+                    "url": "https://plugins.trac.wordpress.org/browser/kirki/tags/6.0.1/includes/API/Frontend/Controllers/CollectionController.php#L117"
+                },
+                {
+                    "id": 34323,
+                    "url": "https://plugins.trac.wordpress.org/browser/kirki/tags/6.0.1/includes/API/Frontend/Controllers/CollectionController.php#L33"
+                },
+                {
+                    "id": 34324,
+                    "url": "https://plugins.trac.wordpress.org/browser/kirki/tags/6.0.1/includes/API/Frontend/Controllers/FrontendRESTController.php#L39"
+                },
+                {
+                    "id": 34325,
+                    "url": "https://plugins.trac.wordpress.org/browser/kirki/tags/6.0.12/includes/API/Frontend/Controllers/CollectionController.php#L117"
+                },
+                {
+                    "id": 34326,
+                    "url": "https://plugins.trac.wordpress.org/browser/kirki/tags/6.0.12/includes/API/Frontend/Controllers/CollectionController.php#L33"
+                },
+                {
+                    "id": 34327,
+                    "url": "https://plugins.trac.wordpress.org/browser/kirki/tags/6.0.12/includes/API/Frontend/Controllers/FrontendRESTController.php#L39"
+                },
+                {
+                    "id": 34328,
+                    "url": "https://plugins.trac.wordpress.org/changeset?reponame=&old=3617070%40kirki&new=3617070%40kirki"
+                },
+                {
+                    "id": 34329,
+                    "url": "https://www.wordfence.com/threat-intel/vulnerabilities/id/84f65255-f710-44f9-9f77-61776a40abae?source=cve"
+                }
+            ]
+        },
+        {
+            "id": "de4f908f-bd62-4383-892f-8ff142833d97",
+            "display_id": "CVE-2026-16870",
+            "severity": "HIGH",
+            "published_at": "2026-07-24T06:34:11Z",
+            "tags": [],
+            "references": [
+                {
+                    "id": 34351,
+                    "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-16870"
+                },
+                {
+                    "id": 34352,
+                    "url": "https://github.com/snowflakedb/libsnowflakeclient/releases/tag/v2.9.2"
+                }
+            ]
+        },
+        {
+            "id": "9fb53532-2f94-4ba5-9ae2-84c236927542",
+            "display_id": "CVE-2026-54422",
+            "severity": "MEDIUM",
+            "published_at": "2026-07-24T06:34:11Z",
+            "tags": [],
+            "references": [
+                {
+                    "id": 34376,
+                    "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-54422"
+                },
+                {
+                    "id": 34377,
+                    "url": "https://bugs.launchpad.net/ironic-python-agent/+bug/2155826"
+                },
+                {
+                    "id": 34378,
+                    "url": "https://security.openstack.org/ossa/OSSA-2026-028.html"
+                },
+                {
+                    "id": 34379,
+                    "url": "https://www.openwall.com/lists/oss-security/2026/07/23/4"
+                },
+                {
+                    "id": 34380,
+                    "url": "http://www.openwall.com/lists/oss-security/2026/07/23/4"
+                }
+            ]
+        }
+    ]
+}
+
+
+http://127.0.0.1:8000/api/v1/vulnerabilities/?severity=LOW&ecosystem=npm&tech_name=react
+
+
+http://127.0.0.1:8000/api/v1/vulnerabilities/{display_id}
+
+{
+    "id": "24108f97-88ca-434d-ac5c-8886d409af2c",
+    "display_id": "2026-065-AWS",
+    "severity": "HIGH",
+    "published_at": "2026-07-23T20:14:18Z",
+    "tags": [],
+    "references": [
+        {
+            "id": 33046,
+            "url": "https://aws.amazon.com/security/security-bulletins/rss/2026-065-aws/"
+        }
+    ]
+}

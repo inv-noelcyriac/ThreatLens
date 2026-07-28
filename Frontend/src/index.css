@@ -3,6 +3,7 @@
 
 /* ── CSS custom properties — theme tokens ── */
 :root {
+  color-scheme: light;
   --bg-primary: #eef0f6;
   --bg-secondary: #fafaf8;
   --bg-card: #fafaf8;
@@ -46,24 +47,30 @@
   --fix-text-color: #1c1b18;
 
   /* Severity info-block tokens (card stat blocks) */
-  --sev-critical-bg: rgba(220, 38, 38, 0.09);
-  --sev-critical-border: transparent;
+  --sev-critical-bg: rgba(239, 68, 68, 0.16);
+  --sev-critical-border: rgba(239, 68, 68, 0.35);
   --sev-critical-text: #dc2626;
-  --sev-high-bg: rgba(234, 88, 12, 0.09);
-  --sev-high-border: transparent;
-  --sev-high-text: #ea580c;
-  --sev-medium-bg: rgba(161, 98, 7, 0.09);
-  --sev-medium-border: transparent;
-  --sev-medium-text: #a16207;
-  --sev-low-bg: rgba(21, 128, 61, 0.09);
-  --sev-low-border: transparent;
+  --sev-high-bg: rgba(249, 115, 22, 0.16);
+  --sev-high-border: rgba(249, 115, 22, 0.35);
+  --sev-high-text: #c2410c;
+  --sev-medium-bg: rgba(234, 179, 8, 0.18);
+  --sev-medium-border: rgba(202, 138, 4, 0.38);
+  --sev-medium-text: #854d0e;
+  --sev-low-bg: rgba(34, 197, 94, 0.16);
+  --sev-low-border: rgba(34, 197, 94, 0.35);
   --sev-low-text: #15803d;
 
   --hero-gradient: linear-gradient(145deg, #eff1fa 0%, #f4f6fc 35%, #eef5fc 70%, #f5f8fd 100%);
   --hero-border: rgba(99, 102, 241, 0.28);
 }
 
-[data-theme="dark"] {
+[data-theme="dark"],
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea,
+[data-theme="dark"] datalist,
+[data-theme="dark"] ::-webkit-calendar-picker-indicator {
+  color-scheme: dark !important;
   --bg-primary: #0d0e11;
   --bg-secondary: #141519;
   --bg-card: #18191e;
@@ -107,17 +114,17 @@
   --fix-text-color: #f4f4f5;
 
   /* Severity info-block tokens (card stat blocks) */
-  --sev-critical-bg: rgba(239, 68, 68, 0.07);
-  --sev-critical-border: rgba(239, 68, 68, 0.20);
+  --sev-critical-bg: rgba(239, 68, 68, 0.12);
+  --sev-critical-border: rgba(239, 68, 68, 0.25);
   --sev-critical-text: #f87171;
-  --sev-high-bg: rgba(249, 115, 22, 0.07);
-  --sev-high-border: rgba(249, 115, 22, 0.20);
+  --sev-high-bg: rgba(249, 115, 22, 0.12);
+  --sev-high-border: rgba(249, 115, 22, 0.25);
   --sev-high-text: #fb923c;
-  --sev-medium-bg: rgba(234, 179, 8, 0.07);
-  --sev-medium-border: rgba(234, 179, 8, 0.20);
-  --sev-medium-text: #fbbf24;
-  --sev-low-bg: rgba(34, 197, 94, 0.07);
-  --sev-low-border: rgba(34, 197, 94, 0.20);
+  --sev-medium-bg: rgba(234, 179, 8, 0.12);
+  --sev-medium-border: rgba(234, 179, 8, 0.25);
+  --sev-medium-text: #facc15;
+  --sev-low-bg: rgba(34, 197, 94, 0.12);
+  --sev-low-border: rgba(34, 197, 94, 0.25);
   --sev-low-text: #4ade80;
 
   /* Hero & Ambient Background Gradient */
@@ -276,6 +283,11 @@
       box-shadow 0.35s ease !important;
   }
 
+  /* Prevent long continuous text from breaking UI layouts */
+  p, h1, h2, h3, h4, h5, h6, span, a, td, th, label {
+    overflow-wrap: break-word;
+  }
+
   html {
     font-family: var(--font-sans);
     font-size: 16px;
@@ -294,6 +306,23 @@
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+  }
+
+  /* Form controls color-scheme & dropdown options dark mode styling */
+  input,
+  select,
+  textarea {
+    color-scheme: inherit;
+  }
+
+  option {
+    background-color: var(--bg-input);
+    color: var(--text-primary);
+  }
+
+  [data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.85);
+    cursor: pointer;
   }
 
   /* Scrollbar */

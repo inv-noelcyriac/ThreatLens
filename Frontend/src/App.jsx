@@ -18,6 +18,11 @@ export default function App() {
   const [activeEcosystem, setActiveEcosystem] = useState('');
   const [techName, setTechName] = useState('');
   const [activeTechName, setActiveTechName] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [activeStartDate, setActiveStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [activeEndDate, setActiveEndDate] = useState('');
+  const [cardsPerPage, setCardsPerPage] = useState(6);
   const [selectedSeverities, setSelectedSeverities] = useState([]);
   const [sortBy, setSortBy] = useState('Date');
   const [sortDir, setSortDir] = useState('Descending');
@@ -29,6 +34,7 @@ export default function App() {
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState(null);
+  const [retryTrigger, setRetryTrigger] = useState(0);
 
   // Apply theme to <html>
   useEffect(() => {
@@ -50,13 +56,15 @@ export default function App() {
 
     fetchVulnerabilities({
       page: currentPage,
+      limit: cardsPerPage,
       query: activeQuery,
       ecosystem: activeEcosystem,
       tech_name: activeTechName,
+      startDate: activeStartDate,
+      endDate: activeEndDate,
       severities: selectedSeverities,
       sortBy,
       sortDir,
-      limit: CARDS_PER_PAGE,
     })
       .then((res) => {
         if (!isMounted) return;
@@ -75,12 +83,14 @@ export default function App() {
       });
 
     return () => { isMounted = false; };
-  }, [activeQuery, activeEcosystem, activeTechName, selectedSeverities, currentPage, sortBy, sortDir]);
+  }, [activeQuery, activeEcosystem, activeTechName, activeStartDate, activeEndDate, selectedSeverities, currentPage, cardsPerPage, sortBy, sortDir, retryTrigger]);
 
   const handleSearch = () => {
     setActiveQuery(query.trim());
     setActiveEcosystem(ecosystem.trim());
     setActiveTechName(techName.trim());
+    setActiveStartDate(startDate);
+    setActiveEndDate(endDate);
     setCurrentPage(1);
   };
 
@@ -110,15 +120,31 @@ export default function App() {
     setActiveEcosystem('');
     setTechName('');
     setActiveTechName('');
+    setStartDate('');
+    setActiveStartDate('');
+    setEndDate('');
+    setActiveEndDate('');
     setCurrentPage(1);
   };
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / CARDS_PER_PAGE));
-  const safePage = Math.min(currentPage, totalPages);
+  const totalPages = Math.max(1, Math.ceil(totalCount / cardsPerPage));
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+
+  // Automatically reset currentPage if search/filter shrinks totalPages below currentPage
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
 
   const handlePageChange = (p) => {
     if (p < 1 || p > totalPages) return;
     setCurrentPage(p);
+  };
+
+  const handleCardsPerPageChange = (newLimit) => {
+    setCardsPerPage(newLimit);
+    setCurrentPage(1);
   };
 
   const handleToggleTheme = () => {
@@ -135,24 +161,6 @@ export default function App() {
       <main className="flex-1 pb-12" style={{ background: 'var(--main-bg, transparent)' }}>
         <Hero totalCount={totalCount} />
 
-        {/* API connection status indicator */}
-        <div className="max-w-[1200px] mx-auto px-6 text-right">
-          <span
-            className="inline-flex items-center gap-1.5 text-[0.72rem] font-medium px-2.5 py-1 rounded-full border transition-all duration-200"
-            style={{
-              background: !apiError ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-              borderColor: !apiError ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)',
-              color: !apiError ? 'var(--sev-low-text)' : 'var(--sev-high-text)',
-            }}
-            title={!apiError ? "Connected to http://127.0.0.1:8000/api/v1/" : "Unable to reach Django backend API"}
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${!apiError ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}
-            />
-            {!apiError ? 'Backend API Connected' : 'API Connection Error'}
-          </span>
-        </div>
-
         <div className="max-w-[1200px] mx-auto pt-4 flex flex-col gap-3.5">
           <SearchBar
             query={query}
@@ -161,6 +169,10 @@ export default function App() {
             onEcosystemChange={setEcosystem}
             techName={techName}
             onTechNameChange={setTechName}
+            startDate={startDate}
+            onStartDateChange={setStartDate}
+            endDate={endDate}
+            onEndDateChange={setEndDate}
             onSearch={handleSearch}
             onClear={handleClear}
             selectedSeverities={selectedSeverities}
@@ -184,11 +196,41 @@ export default function App() {
             <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Querying vulnerabilities API...</p>
           </div>
         ) : apiError ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-20 px-6 text-center" style={{ color: 'var(--sev-high-text)' }}>
-            <span className="text-4xl">⚠️</span>
-            <p className="text-base font-semibold">Backend Connection Failed</p>
-            <p className="text-xs font-mono opacity-80">{apiError}</p>
-            <p className="text-xs text-muted">Ensure Django backend server is running at http://127.0.0.1:8000/</p>
+          <div
+            className="max-w-[560px] mx-auto my-14 p-8 rounded-[16px] border text-center flex flex-col items-center gap-3.5 shadow-sm"
+            style={{
+              background: 'var(--bg-card)',
+              borderColor: 'var(--border-card)',
+            }}
+          >
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
+              style={{ background: 'var(--sev-medium-bg)', color: 'var(--sev-medium-text)' }}
+            >
+              📡
+            </div>
+            <h3 className="text-[1.1rem] font-semibold" style={{ color: 'var(--text-heading)' }}>
+              Service Temporarily Unavailable
+            </h3>
+            <p className="text-[0.875rem] max-w-[440px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              We're having trouble connecting to the ThreatLens security database right now. Please check your network connection or try again in a few moments.
+            </p>
+            <button
+              onClick={() => {
+                setApiError(null);
+                setIsLoading(true);
+                setRetryTrigger(c => c + 1);
+              }}
+              className="mt-1 px-5 py-2.5 rounded-[10px] text-[0.875rem] font-semibold cursor-pointer transition-all duration-200 border-0"
+              style={{
+                background: 'var(--accent-blue)',
+                color: '#ffffff',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent-blue)'; }}
+            >
+              Retry Connection
+            </button>
           </div>
         ) : vulnerabilities.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-20 px-6 text-center"
@@ -209,12 +251,18 @@ export default function App() {
           <>
             <div className="max-w-[1200px] mx-auto mt-6 px-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[18px]">
-                {vulnerabilities.map((vuln) => (
-                  <VulnCard key={vuln.uuid || vuln.id} vuln={vuln} onClick={setSelectedVuln} activeQuery={activeQuery} />
+                {vulnerabilities.map((vuln, idx) => (
+                  <VulnCard key={vuln.uuid || vuln.id || `vuln-${idx}`} vuln={vuln} onClick={setSelectedVuln} activeQuery={activeQuery} />
                 ))}
               </div>
             </div>
-            <Pagination currentPage={safePage} totalPages={totalPages} onPageChange={handlePageChange} />
+            <Pagination
+              currentPage={safePage}
+              totalPages={totalPages}
+              cardsPerPage={cardsPerPage}
+              onCardsPerPageChange={handleCardsPerPageChange}
+              onPageChange={handlePageChange}
+            />
           </>
         )}
       </main>

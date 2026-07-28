@@ -557,6 +557,7 @@ export default function SearchBar({
             id="vulnerability-search-input"
             type="text"
             value={query}
+            maxLength={100}
             onChange={(e) => onQueryChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search CVEs, descriptions, titles..."
@@ -651,6 +652,7 @@ export default function SearchBar({
                   id="ecosystem-filter-input"
                   type="text"
                   value={ecosystem}
+                  maxLength={50}
                   onChange={(e) => {
                     onEcosystemChange(e.target.value);
                     setShowEcoMenu(true);
@@ -659,13 +661,30 @@ export default function SearchBar({
                   onFocus={() => setShowEcoMenu(true)}
                   onBlur={() => setTimeout(() => setShowEcoMenu(false), 200)}
                   placeholder="Select or type ecosystem..."
-                  className="w-full h-9 pl-3 pr-9 rounded-[8px] border-[1.5px] text-[0.85rem] font-[inherit] outline-none transition-all duration-200"
+                  className={`w-full h-9 pl-3 ${ecosystem ? 'pr-[62px]' : 'pr-9'} rounded-[8px] border-[1.5px] text-[0.85rem] font-[inherit] outline-none transition-all duration-200`}
                   style={{
                     borderColor: ecosystem ? 'var(--accent-blue)' : 'var(--border-input)',
                     background: 'var(--bg-input)',
                     color: 'var(--text-primary)',
                   }}
                 />
+                {/* Clear (×) button for Ecosystem */}
+                {ecosystem && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      onEcosystemChange('');
+                      setShowEcoMenu(false);
+                    }}
+                    className="absolute right-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 rounded-full cursor-pointer transition-all duration-150 hover:scale-110"
+                    style={{ color: 'var(--text-muted)', background: 'var(--bg-badge)' }}
+                    title="Clear ecosystem filter"
+                    aria-label="Clear ecosystem filter"
+                  >
+                    <XIcon />
+                  </button>
+                )}
                 {/* Vertical line divider + pointer cursor down arrow button */}
                 <button
                   type="button"
@@ -731,6 +750,7 @@ export default function SearchBar({
                   id="tech-name-filter-input"
                   type="text"
                   value={techName}
+                  maxLength={50}
                   onChange={(e) => {
                     onTechNameChange(e.target.value);
                     setShowTechMenu(true);
@@ -739,13 +759,30 @@ export default function SearchBar({
                   onFocus={() => setShowTechMenu(true)}
                   onBlur={() => setTimeout(() => setShowTechMenu(false), 200)}
                   placeholder="Select or type technology..."
-                  className="w-full h-9 pl-3 pr-9 rounded-[8px] border-[1.5px] text-[0.85rem] font-[inherit] outline-none transition-all duration-200"
+                  className={`w-full h-9 pl-3 ${techName ? 'pr-[62px]' : 'pr-9'} rounded-[8px] border-[1.5px] text-[0.85rem] font-[inherit] outline-none transition-all duration-200`}
                   style={{
                     borderColor: techName ? 'var(--accent-blue)' : 'var(--border-input)',
                     background: 'var(--bg-input)',
                     color: 'var(--text-primary)',
                   }}
                 />
+                {/* Clear (×) button for Tech Name */}
+                {techName && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      onTechNameChange('');
+                      setShowTechMenu(false);
+                    }}
+                    className="absolute right-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 rounded-full cursor-pointer transition-all duration-150 hover:scale-110"
+                    style={{ color: 'var(--text-muted)', background: 'var(--bg-badge)' }}
+                    title="Clear technology name filter"
+                    aria-label="Clear technology name filter"
+                  >
+                    <XIcon />
+                  </button>
+                )}
                 {/* Vertical line divider + pointer cursor down arrow button */}
                 <button
                   type="button"

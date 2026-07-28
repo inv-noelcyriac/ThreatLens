@@ -116,9 +116,9 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
               <div className="flex-1 min-w-0 pb-6">
                 {/* Header: name + timestamp stacked */}
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex flex-col">
-                    <span className="text-[0.875rem] font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>{fix.author}</span>
-                    <span className="text-[0.72rem] mt-[2px]" style={{ color: 'var(--text-muted)' }}>{formatTimestamp(fix.timestamp)}</span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[0.875rem] font-bold leading-tight truncate max-w-[220px]" style={{ color: 'var(--text-primary)' }} title={fix.author}>{fix.author}</span>
+                    <span className="text-[0.72rem] mt-[2px] truncate" style={{ color: 'var(--text-muted)' }}>{formatTimestamp(fix.timestamp)}</span>
                   </div>
                   {/* Edit / Delete actions */}
                   {!isEditing && (
@@ -235,6 +235,7 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
               type="text"
               placeholder="Your name"
               value={author}
+              maxLength={40}
               onChange={(e) => { setAuthor(e.target.value); setError(''); }}
               aria-label="Author name"
               className="h-10 px-3.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-[inherit] outline-none transition-all duration-200"
@@ -246,6 +247,7 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
               id="fix-desc-input"
               placeholder="What's the suggestion?"
               value={description}
+              maxLength={1000}
               onChange={(e) => { setDescription(e.target.value); setError(''); }}
               rows={3}
               aria-label="Fix description"

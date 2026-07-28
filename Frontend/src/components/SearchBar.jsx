@@ -38,6 +38,10 @@ const SEVERITIES = [
 export default function SearchBar({
   query,
   onQueryChange,
+  ecosystem = '',
+  onEcosystemChange = () => {},
+  techName = '',
+  onTechNameChange = () => {},
   onSearch,
   onClear,
   selectedSeverities,
@@ -45,8 +49,8 @@ export default function SearchBar({
   onClearFilters,
 }) {
   const [showFilters, setShowFilters] = useState(false);
-  const activeCount = selectedSeverities.length;
-  const isMaxReached = activeCount >= 3;
+  const activeCount = selectedSeverities.length + (ecosystem.trim() ? 1 : 0) + (techName.trim() ? 1 : 0);
+  const isMaxReached = selectedSeverities.length >= 3;
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') onSearch();
@@ -70,7 +74,7 @@ export default function SearchBar({
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search CVEs, ecosystems etc"
+            placeholder="Search CVEs, descriptions, titles..."
             aria-label="Search vulnerabilities"
             className={`w-full h-12 pl-[46px] ${query ? 'pr-10' : 'pr-4'} rounded-[10px] border-[1.5px] text-[0.9375rem] font-[inherit] outline-none transition-all duration-200`}
             style={{
@@ -105,9 +109,9 @@ export default function SearchBar({
             color: showFilters || activeCount > 0 ? 'var(--accent-blue)' : 'var(--text-secondary)',
           }}
           onClick={() => setShowFilters((v) => !v)}
-          aria-label="Toggle severity filter"
+          aria-label="Toggle search filters"
           aria-expanded={showFilters}
-          title="Filter by severity"
+          title="Filter by severity, ecosystem & tech name"
         >
           <FilterIcon />
           {activeCount > 0 && (
@@ -134,59 +138,110 @@ export default function SearchBar({
         </button>
       </div>
 
-      {/* ── Severity filter panel ── */}
+      {/* ── Expandable Filter panel ── */}
       <div
         className={`overflow-hidden transition-all duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${showFilters
-          ? 'max-h-[160px] opacity-100 mt-2.5 pointer-events-auto'
+          ? 'max-h-[320px] opacity-100 mt-2.5 pointer-events-auto'
           : 'max-h-0 opacity-0 mt-0 pointer-events-none'
           }`}
         aria-hidden={!showFilters}
       >
         <div
-          className="flex items-center gap-3.5 px-[18px] py-[13px] rounded-[10px] border flex-wrap transition-colors duration-300"
+          className="flex flex-col gap-3.5 px-[18px] py-[15px] rounded-[10px] border transition-colors duration-300"
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)', boxShadow: 'var(--shadow-sm)' }}
         >
-          <span className="text-[0.8rem] font-semibold uppercase tracking-[0.05em] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
-            Filter by severity
-          </span>
+          {/* Row 1: Text Filters for Ecosystem and Tech Name */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Ecosystem text input */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="ecosystem-filter-input" className="text-[0.75rem] font-semibold uppercase tracking-[0.05em]" style={{ color: 'var(--text-muted)' }}>
+                Ecosystem
+              </label>
+              <input
+                id="ecosystem-filter-input"
+                type="text"
+                value={ecosystem}
+                onChange={(e) => onEcosystemChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="e.g. npm, PyPI, Maven, Linux"
+                className="w-full h-9 px-3 rounded-[8px] border-[1.5px] text-[0.85rem] font-[inherit] outline-none transition-all duration-200"
+                style={{
+                  borderColor: ecosystem ? 'var(--accent-blue)' : 'var(--border-input)',
+                  background: 'var(--bg-input)',
+                  color: 'var(--text-primary)',
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; }}
+                onBlur={e => { if (!ecosystem) e.currentTarget.style.borderColor = 'var(--border-input)'; }}
+              />
+            </div>
 
-          <div className="flex items-center gap-[7px] flex-wrap">
-            {SEVERITIES.map(({ key, label }) => {
-              const selected = selectedSeverities.includes(key);
-              const disabled = !selected && isMaxReached;
-              return (
-                <button
-                  key={key}
-                  id={`sev-filter-${key.toLowerCase()}`}
-                  className={`sev-chip--${key.toLowerCase()} inline-flex items-center gap-[5px] px-[13px] py-[5px] rounded-[6px] text-[0.775rem] font-bold tracking-[0.03em] border-[1.5px] font-[inherit] transition-all duration-150 ${selected ? `sev-chip--selected` : ''} ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
-                  /* When selected: let CSS class handle colours. When unselected: apply neutral inline style */
-                  style={selected ? undefined : {
-                    borderColor: 'var(--border-input)',
-                    background: 'var(--bg-input)',
-                    color: 'var(--text-secondary)',
-                  }}
-                  onClick={() => !disabled && onToggleSeverity(key)}
-                  aria-pressed={selected}
-                  disabled={disabled}
-                  title={disabled ? 'Maximum 3 filters allowed' : undefined}
-                >
-                  {selected && <span className="flex items-center"><CheckIcon /></span>}
-                  {label}
-                </button>
-              );
-            })}
+            {/* Tech Name text input */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="tech-name-filter-input" className="text-[0.75rem] font-semibold uppercase tracking-[0.05em]" style={{ color: 'var(--text-muted)' }}>
+                Technology Name (tech_name)
+              </label>
+              <input
+                id="tech-name-filter-input"
+                type="text"
+                value={techName}
+                onChange={(e) => onTechNameChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="e.g. react, django, openssl"
+                className="w-full h-9 px-3 rounded-[8px] border-[1.5px] text-[0.85rem] font-[inherit] outline-none transition-all duration-200"
+                style={{
+                  borderColor: techName ? 'var(--accent-blue)' : 'var(--border-input)',
+                  background: 'var(--bg-input)',
+                  color: 'var(--text-primary)',
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; }}
+                onBlur={e => { if (!techName) e.currentTarget.style.borderColor = 'var(--border-input)'; }}
+              />
+            </div>
           </div>
 
-          {activeCount > 0 && (
-            <button
-              id="clear-filters-btn"
-              className="ml-auto text-[0.8125rem] font-semibold bg-transparent border-0 cursor-pointer font-[inherit] px-0.5 py-1 transition-opacity duration-150 hover:opacity-70 hover:underline"
-              style={{ color: 'var(--accent-blue)' }}
-              onClick={onClearFilters}
-            >
-              Clear filters
-            </button>
-          )}
+          {/* Row 2: Severity Chips */}
+          <div className="flex items-center gap-3.5 pt-2.5 border-t flex-wrap" style={{ borderColor: 'var(--border-card)' }}>
+            <span className="text-[0.75rem] font-semibold uppercase tracking-[0.05em] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+              Severity
+            </span>
+
+            <div className="flex items-center gap-[7px] flex-wrap">
+              {SEVERITIES.map(({ key, label }) => {
+                const selected = selectedSeverities.includes(key);
+                const disabled = !selected && isMaxReached;
+                return (
+                  <button
+                    key={key}
+                    id={`sev-filter-${key.toLowerCase()}`}
+                    className={`sev-chip--${key.toLowerCase()} inline-flex items-center gap-[5px] px-[13px] py-[4px] rounded-[6px] text-[0.775rem] font-bold tracking-[0.03em] border-[1.5px] font-[inherit] transition-all duration-150 ${selected ? `sev-chip--selected` : ''} ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                    style={selected ? undefined : {
+                      borderColor: 'var(--border-input)',
+                      background: 'var(--bg-input)',
+                      color: 'var(--text-secondary)',
+                    }}
+                    onClick={() => !disabled && onToggleSeverity(key)}
+                    aria-pressed={selected}
+                    disabled={disabled}
+                    title={disabled ? 'Maximum 3 filters allowed' : undefined}
+                  >
+                    {selected && <span className="flex items-center"><CheckIcon /></span>}
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {activeCount > 0 && (
+              <button
+                id="clear-filters-btn"
+                className="ml-auto text-[0.8125rem] font-semibold bg-transparent border-0 cursor-pointer font-[inherit] px-0.5 py-1 transition-opacity duration-150 hover:opacity-70 hover:underline"
+                style={{ color: 'var(--accent-blue)' }}
+                onClick={onClearFilters}
+              >
+                Clear all filters
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

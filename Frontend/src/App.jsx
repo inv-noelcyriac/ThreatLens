@@ -14,6 +14,10 @@ export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('threatlens-theme') || 'dark');
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
+  const [ecosystem, setEcosystem] = useState('');
+  const [activeEcosystem, setActiveEcosystem] = useState('');
+  const [techName, setTechName] = useState('');
+  const [activeTechName, setActiveTechName] = useState('');
   const [selectedSeverities, setSelectedSeverities] = useState([]);
   const [sortBy, setSortBy] = useState('Date');
   const [sortDir, setSortDir] = useState('Descending');
@@ -24,7 +28,7 @@ export default function App() {
   const [vulnerabilities, setVulnerabilities] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [isMockMode, setIsMockMode] = useState(false);
+  const [apiError, setApiError] = useState(null);
 
   // Apply theme to <html>
   useEffect(() => {
@@ -42,10 +46,13 @@ export default function App() {
   useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
+    setApiError(null);
 
     fetchVulnerabilities({
       page: currentPage,
       query: activeQuery,
+      ecosystem: activeEcosystem,
+      tech_name: activeTechName,
       severities: selectedSeverities,
       sortBy,
       sortDir,
@@ -55,21 +62,29 @@ export default function App() {
         if (!isMounted) return;
         setVulnerabilities(res.results);
         setTotalCount(res.count);
-        setIsMockMode(res.isMock);
       })
       .catch((err) => {
+        if (!isMounted) return;
         console.error('API 1 Search error:', err);
+        setApiError(err.message || 'Failed to fetch vulnerabilities from Django backend');
+        setVulnerabilities([]);
+        setTotalCount(0);
       })
       .finally(() => {
         if (isMounted) setIsLoading(false);
       });
 
     return () => { isMounted = false; };
-  }, [activeQuery, selectedSeverities, currentPage, sortBy, sortDir]);
+  }, [activeQuery, activeEcosystem, activeTechName, selectedSeverities, currentPage, sortBy, sortDir]);
 
-  const handleSearch = () => { setActiveQuery(query.trim()); setCurrentPage(1); };
+  const handleSearch = () => {
+    setActiveQuery(query.trim());
+    setActiveEcosystem(ecosystem.trim());
+    setActiveTechName(techName.trim());
+    setCurrentPage(1);
+  };
 
-  // Clear search bar and reset results immediately
+  // Clear search bar and reset query results immediately
   const handleClear = () => {
     setQuery('');
     setActiveQuery('');
@@ -89,7 +104,14 @@ export default function App() {
     });
   };
 
-  const handleClearFilters = () => { setSelectedSeverities([]); setCurrentPage(1); };
+  const handleClearFilters = () => {
+    setSelectedSeverities([]);
+    setEcosystem('');
+    setActiveEcosystem('');
+    setTechName('');
+    setActiveTechName('');
+    setCurrentPage(1);
+  };
 
   const totalPages = Math.max(1, Math.ceil(totalCount / CARDS_PER_PAGE));
   const safePage = Math.min(currentPage, totalPages);
@@ -118,16 +140,16 @@ export default function App() {
           <span
             className="inline-flex items-center gap-1.5 text-[0.72rem] font-medium px-2.5 py-1 rounded-full border transition-all duration-200"
             style={{
-              background: isMockMode ? 'rgba(234, 179, 8, 0.1)' : 'rgba(34, 197, 94, 0.1)',
-              borderColor: isMockMode ? 'rgba(234, 179, 8, 0.3)' : 'rgba(34, 197, 94, 0.3)',
-              color: isMockMode ? 'var(--sev-medium-text)' : 'var(--sev-low-text)',
+              background: !apiError ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+              borderColor: !apiError ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)',
+              color: !apiError ? 'var(--sev-low-text)' : 'var(--sev-high-text)',
             }}
-            title={isMockMode ? "Backend is offline. Displaying local dataset." : "Connected to http://127.0.0.1:8000/api/v1/"}
+            title={!apiError ? "Connected to http://127.0.0.1:8000/api/v1/" : "Unable to reach Django backend API"}
           >
             <span
-              className={`w-1.5 h-1.5 rounded-full ${isMockMode ? 'bg-amber-400' : 'bg-emerald-500 animate-pulse'}`}
+              className={`w-1.5 h-1.5 rounded-full ${!apiError ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}
             />
-            {isMockMode ? 'API Offline (Local Cache)' : 'Backend API Connected'}
+            {!apiError ? 'Backend API Connected' : 'API Connection Error'}
           </span>
         </div>
 
@@ -135,6 +157,10 @@ export default function App() {
           <SearchBar
             query={query}
             onQueryChange={setQuery}
+            ecosystem={ecosystem}
+            onEcosystemChange={setEcosystem}
+            techName={techName}
+            onTechNameChange={setTechName}
             onSearch={handleSearch}
             onClear={handleClear}
             selectedSeverities={selectedSeverities}
@@ -157,6 +183,13 @@ export default function App() {
             <div className="w-8 h-8 border-3 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--accent-blue)', borderTopColor: 'transparent' }} />
             <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Querying vulnerabilities API...</p>
           </div>
+        ) : apiError ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-20 px-6 text-center" style={{ color: 'var(--sev-high-text)' }}>
+            <span className="text-4xl">⚠️</span>
+            <p className="text-base font-semibold">Backend Connection Failed</p>
+            <p className="text-xs font-mono opacity-80">{apiError}</p>
+            <p className="text-xs text-muted">Ensure Django backend server is running at http://127.0.0.1:8000/</p>
+          </div>
         ) : vulnerabilities.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-20 px-6 text-center"
             style={{ color: 'var(--text-secondary)' }}>
@@ -167,7 +200,7 @@ export default function App() {
               style={{ borderColor: 'var(--border-input)', background: 'var(--bg-input)', color: 'var(--accent-blue)' }}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-blue)'; e.currentTarget.style.color = '#ffffff'; e.currentTarget.style.borderColor = 'var(--accent-blue)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-input)'; e.currentTarget.style.color = 'var(--accent-blue)'; e.currentTarget.style.borderColor = 'var(--border-input)'; }}
-              onClick={() => { setQuery(''); setActiveQuery(''); setSelectedSeverities([]); setCurrentPage(1); }}
+              onClick={handleClearFilters}
             >
               Clear all filters
             </button>

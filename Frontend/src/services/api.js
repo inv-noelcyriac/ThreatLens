@@ -1,5 +1,3 @@
-import { vulnerabilities as mockVulns } from '../data/vulnerabilities';
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
 
 /** Helper to format ISO date string or raw date to 'DD MMM YYYY' */
@@ -136,44 +134,10 @@ export async function fetchVulnerabilities({
       count,
       next: data.next,
       previous: data.previous,
-      isMock: false,
     };
   } catch (err) {
-    console.warn(`[Backend API 1 Unavailable] Falling back to local mock data. (${err.message})`);
-    
-    // Client-side fallback filter on mock dataset
-    let filtered = mockVulns.map(normalizeVulnerability);
-
-    if (query) {
-      const q = query.toLowerCase();
-      filtered = filtered.filter(v =>
-        v.id.toLowerCase().includes(q) ||
-        v.title.toLowerCase().includes(q) ||
-        v.ecosystem.toLowerCase().includes(q) ||
-        v.description.toLowerCase().includes(q) ||
-        v.source.toLowerCase().includes(q)
-      );
-    }
-
-    if (severities && severities.length > 0) {
-      filtered = filtered.filter(v => severities.includes(v.severity));
-    }
-
-    if (ecosystem) {
-      filtered = filtered.filter(v => v.ecosystem.toLowerCase().includes(ecosystem.toLowerCase()));
-    }
-
-    const totalCount = filtered.length;
-    const startIndex = (page - 1) * limit;
-    const paginatedResults = filtered.slice(startIndex, startIndex + limit);
-
-    return {
-      results: paginatedResults,
-      count: totalCount,
-      next: page * limit < totalCount ? `page=${page + 1}` : null,
-      previous: page > 1 ? `page=${page - 1}` : null,
-      isMock: true,
-    };
+    console.error(`[Backend API Fetch Error] Failed to connect to ${url.toString()}:`, err);
+    throw err;
   }
 }
 
@@ -198,24 +162,7 @@ export async function fetchVulnerabilityById(displayId) {
     const data = await response.json();
     return normalizeVulnerability(data);
   } catch (err) {
-    console.warn(`[Backend API 2 Unavailable] Falling back to local mock data for ID '${displayId}'. (${err.message})`);
-    
-    // Fallback: match from local dataset
-    const matched = mockVulns.find(
-      v => v.id.toLowerCase() === displayId.toLowerCase() ||
-           v.display_id?.toLowerCase() === displayId.toLowerCase()
-    );
-
-    if (matched) {
-      return normalizeVulnerability(matched);
-    }
-
-    // Default normalized placeholder if ID not in mock list
-    return normalizeVulnerability({
-      display_id: displayId,
-      severity: 'MEDIUM',
-      published_at: new Date().toISOString(),
-      references: [],
-    });
+    console.error(`[Backend API Detail Error] Failed to fetch vulnerability '${displayId}' from ${url}:`, err);
+    return null;
   }
 }

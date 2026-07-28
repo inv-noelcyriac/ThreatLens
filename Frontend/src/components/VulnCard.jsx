@@ -37,18 +37,23 @@ const SEV_VARS = {
 
 /* Small pill badge — list view only */
 function SeverityBadge({ severity, cvss }) {
+  const key = (severity || 'MEDIUM').toUpperCase();
+  const accent = SEVERITY_ACCENT[key] || '#9e9e9e';
   return (
-    <span className={`badge-${severity.toLowerCase()} text-[0.68rem] font-bold tracking-[0.05em] px-2.5 py-[3px] rounded-[5px] uppercase whitespace-nowrap flex-shrink-0`}>
-      {severity} · {cvss}
+    <span className={`badge-${key.toLowerCase()} text-[0.72rem] font-extrabold tracking-[0.05em] px-3 py-1 rounded-[6px] uppercase whitespace-nowrap flex-shrink-0 flex items-center gap-1.5`}>
+      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: accent, boxShadow: `0 0 5px ${accent}` }} />
+      {key} · {cvss}
     </span>
   );
 }
 
 /** Wraps matched portions of text in <mark className="highlight-match"> */
 function HighlightText({ text, query }) {
-  if (!query || !text) return <>{text}</>;
+  if (text === null || text === undefined) return null;
+  let strText = typeof text === 'string' ? text : String(text);
+  if (!query || !strText) return <>{strText}</>;
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+  const parts = strText.split(new RegExp(`(${escaped})`, 'gi'));
   return (
     <>
       {parts.map((part, i) =>
@@ -62,8 +67,10 @@ function HighlightText({ text, query }) {
 
 /* ── Card view (grid) — matches design spec ── */
 function CardView({ vuln, onClick, activeQuery }) {
-  const accent = SEVERITY_ACCENT[vuln.severity] || '#9e9e9e';
-  const sev = SEV_VARS[vuln.severity] || { bg: 'var(--bg-badge)', color: 'var(--text-secondary)' };
+  if (!vuln) return null;
+  const severityKey = (vuln.severity || 'MEDIUM').toUpperCase();
+  const accent = SEVERITY_ACCENT[severityKey] || '#9e9e9e';
+  const sev = SEV_VARS[severityKey] || { bg: 'var(--bg-badge)', color: 'var(--text-secondary)' };
 
   return (
     <article
@@ -72,7 +79,7 @@ function CardView({ vuln, onClick, activeQuery }) {
         background: 'var(--bg-card)',
         borderColor: 'var(--border-card)',
         boxShadow: 'var(--shadow-sm)',
-        padding: '10px 16px',
+        padding: '12px 16px',
       }}
       onMouseEnter={e => {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -91,79 +98,85 @@ function CardView({ vuln, onClick, activeQuery }) {
       tabIndex={0}
       role="button"
       onKeyDown={(e) => e.key === 'Enter' && onClick(vuln)}
-      aria-label={`View details for ${vuln.title}`}
+      aria-label={`View details for ${vuln.title || 'Vulnerability'}`}
     >
       {/* Header: ecosystem pill */}
       <div className="mb-1">
         <span
-          className="vuln-card-badge text-[0.72rem] px-[10px] py-[3px] rounded-[6px]"
+          className="vuln-card-badge text-[0.72rem] px-[10px] py-[3px] rounded-[6px] truncate max-w-[220px] inline-block align-middle"
           style={{
             background: 'var(--bg-badge)',
             color: 'var(--text-secondary)',
             fontWeight: 400,
           }}
+          title={vuln.ecosystem ? `${vuln.ecosystem} ecosystem` : undefined}
         >
-          {vuln.ecosystem} ecosystem
+          {vuln.ecosystem || 'Security'} ecosystem
         </span>
       </div>
 
       {/* Title + CVE ID */}
-      <div className="mb-2" style={{ minHeight: '4rem' }}>
+      <div className="mb-2" style={{ minHeight: '3.8rem' }}>
         <h2
           className="text-[0.9875rem] leading-snug mb-0.5 transition-colors duration-150 line-clamp-2"
           style={{ color: 'var(--text-heading)', fontWeight: 500 }}
+          title={vuln.title}
         >
-          <HighlightText text={vuln.title} query={activeQuery} />
+          <HighlightText text={vuln.title || 'Security Advisory'} query={activeQuery} />
         </h2>
         <p
-          className="text-[0.75rem]"
+          className="text-[0.75rem] truncate"
           style={{
             color: 'var(--text-muted)',
             fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace",
             fontWeight: 400,
           }}
+          title={vuln.id}
         >
-          <HighlightText text={vuln.id} query={activeQuery} />
+          <HighlightText text={vuln.id || 'N/A'} query={activeQuery} />
         </p>
       </div>
 
       {/* Severity + CVSS stat blocks */}
       <div className="flex gap-[8px] mb-2">
-        {/* Severity — flex:1, colored bg */}
+        {/* Severity — flex:1, colored bg block */}
         <div
-          className="flex-1 px-[10px] py-1 rounded-[6px] flex flex-col gap-[2px]"
-          style={{ background: sev.bg, border: '1px solid transparent' }}
+          className="flex-1 px-3 py-1.5 rounded-[8px] flex flex-col gap-[2px] min-w-0"
+          style={{
+            background: sev.bg,
+            border: sev.border && sev.border !== 'transparent' ? `1px solid ${sev.border}` : '1px solid transparent',
+          }}
         >
           <span
-            className="text-[0.6875rem] uppercase tracking-[0.06em]"
-            style={{ color: 'var(--text-secondary)', fontWeight: 400 }}
+            className="text-[0.6875rem] uppercase tracking-[0.06em] font-semibold truncate"
+            style={{ color: 'var(--text-secondary)' }}
           >
             severity
           </span>
           <span
-            className="text-[0.875rem] lowercase"
-            style={{ color: sev.color, fontWeight: 500 }}
+            className="text-[0.875rem] font-bold uppercase tracking-[0.03em] truncate"
+            style={{ color: sev.color }}
           >
-            {vuln.severity.toLowerCase()}
+            {severityKey}
           </span>
         </div>
 
         {/* CVSS — compact, neutral bg */}
         <div
-          className="vuln-card-badge px-[10px] py-1 rounded-[6px] flex flex-col gap-[2px] min-w-[58px]"
-          style={{ background: 'var(--bg-badge)' }}
+          className="vuln-card-badge px-3 py-1.5 rounded-[8px] flex flex-col gap-[2px] min-w-[62px] border"
+          style={{ background: 'var(--bg-badge)', borderColor: 'var(--border-card)' }}
         >
           <span
-            className="text-[0.6875rem] uppercase tracking-[0.06em]"
+            className="text-[0.6875rem] uppercase tracking-[0.06em] truncate"
             style={{ color: 'var(--text-secondary)', fontWeight: 400 }}
           >
             cvss
           </span>
           <span
-            className="text-[0.875rem]"
-            style={{ color: 'var(--text-primary)', fontWeight: 500 }}
+            className="text-[0.875rem] font-bold truncate"
+            style={{ color: 'var(--text-primary)' }}
           >
-            {vuln.cvss}
+            {vuln.cvss ?? 'N/A'}
           </span>
         </div>
       </div>
@@ -172,14 +185,14 @@ function CardView({ vuln, onClick, activeQuery }) {
       {vuln.remediation && (
         <div className="pt-1.5 mb-2" style={{ borderTop: '1px solid var(--border-card)' }}>
           <p
-            className="text-[0.7rem] mb-0.5"
+            className="text-[0.7rem] mb-0.5 truncate"
             style={{ color: 'var(--text-secondary)', fontWeight: 400 }}
           >
             remediation
           </p>
-          <div className="flex items-center gap-1.5" style={{ color: 'var(--accent-blue)' }}>
+          <div className="flex items-center gap-1.5 min-w-0" style={{ color: 'var(--accent-blue)' }}>
             <span className="flex-shrink-0"><WrenchIcon /></span>
-            <p className="text-[0.8375rem]" style={{ fontWeight: 400 }}>
+            <p className="text-[0.8375rem] line-clamp-2" style={{ fontWeight: 400 }} title={typeof vuln.remediation === 'string' ? vuln.remediation : undefined}>
               <HighlightText text={vuln.remediation} query={activeQuery} />
             </p>
           </div>
@@ -188,13 +201,13 @@ function CardView({ vuln, onClick, activeQuery }) {
 
       {/* Footer: source + date */}
       <div
-        className="flex items-center justify-between text-[0.75rem]"
+        className="flex items-center justify-between text-[0.75rem] gap-2 mt-auto"
         style={{ color: 'var(--text-muted)', fontWeight: 400 }}
       >
-        <span>source: {vuln.source}</span>
-        <span className="flex items-center gap-1.5">
+        <span className="truncate max-w-[160px]" title={vuln.source}>source: {vuln.source || 'ThreatLens'}</span>
+        <span className="flex items-center gap-1.5 flex-shrink-0">
           <CalendarIcon />
-          {vuln.date}
+          {vuln.date || 'N/A'}
         </span>
       </div>
     </article>
@@ -203,10 +216,13 @@ function CardView({ vuln, onClick, activeQuery }) {
 
 /* ── List view (row) ── */
 function ListView({ vuln, onClick, activeQuery }) {
-  const accent = SEVERITY_ACCENT[vuln.severity] || '#9e9e9e';
+  if (!vuln) return null;
+  const severityKey = (vuln.severity || 'MEDIUM').toUpperCase();
+  const accent = SEVERITY_ACCENT[severityKey] || '#9e9e9e';
+
   return (
     <article
-      className="flex items-center gap-3 px-5 py-3.5 rounded-[12px] border cursor-pointer transition-all duration-[160ms] outline-none"
+      className="flex items-center gap-3 px-5 py-3.5 rounded-[12px] border cursor-pointer transition-all duration-[160ms] outline-none min-w-0"
       style={{
         background: 'var(--bg-card)',
         borderColor: 'var(--border-card)',
@@ -226,29 +242,31 @@ function ListView({ vuln, onClick, activeQuery }) {
       tabIndex={0}
       role="button"
       onKeyDown={(e) => e.key === 'Enter' && onClick(vuln)}
-      aria-label={`View details for ${vuln.title}`}
+      aria-label={`View details for ${vuln.title || 'Vulnerability'}`}
     >
-      <SeverityBadge severity={vuln.severity} cvss={vuln.cvss} />
+      <SeverityBadge severity={severityKey} cvss={vuln.cvss ?? 'N/A'} />
       <span
-        className="text-[0.78rem] font-semibold tracking-[0.01em] w-[148px] flex-shrink-0 hidden sm:block"
+        className="text-[0.78rem] font-semibold tracking-[0.01em] w-[148px] flex-shrink-0 hidden sm:block truncate"
         style={{ color: 'var(--text-muted)', fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace" }}
+        title={vuln.id}
       >
-        <HighlightText text={vuln.id} query={activeQuery} />
+        <HighlightText text={vuln.id || 'N/A'} query={activeQuery} />
       </span>
       <h2 className="flex-1 text-[0.9rem] font-medium leading-snug min-w-0" style={{ color: 'var(--text-primary)' }}>
-        <span className="block truncate">
-          <HighlightText text={vuln.title} query={activeQuery} />
+        <span className="block truncate" title={vuln.title}>
+          <HighlightText text={vuln.title || 'Security Advisory'} query={activeQuery} />
         </span>
       </h2>
       <span
-        className="text-[0.8rem] font-medium flex-shrink-0 hidden md:block px-2.5 py-1 rounded-[5px] border"
+        className="text-[0.8rem] font-medium flex-shrink-0 hidden md:block px-2.5 py-1 rounded-[5px] border max-w-[140px] truncate"
         style={{ color: 'var(--text-secondary)', background: 'var(--bg-badge)', borderColor: 'var(--border-card)' }}
+        title={vuln.ecosystem}
       >
-        {vuln.ecosystem}
+        {vuln.ecosystem || 'Security'}
       </span>
       <span className="text-[0.78rem] flex-shrink-0 hidden lg:flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
         <CalendarIcon />
-        {vuln.date}
+        {vuln.date || 'N/A'}
       </span>
       <span className="flex-shrink-0 ml-1" style={{ color: 'var(--text-muted)' }}>
         <ChevronRightIcon />
@@ -259,6 +277,7 @@ function ListView({ vuln, onClick, activeQuery }) {
 
 /* ── Export ── */
 export default function VulnCard({ vuln, onClick, activeQuery, viewMode }) {
+  if (!vuln) return null;
   if (viewMode === 'list') {
     return <ListView vuln={vuln} onClick={onClick} activeQuery={activeQuery} />;
   }

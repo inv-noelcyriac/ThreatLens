@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { fetchVulnerabilityById } from '../services/api';
 
 /* ─── Icons ─── */
 const CloseIcon = () => (
@@ -45,7 +46,7 @@ function SeverityBadge({ severity, cvss }) {
 
 function StatusBadge({ status }) {
   const cls = status === 'VULNERABLE' ? 'status-vulnerable' : status === 'PATCHED' ? 'status-patched' : '';
-  return <span className={`${cls} text-[0.7rem] font-bold tracking-[0.04em] uppercase px-2.5 py-[3px] rounded-[6px]`}>{status}</span>;
+  return <span className={`${cls} text-[0.7rem] font-bold tracking-[0.04em] uppercase px-2.5 py-[3px] rounded-[6px] inline-block whitespace-nowrap`}>{status}</span>;
 }
 
 function formatTimestamp(ts) {
@@ -278,9 +279,36 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
 
 /* ─── Main export ─── */
 export default function DetailPanel({ vuln, onClose }) {
+  const [detailData, setDetailData] = useState(vuln);
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const [fixes, setFixes] = useState([]);
   const [prevId, setPrevId] = useState(null);
   const [isClosing, setIsClosing] = useState(false);
+
+  const displayId = vuln?.display_id || vuln?.id;
+
+  // API 2: Fetch specific vulnerability by display_id when panel opens or selection changes
+  useEffect(() => {
+    if (!displayId) return;
+
+    let isMounted = true;
+    setLoadingDetail(true);
+
+    fetchVulnerabilityById(displayId)
+      .then((fetchedData) => {
+        if (isMounted && fetchedData) {
+          setDetailData(fetchedData);
+        }
+      })
+      .catch((err) => {
+        console.error('API 2 detail fetch error:', err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingDetail(false);
+      });
+
+    return () => { isMounted = false; };
+  }, [displayId]);
 
   // Animated close — slides right then unmounts
   const handleClose = useCallback(() => {
@@ -299,6 +327,8 @@ export default function DetailPanel({ vuln, onClose }) {
   // Reset fixes when switching vulnerabilities
   if (vuln && vuln.id !== prevId) { setFixes([]); setPrevId(vuln.id); }
   if (!vuln) return null;
+
+  const current = detailData || vuln;
 
   return (
     <>
@@ -320,18 +350,23 @@ export default function DetailPanel({ vuln, onClose }) {
         }}
         role="dialog"
         aria-modal="true"
-        aria-label={`Details for ${vuln.title}`}
+        aria-label={`Details for ${current.title}`}
         id="detail-panel"
       >
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-1.5 px-6 pt-[18px] flex-shrink-0" aria-label="Breadcrumb">
+        <nav className="flex items-center gap-1.5 px-6 pt-[18px] flex-shrink-0 min-w-0 pr-14" aria-label="Breadcrumb">
           {['Vulnerabilities'].map((item) => (
-            <span key={item} className="flex items-center gap-1">
+            <span key={item} className="flex items-center gap-1 flex-shrink-0">
               <span className="text-[0.8125rem]" style={{ color: 'var(--text-muted)' }}>{item}</span>
               <ChevronIcon />
             </span>
           ))}
-          <span className="text-[0.8125rem] font-medium" style={{ color: 'var(--text-primary)' }}>{vuln.id}</span>
+          <span className="text-[0.8125rem] font-medium truncate max-w-[280px]" style={{ color: 'var(--text-primary)' }} title={current.id}>{current.id}</span>
+          {loadingDetail && (
+            <span className="ml-2 text-[0.7rem] px-2 py-0.5 rounded animate-pulse flex-shrink-0" style={{ background: 'var(--bg-badge)', color: 'var(--accent-blue)' }}>
+              Loading API data...
+            </span>
+          )}
         </nav>
 
         {/* Close button */}
@@ -348,24 +383,28 @@ export default function DetailPanel({ vuln, onClose }) {
         </button>
 
         {/* Scrollable content — only this scrolls, body is locked in App.jsx */}
-        <div className="flex-1 overflow-y-auto px-7 pt-5 pb-10 flex flex-col gap-0">
+        <div className="flex-1 overflow-y-auto px-7 pt-5 pb-10 flex flex-col gap-0 min-w-0">
           {/* Title & badge */}
-          <div className="mb-5">
-            <h2 className="text-[1.6rem] font-semibold leading-[1.2] tracking-[-0.02em] mb-2.5 transition-colors duration-300" style={{ color: 'var(--text-heading)' }}>
-              {vuln.title}
+          <div className="mb-5 min-w-0">
+            <h2
+              className="text-[1.6rem] font-semibold leading-[1.2] tracking-[-0.02em] mb-2.5 transition-colors duration-300 break-words line-clamp-3"
+              style={{ color: 'var(--text-heading)' }}
+              title={current.title}
+            >
+              {current.title}
             </h2>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="text-[0.875rem] font-semibold" style={{ color: 'var(--text-secondary)', fontFamily: "'SF Mono','Fira Code',monospace" }}>{vuln.id}</span>
-              <SeverityBadge severity={vuln.severity} cvss={vuln.cvss} />
+            <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+              <span className="text-[0.875rem] font-semibold truncate max-w-[280px]" style={{ color: 'var(--text-secondary)', fontFamily: "'SF Mono','Fira Code',monospace" }} title={current.id}>{current.id}</span>
+              <SeverityBadge severity={current.severity} cvss={current.cvss} />
             </div>
           </div>
 
           {/* Meta grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-[22px]">
-            {[{ label: 'PUBLISHED', value: vuln.published }, { label: 'LAST UPDATED', value: vuln.lastUpdated }, { label: 'STATUS', value: vuln.status }, { label: vuln.cvssVersion, value: vuln.cvss }].map(({ label, value }) => (
-              <div key={label} className="flex flex-col gap-1">
-                <span className="text-[0.7rem] font-bold tracking-[0.06em] uppercase" style={{ color: 'var(--text-muted)' }}>{label}</span>
-                <span className="text-[0.9375rem] font-semibold transition-colors duration-300" style={{ color: 'var(--text-primary)' }}>{value}</span>
+            {[{ label: 'PUBLISHED', value: current.published }, { label: 'LAST UPDATED', value: current.lastUpdated }, { label: 'STATUS', value: current.status }, { label: current.cvssVersion || 'CVSS V3.1', value: current.cvss }].map(({ label, value }) => (
+              <div key={label} className="flex flex-col gap-1 min-w-0">
+                <span className="text-[0.7rem] font-bold tracking-[0.06em] uppercase truncate" style={{ color: 'var(--text-muted)' }}>{label}</span>
+                <span className="text-[0.9375rem] font-semibold transition-colors duration-300 truncate" style={{ color: 'var(--text-primary)' }} title={String(value ?? '')}>{value ?? 'N/A'}</span>
               </div>
             ))}
           </div>
@@ -373,19 +412,19 @@ export default function DetailPanel({ vuln, onClose }) {
           <hr className="border-t mb-5 transition-colors duration-300" style={{ borderColor: 'var(--border-color)' }} />
 
           {/* Description */}
-          <section className="mb-[22px]">
+          <section className="mb-[22px] min-w-0">
             <h3 className="text-[0.72rem] font-bold tracking-[0.08em] uppercase mb-3" style={{ color: 'var(--text-muted)' }}>DESCRIPTION</h3>
-            <p className="text-[0.9375rem] leading-[1.7] transition-colors duration-300" style={{ color: 'var(--text-secondary)' }}>{vuln.description}</p>
+            <p className="text-[0.9375rem] leading-[1.7] transition-colors duration-300 break-words" style={{ color: 'var(--text-secondary)' }}>{current.description}</p>
           </section>
 
           {/* Official Fix */}
-          {vuln.remediation && (
-            <section className="mb-[22px]">
+          {current.remediation && (
+            <section className="mb-[22px] min-w-0">
               <h3 className="flex items-center gap-1.5 text-[0.72rem] font-bold tracking-[0.08em] uppercase mb-3" style={{ color: 'var(--text-muted)' }}>
                 OFFICIAL FIX
               </h3>
               <div
-                className="flex items-center gap-3 px-4 py-3.5 rounded-[12px] border-[1.5px] transition-colors duration-300"
+                className="flex items-center gap-3 px-4 py-3.5 rounded-[12px] border-[1.5px] transition-colors duration-300 min-w-0"
                 style={{
                   background: 'var(--fix-card-bg)',
                   borderColor: 'var(--fix-card-border)',
@@ -397,8 +436,8 @@ export default function DetailPanel({ vuln, onClose }) {
                 >
                   <ShieldCheckIcon />
                 </span>
-                <p className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300" style={{ color: 'var(--fix-text-color)' }}>
-                  {vuln.remediation}
+                <p className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300 break-words flex-1 min-w-0" style={{ color: 'var(--fix-text-color)' }}>
+                  {current.remediation}
                 </p>
               </div>
             </section>
@@ -407,50 +446,57 @@ export default function DetailPanel({ vuln, onClose }) {
           <hr className="border-t mb-5 transition-colors duration-300" style={{ borderColor: 'var(--border-color)' }} />
 
           {/* Affected Components */}
-          <section className="mb-[22px]">
-            <h3 className="text-[0.72rem] font-bold tracking-[0.08em] uppercase mb-3" style={{ color: 'var(--text-muted)' }}>AFFECTED COMPONENTS</h3>
-            <div className="border rounded-[10px] overflow-x-auto" style={{ borderColor: 'var(--border-color)' }}>
-              <table className="w-full border-collapse text-[0.875rem]">
-                <thead style={{ background: 'var(--bg-table-head)' }}>
-                  <tr>
-                    {['Component', 'Affected Versions', 'Instance', 'Status'].map((h) => (
-                      <th key={h} className="px-3.5 py-2.5 text-left text-[0.78rem] font-semibold border-b" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-color)' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {vuln.affectedComponents.map((comp, i) => (
-                    <tr key={i} style={{ background: i % 2 === 1 ? 'var(--bg-table-alt)' : 'var(--bg-table-row)' }}>
-                      <td className="px-3.5 py-3 border-b last:border-b-0 font-semibold text-[0.84rem]" style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', fontFamily: "'SF Mono','Fira Code',monospace" }}>{comp.component}</td>
-                      <td className="px-3.5 py-3 border-b last:border-b-0 align-middle" style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>{comp.affectedVersions}</td>
-                      <td className="px-3.5 py-3 border-b last:border-b-0 align-middle" style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>{comp.instance}</td>
-                      <td className="px-3.5 py-3 border-b last:border-b-0 align-middle" style={{ borderColor: 'var(--border-color)' }}><StatusBadge status={comp.status} /></td>
+          {current.affectedComponents && current.affectedComponents.length > 0 && (
+            <section className="mb-[22px]">
+              <h3 className="text-[0.72rem] font-bold tracking-[0.08em] uppercase mb-3" style={{ color: 'var(--text-muted)' }}>AFFECTED COMPONENTS</h3>
+              <div className="border rounded-[10px] overflow-x-auto" style={{ borderColor: 'var(--border-color)' }}>
+                <table className="w-full min-w-[480px] border-collapse text-[0.875rem]">
+                  <thead style={{ background: 'var(--bg-table-head)' }}>
+                    <tr>
+                      {['Component', 'Affected Versions', 'Instance', 'Status'].map((h) => (
+                        <th key={h} className="px-3.5 py-2.5 text-left text-[0.78rem] font-semibold border-b whitespace-nowrap" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-color)' }}>{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                  </thead>
+                  <tbody>
+                    {current.affectedComponents.map((comp, i) => (
+                      <tr key={i} style={{ background: i % 2 === 1 ? 'var(--bg-table-alt)' : 'var(--bg-table-row)' }}>
+                        <td className="px-3.5 py-3 border-b last:border-b-0 font-semibold text-[0.84rem] max-w-[160px] truncate" style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', fontFamily: "'SF Mono','Fira Code',monospace" }} title={comp.component}>{comp.component}</td>
+                        <td className="px-3.5 py-3 border-b last:border-b-0 align-middle max-w-[180px] truncate" style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }} title={comp.affectedVersions}>{comp.affectedVersions}</td>
+                        <td className="px-3.5 py-3 border-b last:border-b-0 align-middle max-w-[150px] truncate" style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }} title={comp.instance}>{comp.instance}</td>
+                        <td className="px-3.5 py-3 border-b last:border-b-0 align-middle whitespace-nowrap" style={{ borderColor: 'var(--border-color)' }}><StatusBadge status={comp.status} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
 
           <hr className="border-t mb-5 transition-colors duration-300" style={{ borderColor: 'var(--border-color)' }} />
 
           {/* References */}
-          <section className="mb-[22px]">
-            <h3 className="text-[0.72rem] font-bold tracking-[0.08em] uppercase mb-3" style={{ color: 'var(--text-muted)' }}>REFERENCES</h3>
-            <div className="flex flex-col gap-2.5">
-              {vuln.references.map((ref, i) => (
-                <a key={i} href={`https://${ref.url}`} target="_blank" rel="noopener noreferrer" id={`ref-link-${i}`}
-                  className="flex items-center gap-2.5 px-4 py-3 rounded-[10px] border no-underline transition-all duration-200"
-                  style={{ borderColor: 'var(--border-color)', background: 'var(--bg-secondary)' }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.background = 'var(--accent-blue-light)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.background = 'var(--bg-secondary)'; }}>
-                  <span className="flex flex-shrink-0" style={{ color: 'var(--accent-blue)' }}><ExternalLinkIcon /></span>
-                  <span className="text-[0.875rem] font-semibold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{ref.name}</span>
-                  <span className="text-[0.8rem] overflow-hidden text-ellipsis whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{ref.url}</span>
-                </a>
-              ))}
-            </div>
-          </section>
+          {current.references && current.references.length > 0 && (
+            <section className="mb-[22px]">
+              <h3 className="text-[0.72rem] font-bold tracking-[0.08em] uppercase mb-3" style={{ color: 'var(--text-muted)' }}>REFERENCES</h3>
+              <div className="flex flex-col gap-2.5">
+                {current.references.map((ref, i) => {
+                  const targetUrl = ref.url.startsWith('http') ? ref.url : `https://${ref.url}`;
+                  return (
+                    <a key={i} href={targetUrl} target="_blank" rel="noopener noreferrer" id={`ref-link-${i}`}
+                      className="flex items-center gap-2.5 px-4 py-3 rounded-[10px] border no-underline transition-all duration-200"
+                      style={{ borderColor: 'var(--border-color)', background: 'var(--bg-secondary)' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.background = 'var(--accent-blue-light)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.background = 'var(--bg-secondary)'; }}>
+                      <span className="flex flex-shrink-0" style={{ color: 'var(--accent-blue)' }}><ExternalLinkIcon /></span>
+                      <span className="text-[0.875rem] font-semibold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{ref.name || 'Reference'}</span>
+                      <span className="text-[0.8rem] overflow-hidden text-ellipsis whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{ref.url}</span>
+                    </a>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           <hr className="border-t mb-5 transition-colors duration-300" style={{ borderColor: 'var(--border-color)' }} />
 
@@ -465,3 +511,4 @@ export default function DetailPanel({ vuln, onClose }) {
     </>
   );
 }
+

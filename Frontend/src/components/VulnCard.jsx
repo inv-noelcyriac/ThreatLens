@@ -19,6 +19,13 @@ const ChevronRightIcon = () => (
   </svg>
 );
 
+const EditIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </svg>
+);
+
 /* Hover border accent — per severity */
 const SEVERITY_ACCENT = {
   CRITICAL: '#ef4444',
@@ -66,7 +73,7 @@ function HighlightText({ text, query }) {
 }
 
 /* ── Card view (grid) — matches design spec ── */
-function CardView({ vuln, onClick, activeQuery }) {
+function CardView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
   if (!vuln) return null;
   const severityKey = (vuln.severity || 'MEDIUM').toUpperCase();
   const accent = SEVERITY_ACCENT[severityKey] || '#9e9e9e';
@@ -74,7 +81,7 @@ function CardView({ vuln, onClick, activeQuery }) {
 
   return (
     <article
-      className="vuln-card rounded-[12px] border cursor-pointer flex flex-col transition-all duration-200 outline-none"
+      className="vuln-card rounded-[12px] border cursor-pointer flex flex-col transition-all duration-200 outline-none relative"
       style={{
         background: 'var(--bg-card)',
         borderColor: 'var(--border-card)',
@@ -101,7 +108,7 @@ function CardView({ vuln, onClick, activeQuery }) {
       aria-label={`View details for ${vuln.title || 'Vulnerability'}`}
     >
       {/* Header: ecosystem pill */}
-      <div className="mb-1">
+      <div className="mb-1 flex items-center justify-between">
         <span
           className="vuln-card-badge text-[0.72rem] px-[10px] py-[3px] rounded-[6px] truncate max-w-[220px] inline-block align-middle"
           style={{
@@ -215,7 +222,7 @@ function CardView({ vuln, onClick, activeQuery }) {
 }
 
 /* ── List view (row) ── */
-function ListView({ vuln, onClick, activeQuery }) {
+function ListView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
   if (!vuln) return null;
   const severityKey = (vuln.severity || 'MEDIUM').toUpperCase();
   const accent = SEVERITY_ACCENT[severityKey] || '#9e9e9e';
@@ -276,10 +283,10 @@ function ListView({ vuln, onClick, activeQuery }) {
 }
 
 /* ── Export ── */
-export default function VulnCard({ vuln, onClick, activeQuery, viewMode }) {
+export default function VulnCard({ vuln, onClick, activeQuery, viewMode, isAdmin = false, onEdit }) {
   if (!vuln) return null;
   if (viewMode === 'list') {
-    return <ListView vuln={vuln} onClick={onClick} activeQuery={activeQuery} />;
+    return <ListView vuln={vuln} onClick={onClick} activeQuery={activeQuery} isAdmin={isAdmin} onEdit={onEdit} />;
   }
-  return <CardView vuln={vuln} onClick={onClick} activeQuery={activeQuery} />;
+  return <CardView vuln={vuln} onClick={onClick} activeQuery={activeQuery} isAdmin={isAdmin} onEdit={onEdit} />;
 }

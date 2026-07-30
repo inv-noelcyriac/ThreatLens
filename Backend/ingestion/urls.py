@@ -1,0 +1,20 @@
+from django.urls import path
+from .views import (
+    RemediationListCreateView,
+    RemediationDetailView
+)
+
+urlpatterns = [
+    # Fetch all notes / Post a new note for a specific vulnerability
+    path(
+        'vulnerabilities/<str:display_id>/remediations/',
+        RemediationListCreateView.as_view(),
+        name='vulnerability-remediations'
+    ),
+    # Edit / Delete an individual note by ID
+    path(
+        'remediations/<int:pk>/',
+        RemediationDetailView.as_view(),
+        name='remediation-detail'
+    ),
+]

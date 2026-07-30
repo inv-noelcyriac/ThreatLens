@@ -4,8 +4,8 @@ import random
 import time
 from datetime import datetime
 import requests
-from django.db import transaction
-from django.utils import timezone
+from django.core.management import call_command
+from django.db import transaction, DatabaseError
 
 from .models import SourceAdvisory, SyncState
 from .services import (
@@ -260,38 +260,48 @@ class BaseIngestionTask:
 
 
 # =============================================================================
-# SCHEDULER TASK WRAPPERS WITH POSTGRES DB LOCKING
+# SCHEDULER TASK ENTRYPOINTS (IMMEDIATE RECOVERY ON NEW RUN)
 # =============================================================================
-
-
-
 
 def is_worker_running(source_name: str) -> bool:
     """
     Checks if an ingestion run for the given source is active.
-    Returns True ONLY if a record with last_run_status='RUNNING' exists and is locked.
+    
+    1. If DatabaseError is raised, an active Python process currently holds the lock -> return True (skip).
+    2. If lock acquisition succeeds and a 'RUNNING' record exists, it means the previous process died.
+       We immediately mark it as FAILED and return False (run immediately).
     """
     try:
         with transaction.atomic():
-            running_task = (
+            stuck_task = (
                 SyncState.objects.select_for_update(nowait=True)
                 .filter(source=source_name, last_run_status="RUNNING")
+                .order_by("-created_at")
                 .first()
             )
-            # If running_task is None, no task is currently running
-            if running_task is None:
-                return False
-            # A task is actively running and locked
-            return True
-    except Exception:
-        # DB row lock held by another process
+
+            if stuck_task:
+                logger.warning(
+                    f"[{source_name.upper()}] Found unreleased RUNNING record (ID: {stuck_task.id}) from previous run. Clearing immediately..."
+                )
+                stuck_task.last_run_status = "FAILED"
+                stuck_task.error_message = "Auto-cleared abandoned lock from previous run."
+                stuck_task.save(update_fields=["last_run_status", "error_message"])
+
+            return False
+
+    except DatabaseError:
+        # An active python worker process currently holds the lock in a live transaction
         return True
+    except Exception as e:
+        logger.error(f"[{source_name.upper()}] Error checking worker status: {e}")
+        return False
 
 
 def run_ghsa_ingestion():
     """Executes daily GHSA Git ingestion task."""
     if is_worker_running("ghsa"):
-        logger.warning("[GHSA] Task skipped: Previous run is still active in DB.")
+        logger.warning("[GHSA] Task skipped: Previous run is actively executing right now.")
         return "SKIPPED_ALREADY_RUNNING"
 
     from .workers.ghsa_git_worker import GHSAGitTask
@@ -304,7 +314,7 @@ def run_ghsa_ingestion():
 def run_nvd_ingestion():
     """Executes daily NVD API ingestion task."""
     if is_worker_running("nvd"):
-        logger.warning("[NVD] Task skipped: Previous run is still active in DB.")
+        logger.warning("[NVD] Task skipped: Previous run is actively executing right now.")
         return "SKIPPED_ALREADY_RUNNING"
 
     from .workers.nvd_worker import NVDApiTask
@@ -317,7 +327,7 @@ def run_nvd_ingestion():
 def run_osv_ingestion():
     """Executes daily OSV Zip stream ingestion task."""
     if is_worker_running("osv"):
-        logger.warning("[OSV] Task skipped: Previous run is still active in DB.")
+        logger.warning("[OSV] Task skipped: Previous run is actively executing right now.")
         return "SKIPPED_ALREADY_RUNNING"
 
     from .workers.osv_worker import OSVZipIngestionTask
@@ -330,7 +340,7 @@ def run_osv_ingestion():
 def run_aws_ingestion():
     """Executes daily AWS Security Bulletins ingestion task."""
     if is_worker_running("aws"):
-        logger.warning("[AWS] Task skipped: Previous run is still active in DB.")
+        logger.warning("[AWS] Task skipped: Previous run is actively executing right now.")
         return "SKIPPED_ALREADY_RUNNING"
 
     from .workers.aws_worker import AWSIngestionTask
@@ -343,7 +353,7 @@ def run_aws_ingestion():
 def run_docker_ingestion():
     """Executes daily Docker Ecosystem & Hardened OSV ingestion tasks."""
     if is_worker_running("docker_ecosystem"):
-        logger.warning("[DOCKER] Task skipped: Previous run is still active in DB.")
+        logger.warning("[DOCKER] Task skipped: Previous run is actively executing right now.")
         return "SKIPPED_ALREADY_RUNNING"
 
     from .workers.docker_worker import DockerEcosystemTask, DockerHardenedOSVTask
@@ -353,4 +363,37 @@ def run_docker_ingestion():
 
     logger.info("[APSCHEDULER] Triggering scheduled Docker Hardened OSV ingestion...")
     DockerHardenedOSVTask().run()
+    return "SUCCESS"
+
+
+# =============================================================================
+# NORMALIZATION & SEARCH SYNC PIPELINE ENTRYPOINT
+# =============================================================================
+
+def run_normalization_pipeline():
+    """
+    Executes sequentially:
+    1. Relational DB Normalization (python manage.py normalize_vault)
+    2. Meilisearch Index Batch Sync (python manage.py sync_meilisearch)
+    """
+    logger.info("[APSCHEDULER] Starting Normalization & Meilisearch Sync Pipeline...")
+
+    # Step 1: Normalize database records
+    try:
+        logger.info("[APSCHEDULER] Step 1/2: Running database normalization...")
+        call_command("normalize_vault")
+        logger.info("[APSCHEDULER] Database normalization completed successfully!")
+    except Exception as e:
+        logger.error(f"[APSCHEDULER] Database normalization failed: {e}", exc_info=True)
+        return "FAILED_NORMALIZATION"
+
+    # Step 2: Sync normalized MasterVulnerability records to Meilisearch
+    try:
+        logger.info("[APSCHEDULER] Step 2/2: Triggering Meilisearch index sync...")
+        call_command("sync_meilisearch", batch_size=1000)
+        logger.info("[APSCHEDULER] Meilisearch index sync completed successfully!")
+    except Exception as e:
+        logger.error(f"[APSCHEDULER] Meilisearch index sync failed: {e}", exc_info=True)
+        return "FAILED_MEILISEARCH_SYNC"
+
     return "SUCCESS"

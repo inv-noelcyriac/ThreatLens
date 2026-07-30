@@ -50,15 +50,16 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'django_filters',
-    'drf_spectacular',
     'ingestion',
     'core',
     'api',
+    'search',
 ]
 
-REST_FRAMEWORK = {
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-}
+MEILISEARCH_URL = os.environ.get('MEILISEARCH_URL')
+MEILISEARCH_MASTER_KEY=os.environ.get('MEILISEARCH_MASTER_KEY')
+
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -145,6 +146,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+#-------LOGS-----------------
 LOGS_DIR = BASE_DIR / "logs"
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 

@@ -38,3 +38,4 @@ cvss==3.6
 djangorestframework==3.17.1
 django-filter==26.1
 django-cors-headers==4.9.0
+pytz==2026.6.post1

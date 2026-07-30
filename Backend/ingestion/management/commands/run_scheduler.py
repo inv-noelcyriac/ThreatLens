@@ -1,89 +1,116 @@
-# ingestion/management/commands/run_scheduler.py
 import logging
+from django.conf import settings
 from django.core.management.base import BaseCommand
+from django_apscheduler.jobstores import DjangoJobStore, register_events
+from django_apscheduler.models import DjangoJobExecution
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
-from django_apscheduler.jobstores import DjangoJobStore
-from django_apscheduler import util
+import pytz
 
+# Import your ingestion & normalization tasks here
 from ingestion.tasks import (
     run_ghsa_ingestion,
     run_nvd_ingestion,
     run_osv_ingestion,
     run_aws_ingestion,
     run_docker_ingestion,
+    run_normalization_pipeline,
 )
 
 logger = logging.getLogger("ingestion_logger")
+IST = pytz.timezone("Asia/Kolkata")
 
 
-@util.close_old_connections
 def delete_old_job_executions(max_age=604_800):
-    """Deletes old APScheduler execution logs from PostgreSQL."""
-    from django_apscheduler.models import DjangoJobExecution
+    """Deletes APScheduler execution logs older than 7 days from DB."""
     DjangoJobExecution.objects.delete_old_job_executions(max_age)
 
 
 class Command(BaseCommand):
-    help = "Runs APScheduler for test security feed ingestion."
+    help = "Starts the APScheduler process for vulnerability ingestion and normalization."
 
     def handle(self, *args, **options):
-        scheduler = BlockingScheduler(timezone="UTC")
+        scheduler = BlockingScheduler(
+            timezone=IST,
+            job_defaults={
+                "misfire_grace_time": 3600 * 4,  # Catch up if delayed by up to 4 hours
+                "coalesce": True,                # Collapse multiple missed runs into 1 single run
+                "max_instances": 1,              # Prevent concurrent runs of the exact same job
+            }
+        )
         scheduler.add_jobstore(DjangoJobStore(), "default")
 
-        # -----------------------------------------------------------------
-        # TEST SCHEDULE (IST converted to UTC)
-        # -----------------------------------------------------------------
-
-        # 1. NVD Task (10:00 AM IST -> 04:30 AM UTC)
+        # -------------------------------------------------------------------------
+        # 1. INGESTION SCHEDULES (Configured in IST Time)
+        # -------------------------------------------------------------------------
+        
+        # NVD Ingestion: Daily at 10:00 AM IST
         scheduler.add_job(
             run_nvd_ingestion,
-            trigger=CronTrigger(hour=4, minute=30),
-            id="sync-nvd-test",
-            max_instances=1,
+            trigger=CronTrigger(hour=10, minute=7, timezone=IST),
+            id="run_nvd_ingestion",
             replace_existing=True,
         )
 
-        # 2. OSV Task (10:11 AM IST -> 04:41 AM UTC)
-        scheduler.add_job(
-            run_osv_ingestion,
-            trigger=CronTrigger(hour=4, minute=41),
-            id="sync-osv-test",
-            max_instances=1,
-            replace_existing=True,
-        )
-
-        # 3. GHSA Task (10:26 AM IST -> 04:51 AM UTC)
+        # GHSA Ingestion: Daily at 10:30 AM IST
         scheduler.add_job(
             run_ghsa_ingestion,
-            trigger=CronTrigger(hour=4, minute=56),
-            id="sync-ghsa-test",
-            max_instances=1,
+            trigger=CronTrigger(hour=10, minute=10, timezone=IST),
+            id="run_ghsa_ingestion",
             replace_existing=True,
         )
 
-        # 4. AWS Task (10:31 AM IST -> 05:01 AM UTC)
+        # OSV Ingestion: Daily at 11:00 AM IST
+        scheduler.add_job(
+            run_osv_ingestion,
+            trigger=CronTrigger(hour=10, minute=15, timezone=IST),
+            id="run_osv_ingestion",
+            replace_existing=True,
+        )
+
+        # AWS Ingestion: Daily at 11:30 AM IST
         scheduler.add_job(
             run_aws_ingestion,
-            trigger=CronTrigger(hour=5, minute=1),
-            id="sync-aws-test",
-            max_instances=1,
+            trigger=CronTrigger(hour=10, minute=20, timezone=IST),
+            id="run_aws_ingestion",
             replace_existing=True,
         )
 
-        # 5. Docker Tasks (10:41 AM IST -> 05:11 AM UTC)
+        # Docker Ingestion: Daily at 12:00 PM IST
         scheduler.add_job(
             run_docker_ingestion,
-            trigger=CronTrigger(hour=5, minute=11),
-            id="sync-docker-test",
-            max_instances=1,
+            trigger=CronTrigger(hour=10, minute=25, timezone=IST),
+            id="run_docker_ingestion",
             replace_existing=True,
         )
 
-        logger.info("[APSCHEDULER] Starting Test Ingestion Scheduler Process...")
-        
+        # -------------------------------------------------------------------------
+        # 2. NORMALIZATION & PIPELINE SCHEDULES
+        # -------------------------------------------------------------------------
+
+        # Normalization Pipeline: Runs daily at 12:30 PM IST (After all ingestions complete)
+        scheduler.add_job(
+            run_normalization_pipeline,
+            trigger=CronTrigger(hour=10, minute=30, timezone=IST),
+            id="run_normalization_pipeline",
+            replace_existing=True,
+        )
+
+        # Maintenance: Clean old execution logs every Sunday at 00:00 IST
+        scheduler.add_job(
+            delete_old_job_executions,
+            trigger=CronTrigger(day_of_week="sun", hour=0, minute=0, timezone=IST),
+            id="delete_old_job_executions",
+            replace_existing=True,
+        )
+
+        register_events(scheduler)
+        self.stdout.write(self.style.SUCCESS("[APSCHEDULER] Successfully initialized schedule with IST timezone."))
+
         try:
+            self.stdout.write(self.style.WARNING("Starting scheduler loop... Press Ctrl+C to exit."))
             scheduler.start()
         except KeyboardInterrupt:
-            logger.info("[APSCHEDULER] Stopping scheduler process...")
+            self.stdout.write(self.style.WARNING("Stopping scheduler..."))
             scheduler.shutdown()
+            self.stdout.write(self.style.SUCCESS("Scheduler stopped successfully."))

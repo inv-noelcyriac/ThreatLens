@@ -178,6 +178,7 @@ class MasterVulnerabilityListView(APIView):
                     "page": page,
                     "hitsPerPage": limit,
                     "sort": [sort_param],
+                    "filter": "is_hidden = false",  # <-- Guarantees soft-hidden items are omitted
                 },
             )
 
@@ -281,7 +282,8 @@ class VulnerabilitySearchView(APIView):
             request.GET.get("sort", "published_at:desc")
         )
 
-        filters = []
+        # Base filter mandatory for public queries
+        filters = ["is_hidden = false"]
         
         if ecosystems:
             escaped_eco = [f"'{escape_filter_val(v)}'" for v in ecosystems]
@@ -304,7 +306,7 @@ class VulnerabilitySearchView(APIView):
         elif end_ts is not None:
             filters.append(f"published_at <= {end_ts}")
 
-        filter_expression = " AND ".join(filters) if filters else None
+        filter_expression = " AND ".join(filters)
 
         try:
             client = get_meilisearch_client()
@@ -314,9 +316,8 @@ class VulnerabilitySearchView(APIView):
                 "page": page,
                 "hitsPerPage": limit,
                 "sort": [sort_param],
+                "filter": filter_expression,  # Always includes 'is_hidden = false'
             }
-            if filter_expression:
-                search_params["filter"] = filter_expression
 
             raw_results = index.search(query, search_params)
 

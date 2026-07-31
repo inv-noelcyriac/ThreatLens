@@ -47,7 +47,7 @@ class Command(BaseCommand):
         # NVD Ingestion: Daily at 10:00 AM IST
         scheduler.add_job(
             run_nvd_ingestion,
-            trigger=CronTrigger(hour=10, minute=7, timezone=IST),
+            trigger=CronTrigger(hour=10, minute=00, timezone=IST),
             id="run_nvd_ingestion",
             replace_existing=True,
         )
@@ -55,7 +55,7 @@ class Command(BaseCommand):
         # GHSA Ingestion: Daily at 10:30 AM IST
         scheduler.add_job(
             run_ghsa_ingestion,
-            trigger=CronTrigger(hour=10, minute=10, timezone=IST),
+            trigger=CronTrigger(hour=10, minute=5, timezone=IST),
             id="run_ghsa_ingestion",
             replace_existing=True,
         )
@@ -63,7 +63,7 @@ class Command(BaseCommand):
         # OSV Ingestion: Daily at 11:00 AM IST
         scheduler.add_job(
             run_osv_ingestion,
-            trigger=CronTrigger(hour=10, minute=15, timezone=IST),
+            trigger=CronTrigger(hour=10, minute=10, timezone=IST),
             id="run_osv_ingestion",
             replace_existing=True,
         )
@@ -71,7 +71,7 @@ class Command(BaseCommand):
         # AWS Ingestion: Daily at 11:30 AM IST
         scheduler.add_job(
             run_aws_ingestion,
-            trigger=CronTrigger(hour=10, minute=20, timezone=IST),
+            trigger=CronTrigger(hour=10, minute=15, timezone=IST),
             id="run_aws_ingestion",
             replace_existing=True,
         )
@@ -79,7 +79,7 @@ class Command(BaseCommand):
         # Docker Ingestion: Daily at 12:00 PM IST
         scheduler.add_job(
             run_docker_ingestion,
-            trigger=CronTrigger(hour=10, minute=25, timezone=IST),
+            trigger=CronTrigger(hour=10, minute=20, timezone=IST),
             id="run_docker_ingestion",
             replace_existing=True,
         )

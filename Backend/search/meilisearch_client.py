@@ -47,6 +47,7 @@ def configure_vulnerabilities_index():
         "filter_ecosystems",
         "filter_comp_matrix",
         "published_at",
+        "is_hidden"
     ])
 
     # 3. Sortable Attributes

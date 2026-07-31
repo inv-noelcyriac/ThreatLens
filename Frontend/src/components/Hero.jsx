@@ -45,7 +45,7 @@ export default function Hero({ totalCount }) {
           className="text-base leading-[1.75] max-w-[560px] font-normal transition-colors duration-300"
           style={{ color: 'var(--text-secondary)' }}
         >
-          Search across CVEs, ecosystems, and advisories. Filter by severity, sort by date or CVSS score. Click any card to inspect details.
+          Search across CVEs, ecosystems, and advisories. Filter by severity, sort by date. Click any card to inspect details.
         </p>
       </div>
     </section>

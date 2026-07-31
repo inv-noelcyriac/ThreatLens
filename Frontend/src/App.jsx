@@ -48,6 +48,7 @@ export default function App() {
   // API Data State
   const [vulnerabilities, setVulnerabilities] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [globalTotalCount, setGlobalTotalCount] = useState(226711);
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
@@ -97,6 +98,9 @@ export default function App() {
         if (!isMounted) return;
         setVulnerabilities(res.results);
         setTotalCount(res.count);
+        if (!activeQuery && !activeEcosystem && !activeTechName && !activeStartDate && !activeEndDate && selectedSeverities.length === 0 && res.count > 0) {
+          setGlobalTotalCount(res.count);
+        }
       })
       .catch((err) => {
         if (!isMounted) return;
@@ -289,16 +293,19 @@ export default function App() {
     setTimeout(() => html.classList.remove('theme-transitioning'), 400);
   };
 
-  // Automatically redirect authenticated admins away from /admin login page
+  // Automatically redirect authenticated admins away from /admin/login, or redirect /admin / /admin/ to '/'
   useEffect(() => {
-    if (isAdmin && (currentPath === '/admin' || currentPath === '/admin/' || currentPath === '/admin/login')) {
+    if (isAdmin && currentPath === '/admin/login') {
+      window.history.replaceState({}, '', '/');
+      setCurrentPath('/');
+    } else if (currentPath === '/admin' || currentPath === '/admin/') {
       window.history.replaceState({}, '', '/');
       setCurrentPath('/');
     }
   }, [isAdmin, currentPath]);
 
-  // Route 1: Admin Login Endpoint (/admin/login or /admin)
-  if (currentPath === '/admin/login' || currentPath === '/admin' || currentPath === '/admin/') {
+  // Route 1: Admin Login Endpoint (ONLY /admin/login works)
+  if (currentPath === '/admin/login') {
     if (isAdmin) return null;
 
     return (
@@ -328,7 +335,7 @@ export default function App() {
       />
 
       <main className="flex-1 pb-12" style={{ background: 'var(--main-bg, transparent)' }}>
-        <Hero totalCount={totalCount} />
+        <Hero totalCount={globalTotalCount} />
 
         <div className="max-w-[1200px] mx-auto pt-4 flex flex-col gap-3.5">
           <SearchBar

@@ -102,8 +102,6 @@ export default function SearchBar({
   onClearFilters,
   ecosystemOptions = DEFAULT_ECOSYSTEM_OPTIONS,
   techNameOptions = DEFAULT_TECH_NAME_OPTIONS,
-  onAddEcosystemOption,
-  onAddTechNameOption,
 }) {
   const [showFilters, setShowFilters] = useState(false);
   const [showEcoMenu, setShowEcoMenu] = useState(false);
@@ -330,29 +328,6 @@ export default function SearchBar({
                       {ecosystem === opt && <CheckIcon />}
                     </button>
                   ))}
-
-                  {/* Add Custom Ecosystem Option */}
-                  {ecosystem.trim() && !isEcoExactMatch && (
-                    <button
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        const val = ecosystem.trim();
-                        if (onAddEcosystemOption) onAddEcosystemOption(val);
-                        onEcosystemChange(val);
-                        setShowEcoMenu(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-xs font-semibold cursor-pointer border-t flex items-center gap-1.5 transition-colors"
-                      style={{
-                        borderColor: 'var(--border-card)',
-                        color: 'var(--accent-blue)',
-                        background: 'var(--bg-badge)',
-                      }}
-                    >
-                      <PlusIcon />
-                      <span>Add "{ecosystem.trim()}" as option</span>
-                    </button>
-                  )}
                 </div>
               )}
             </div>
@@ -415,7 +390,7 @@ export default function SearchBar({
               </div>
 
               {/* Custom styled dark dropdown menu */}
-              {showTechMenu && (filteredTechOptions.length > 0 || (techName.trim() && !isTechExactMatch)) && (
+              {showTechMenu && filteredTechOptions.length > 0 && (
                 <div
                   className="absolute z-50 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto rounded-[8px] border py-1 shadow-lg transition-all duration-150"
                   style={{
@@ -451,29 +426,6 @@ export default function SearchBar({
                       {techName === opt && <CheckIcon />}
                     </button>
                   ))}
-
-                  {/* Add Custom Tech Option */}
-                  {techName.trim() && !isTechExactMatch && (
-                    <button
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        const val = techName.trim();
-                        if (onAddTechNameOption) onAddTechNameOption(val);
-                        onTechNameChange(val);
-                        setShowTechMenu(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-xs font-semibold cursor-pointer border-t flex items-center gap-1.5 transition-colors"
-                      style={{
-                        borderColor: 'var(--border-card)',
-                        color: 'var(--accent-blue)',
-                        background: 'var(--bg-badge)',
-                      }}
-                    >
-                      <PlusIcon />
-                      <span>Add "{techName.trim()}" as option</span>
-                    </button>
-                  )}
                 </div>
               )}
             </div>

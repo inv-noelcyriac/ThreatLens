@@ -37,15 +37,9 @@ export default function App() {
   });
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
 
-  // Dynamic Dropdown Options State
-  const [ecosystemOptions, setEcosystemOptions] = useState(() => {
-    const saved = localStorage.getItem('threatlens-eco-options');
-    return saved ? JSON.parse(saved) : DEFAULT_ECOSYSTEM_OPTIONS;
-  });
-  const [techNameOptions, setTechNameOptions] = useState(() => {
-    const saved = localStorage.getItem('threatlens-tech-options');
-    return saved ? JSON.parse(saved) : DEFAULT_TECH_NAME_OPTIONS;
-  });
+  // Dropdown Options State
+  const ecosystemOptions = DEFAULT_ECOSYSTEM_OPTIONS;
+  const techNameOptions = DEFAULT_TECH_NAME_OPTIONS;
 
   // Vuln Form Modal State (Add / Edit)
   const [vulnModalOpen, setVulnModalOpen] = useState(false);
@@ -79,14 +73,7 @@ export default function App() {
     return () => { document.body.style.overflow = ''; };
   }, [selectedVuln, vulnModalOpen]);
 
-  // Persist dynamic options
-  useEffect(() => {
-    localStorage.setItem('threatlens-eco-options', JSON.stringify(ecosystemOptions));
-  }, [ecosystemOptions]);
 
-  useEffect(() => {
-    localStorage.setItem('threatlens-tech-options', JSON.stringify(techNameOptions));
-  }, [techNameOptions]);
 
   // API 1: Fetch list with query parameters
   useEffect(() => {
@@ -198,22 +185,7 @@ export default function App() {
     setCurrentPage(1);
   };
 
-  // Add custom ecosystem / tech name options dynamically
-  const handleAddEcosystemOption = (newOpt) => {
-    if (!newOpt) return;
-    setEcosystemOptions((prev) => {
-      if (prev.some((item) => item.toLowerCase() === newOpt.toLowerCase())) return prev;
-      return [...prev, newOpt];
-    });
-  };
 
-  const handleAddTechNameOption = (newOpt) => {
-    if (!newOpt) return;
-    setTechNameOptions((prev) => {
-      if (prev.some((item) => item.toLowerCase() === newOpt.toLowerCase())) return prev;
-      return [...prev, newOpt];
-    });
-  };
 
   // Add / Edit handlers
   const handleOpenAddModal = () => {
@@ -353,8 +325,6 @@ export default function App() {
             onClearFilters={handleClearFilters}
             ecosystemOptions={ecosystemOptions}
             techNameOptions={techNameOptions}
-            onAddEcosystemOption={handleAddEcosystemOption}
-            onAddTechNameOption={handleAddTechNameOption}
           />
 
           <div className="px-6">

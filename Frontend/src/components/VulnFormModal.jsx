@@ -45,11 +45,8 @@ export default function VulnFormModal({
   onClose,
   onSave,
   vulnToEdit = null,
-  initialData = null,
   ecosystemOptions = [],
   techNameOptions = [],
-  onAddEcosystemOption,
-  onAddTechNameOption,
 }) {
   const targetData = vulnToEdit || initialData;
   const isEdit = Boolean(targetData && (targetData.id || targetData.display_id || targetData.uuid));
@@ -368,29 +365,6 @@ export default function VulnFormModal({
                       {ecosystem === opt && <CheckIcon />}
                     </button>
                   ))}
-
-                  {/* Add Custom Option Action */}
-                  {ecosystem.trim() && !isEcoExactMatch && (
-                    <button
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        const newOpt = ecosystem.trim();
-                        if (onAddEcosystemOption) onAddEcosystemOption(newOpt);
-                        setEcosystem(newOpt);
-                        setShowEcoMenu(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-xs font-semibold cursor-pointer border-t flex items-center gap-1.5 transition-colors"
-                      style={{
-                        borderColor: 'var(--border-card)',
-                        color: 'var(--accent-blue)',
-                        background: 'var(--bg-badge)',
-                      }}
-                    >
-                      <PlusIcon />
-                      <span>Add "{ecosystem.trim()}" as option</span>
-                    </button>
-                  )}
                 </div>
               )}
             </div>
@@ -454,29 +428,6 @@ export default function VulnFormModal({
                       {techName === opt && <CheckIcon />}
                     </button>
                   ))}
-
-                  {/* Add Custom Tech Option Action */}
-                  {techName.trim() && !isTechExactMatch && (
-                    <button
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        const newOpt = techName.trim();
-                        if (onAddTechNameOption) onAddTechNameOption(newOpt);
-                        setTechName(newOpt);
-                        setShowTechMenu(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-xs font-semibold cursor-pointer border-t flex items-center gap-1.5 transition-colors"
-                      style={{
-                        borderColor: 'var(--border-card)',
-                        color: 'var(--accent-blue)',
-                        background: 'var(--bg-badge)',
-                      }}
-                    >
-                      <PlusIcon />
-                      <span>Add "{techName.trim()}" as option</span>
-                    </button>
-                  )}
                 </div>
               )}
             </div>

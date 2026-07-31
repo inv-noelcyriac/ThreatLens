@@ -105,6 +105,10 @@ class MasterVulnerability(models.Model):
     severity = models.CharField(max_length=35, default='UNKNOWN')
     published_at = models.DateTimeField(db_index=True)
     meilisearch_synced = models.BooleanField(default=False)
+    is_hidden = models.BooleanField(
+        default=False, 
+        help_text="If checked, this vulnerability will be hidden from the public API."
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -144,7 +148,7 @@ class VulnerabilityTag(models.Model):
         ]
 
 
-# ------ TABLE 4 ------
+# ------ TABLE 5 ------
 
 class VulnerabilityReference(models.Model):
     """Table 4: vulnerability_references"""
@@ -161,3 +165,24 @@ class VulnerabilityReference(models.Model):
         db_table = 'vulnerability_references'
         # Ensures duplicate reference links are filtered at SQL engine level
         unique_together = (('master_vuln', 'url'),)
+
+
+
+#--------- TABLE 4 ----------------
+
+class ManualRemediation(models.Model):
+    master_vuln = models.ForeignKey(
+        'ingestion.MasterVulnerability',  # Adjust path if in another app
+        on_delete=models.CASCADE,
+        related_name='remediations'
+    )
+    author_name = models.CharField(max_length=100)
+    guidance_text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'manual_remediations'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Note by {self.author_name} on {self.master_vuln.display_id}"

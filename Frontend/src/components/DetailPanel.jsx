@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchVulnerabilityById } from '../services/api';
+import {
+  fetchVulnerabilityById,
+  fetchManualGuidance,
+  createManualGuidance,
+  updateManualGuidance,
+  deleteManualGuidance,
+} from '../services/api';
 import CustomDatePicker from './CustomDatePicker';
 
 /* ─── Icons ─── */
@@ -55,10 +61,10 @@ const TrashIcon = () => (
 );
 
 /* ─── Sub-components ─── */
-function SeverityBadge({ severity, cvss }) {
+function SeverityBadge({ severity }) {
   return (
-    <span className={`badge-${severity.toLowerCase()} text-[0.75rem] font-bold tracking-[0.05em] px-3 py-1 rounded-[6px] uppercase`}>
-      {severity} {cvss}
+    <span className={`badge-${(severity || '').toLowerCase()} text-[0.75rem] font-bold tracking-[0.05em] px-3 py-1 rounded-[6px] uppercase`}>
+      {severity}
     </span>
   );
 }
@@ -332,6 +338,8 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
   const [fixes, setFixes] = useState([]);
   const [prevId, setPrevId] = useState(null);
   const [isClosing, setIsClosing] = useState(false);
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
+  const [isFixExpanded, setIsFixExpanded] = useState(false);
 
   // Inline Edit Mode State
   const [isEditing, setIsEditing] = useState(false);
@@ -474,8 +482,49 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
         if (isMounted) setLoadingDetail(false);
       });
 
+    // Fetch manual guidance (comments) for this vulnerability
+    fetchManualGuidance(displayId)
+      .then((remediations) => {
+        if (isMounted && remediations) {
+          setFixes(remediations);
+        }
+      })
+      .catch((err) => {
+        console.error('Manual guidance fetch error:', err);
+      });
+
     return () => { isMounted = false; };
   }, [displayId, vuln?.isNew]);
+
+  const handleAddFix = async (newFix) => {
+    const targetDisplayId = (detailData || vuln)?.display_id || displayId;
+    if (targetDisplayId && !vuln?.isNew) {
+      const created = await createManualGuidance(targetDisplayId, newFix);
+      if (created) {
+        setFixes((prev) => [created, ...prev]);
+        return;
+      }
+    }
+    setFixes((prev) => [{ ...newFix, id: `local-${Date.now()}` }, ...prev]);
+  };
+
+  const handleEditFix = async (index, newDescription) => {
+    const targetFix = fixes[index];
+    if (targetFix && targetFix.id && !String(targetFix.id).startsWith('local-')) {
+      await updateManualGuidance(targetFix.id, newDescription);
+    }
+    setFixes((prev) =>
+      prev.map((f, i) => (i === index ? { ...f, description: newDescription } : f))
+    );
+  };
+
+  const handleDeleteFix = async (index) => {
+    const targetFix = fixes[index];
+    if (targetFix && targetFix.id && !String(targetFix.id).startsWith('local-')) {
+      await deleteManualGuidance(targetFix.id);
+    }
+    setFixes((prev) => prev.filter((_, i) => i !== index));
+  };
 
   // Sync edit form fields when entering edit mode or when data changes
   const startEditing = () => {
@@ -572,6 +621,8 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
       setDetailData(vuln);
       setFixes([]);
       setPrevId(vuln.id);
+      setIsDescExpanded(false);
+      setIsFixExpanded(false);
       if (vuln.isNew) {
         setEditCveId(vuln.display_id || vuln.id || '');
         setEditTitle(vuln.title || '');
@@ -828,17 +879,22 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
                 {formErrors.title && <span className="text-[0.72rem] text-red-500 font-semibold mt-0.5">{formErrors.title}</span>}
               </div>
             ) : (
-              <h2
-                className="text-[1.6rem] font-semibold leading-[1.2] tracking-[-0.02em] mb-2.5 transition-colors duration-300 break-words line-clamp-3"
-                style={{ color: 'var(--text-heading)' }}
-                title={current.title}
-              >
-                {current.title}
-              </h2>
+              <div>
+                <div className="flex items-center gap-3.5 mb-3 flex-wrap">
+                  <h2
+                    className="text-[1.45rem] font-bold leading-tight tracking-[-0.01em] transition-colors duration-300 break-all"
+                    style={{ color: 'var(--text-heading)', fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace" }}
+                    title={current.id}
+                  >
+                    {current.id}
+                  </h2>
+                  <SeverityBadge severity={current.severity} cvss={current.cvss} />
+                </div>
+              </div>
             )}
 
-            <div className={`flex items-center gap-2.5 flex-wrap min-w-0 transition-all ${isEditing ? 'px-3.5 mb-2' : ''}`}>
-              {isEditing ? (
+            {isEditing && (
+              <div className="flex items-center gap-2.5 flex-wrap min-w-0 transition-all px-3.5 mb-2">
                 <div className="flex items-center gap-2 min-w-[200px]">
                   <span className="text-[0.68rem] font-bold tracking-[0.05em] uppercase" style={{ color: 'var(--text-muted)' }}>CVE ID</span>
                   <input
@@ -855,15 +911,8 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
                     onMouseLeave={handleEditableMouseLeave}
                   />
                 </div>
-              ) : (
-                <span className="text-[0.875rem] font-semibold truncate max-w-[280px]" style={{ color: 'var(--text-secondary)', fontFamily: "'SF Mono','Fira Code',monospace" }} title={current.id}>
-                  {current.id}
-                </span>
-              )}
-              {!isEditing && (
-                <SeverityBadge severity={current.severity} cvss={current.cvss} />
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Meta grid (Severity, CVSS, Ecosystem, Tech Name, Status, Published) */}
@@ -1020,8 +1069,8 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-[22px]">
-              {[{ label: 'PUBLISHED', value: current.published }, { label: 'LAST UPDATED', value: current.lastUpdated }, { label: 'STATUS', value: current.status }, { label: current.cvssVersion || 'CVSS V3.1', value: current.cvss }].map(({ label, value }) => (
+            <div className="flex items-center gap-10 sm:gap-14 mb-[22px] py-1">
+              {[{ label: 'PUBLISHED', value: current.published }, { label: current.cvssVersion || 'CVSS V3.1', value: current.cvss }].map(({ label, value }) => (
                 <div key={label} className="flex flex-col gap-1 min-w-0">
                   <span className="text-[0.7rem] font-bold tracking-[0.06em] uppercase truncate" style={{ color: 'var(--text-muted)' }}>{label}</span>
                   <span className="text-[0.9375rem] font-semibold transition-colors duration-300 truncate" style={{ color: 'var(--text-primary)' }} title={String(value ?? '')}>{value ?? 'N/A'}</span>
@@ -1068,7 +1117,30 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
                 {formErrors.description && <span className="text-[0.72rem] text-red-500 font-semibold">{formErrors.description}</span>}
               </div>
             ) : (
-              <p className="text-[0.9375rem] leading-[1.7] transition-colors duration-300 break-words" style={{ color: 'var(--text-secondary)' }}>{current.description}</p>
+              <div>
+                <p
+                  className="text-[0.9375rem] leading-[1.7] transition-colors duration-300 break-words whitespace-pre-wrap"
+                  style={{
+                    color: 'var(--text-secondary)',
+                    display: '-webkit-box',
+                    WebkitBoxOrient: 'vertical',
+                    WebkitLineClamp: isDescExpanded ? 'unset' : ((current.description && current.description.length > 220) ? 3 : 'unset'),
+                    overflow: isDescExpanded ? 'visible' : ((current.description && current.description.length > 220) ? 'hidden' : 'visible'),
+                  }}
+                >
+                  {current.description}
+                </p>
+                {current.description && current.description.length > 220 && (
+                  <button
+                    onClick={() => setIsDescExpanded((v) => !v)}
+                    className="mt-1 text-[0.8rem] font-semibold bg-transparent border-0 cursor-pointer px-0 py-0 transition-opacity duration-150 hover:opacity-80 flex items-center gap-1"
+                    style={{ color: 'var(--accent-blue)' }}
+                  >
+                    <span>{isDescExpanded ? 'Show less' : 'Read more'}</span>
+                    <span className="text-[0.75rem]">{isDescExpanded ? '▲' : '▼'}</span>
+                  </button>
+                )}
+              </div>
             )}
           </section>
 
@@ -1100,21 +1172,56 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
               />
             ) : current.remediation ? (
               <div
-                className="flex items-center gap-3 px-4 py-3.5 rounded-[12px] border-[1.5px] transition-colors duration-300 min-w-0"
+                className="flex flex-col gap-2.5 px-4 py-3.5 rounded-[12px] border-[1.5px] transition-colors duration-300 min-w-0"
                 style={{
                   background: 'var(--fix-card-bg)',
                   borderColor: 'var(--fix-card-border)',
                 }}
               >
-                <span
-                  className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
-                  style={{ background: 'var(--fix-icon-bg)', color: 'var(--fix-icon-color)' }}
-                >
-                  <ShieldCheckIcon />
-                </span>
-                <p className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300 break-words flex-1 min-w-0" style={{ color: 'var(--fix-text-color)' }}>
-                  {current.remediation}
-                </p>
+                <div className="flex items-start gap-3 min-w-0">
+                  <span
+                    className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-0.5"
+                    style={{ background: 'var(--fix-icon-bg)', color: 'var(--fix-icon-color)' }}
+                  >
+                    <ShieldCheckIcon />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    {!isFixExpanded ? (
+                      <p
+                        className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300 break-words line-clamp-3"
+                        style={{ color: 'var(--fix-text-color)' }}
+                      >
+                        {current.remediation}
+                      </p>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {current.remediation.includes(';') ? (
+                          <ul className="list-disc list-inside flex flex-col gap-1.5 text-[0.88rem] font-semibold leading-[1.6]" style={{ color: 'var(--fix-text-color)' }}>
+                            {current.remediation.split(';').map((item, idx) => {
+                              const trimmed = item.trim();
+                              if (!trimmed) return null;
+                              return <li key={idx} className="break-words">{trimmed}</li>;
+                            })}
+                          </ul>
+                        ) : (
+                          <p className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300 break-words" style={{ color: 'var(--fix-text-color)' }}>
+                            {current.remediation}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {current.remediation && (current.remediation.length > 180 || current.remediation.includes(';')) && (
+                      <button
+                        onClick={() => setIsFixExpanded((v) => !v)}
+                        className="mt-2 text-[0.8rem] font-bold bg-transparent border-0 cursor-pointer px-0 py-0 transition-opacity duration-150 hover:opacity-80 flex items-center gap-1"
+                        style={{ color: 'var(--fix-icon-color)' }}
+                      >
+                        <span>{isFixExpanded ? 'Show less' : 'Read more'}</span>
+                        <span className="text-[0.75rem]">{isFixExpanded ? '▲' : '▼'}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             ) : (
               <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>No official fix recorded yet.</p>
@@ -1337,9 +1444,9 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
               <hr className="border-t mb-5 transition-colors duration-300" style={{ borderColor: 'var(--border-color)' }} />
               <FixThread
                 fixes={fixes}
-                onAddFix={(fix) => setFixes((prev) => [...prev, fix])}
-                onEditFix={(i, newDesc) => setFixes((prev) => prev.map((f, idx) => idx === i ? { ...f, description: newDesc } : f))}
-                onDeleteFix={(i) => setFixes((prev) => prev.filter((_, idx) => idx !== i))}
+                onAddFix={handleAddFix}
+                onEditFix={handleEditFix}
+                onDeleteFix={handleDeleteFix}
               />
             </>
           )}

@@ -284,7 +284,6 @@ export default function App() {
 
   const handleCardsPerPageChange = (newLimit) => {
     setCardsPerPage(newLimit);
-    setCurrentPage(1);
   };
 
   const handleToggleTheme = () => {

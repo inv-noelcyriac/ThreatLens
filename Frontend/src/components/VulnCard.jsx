@@ -122,25 +122,28 @@ function CardView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
         </span>
       </div>
 
-      {/* Title + CVE ID */}
+      {/* CVE ID Heading + Description */}
       <div className="mb-2" style={{ minHeight: '3.8rem' }}>
         <h2
-          className="text-[0.9875rem] leading-snug mb-0.5 transition-colors duration-150 line-clamp-2"
-          style={{ color: 'var(--text-heading)', fontWeight: 500 }}
-          title={vuln.title}
-        >
-          <HighlightText text={vuln.title || 'Security Advisory'} query={activeQuery} />
-        </h2>
-        <p
-          className="text-[0.75rem] truncate"
+          className="text-[1.05rem] leading-snug mb-1 transition-colors duration-150 truncate"
           style={{
-            color: 'var(--text-muted)',
+            color: 'var(--text-heading)',
+            fontWeight: 700,
             fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace",
-            fontWeight: 400,
           }}
           title={vuln.id}
         >
           <HighlightText text={vuln.id || 'N/A'} query={activeQuery} />
+        </h2>
+        <p
+          className="text-[0.8rem] leading-snug line-clamp-2"
+          style={{
+            color: 'var(--text-secondary)',
+            fontWeight: 400,
+          }}
+          title={vuln.description || vuln.title}
+        >
+          <HighlightText text={vuln.description || vuln.title || 'Security Advisory'} query={activeQuery} />
         </p>
       </div>
 
@@ -252,18 +255,16 @@ function ListView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
       aria-label={`View details for ${vuln.title || 'Vulnerability'}`}
     >
       <SeverityBadge severity={severityKey} cvss={vuln.cvss ?? 'N/A'} />
-      <span
-        className="text-[0.78rem] font-semibold tracking-[0.01em] w-[148px] flex-shrink-0 hidden sm:block truncate"
-        style={{ color: 'var(--text-muted)', fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace" }}
-        title={vuln.id}
-      >
-        <HighlightText text={vuln.id || 'N/A'} query={activeQuery} />
-      </span>
-      <h2 className="flex-1 text-[0.9rem] font-medium leading-snug min-w-0" style={{ color: 'var(--text-primary)' }}>
-        <span className="block truncate" title={vuln.title}>
-          <HighlightText text={vuln.title || 'Security Advisory'} query={activeQuery} />
+      <h2 className="w-[180px] flex-shrink-0 hidden sm:block truncate text-[0.88rem] font-bold" style={{ color: 'var(--text-heading)', fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace" }}>
+        <span className="block truncate" title={vuln.id}>
+          <HighlightText text={vuln.id || 'N/A'} query={activeQuery} />
         </span>
       </h2>
+      <div className="flex-1 min-w-0">
+        <p className="text-[0.88rem] font-medium leading-snug truncate" style={{ color: 'var(--text-secondary)' }} title={vuln.description || vuln.title}>
+          <HighlightText text={vuln.description || vuln.title || 'Security Advisory'} query={activeQuery} />
+        </p>
+      </div>
       <span
         className="text-[0.8rem] font-medium flex-shrink-0 hidden md:block px-2.5 py-1 rounded-[5px] border max-w-[140px] truncate"
         style={{ color: 'var(--text-secondary)', background: 'var(--bg-badge)', borderColor: 'var(--border-card)' }}

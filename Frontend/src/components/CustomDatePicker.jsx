@@ -214,6 +214,9 @@ export default function CustomDatePicker({
   const isDashed = style && style.borderStyle === 'dashed';
 
   const defaultInputStyle = {
+    width: '100%',
+    minWidth: 0,
+    boxSizing: 'border-box',
     height: '36px',
     borderWidth: '1.5px',
     borderStyle: 'solid',
@@ -229,8 +232,15 @@ export default function CustomDatePicker({
     ...(hasError ? { borderColor: '#ef4444' } : {}),
   };
 
+const XIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
   return (
-    <div ref={containerRef} className="relative w-full">
+    <div ref={containerRef} className="relative w-full flex-1 min-w-0">
       <div className="relative flex items-center w-full">
         <input
           id={id}
@@ -243,9 +253,25 @@ export default function CustomDatePicker({
           onMouseEnter={onMouseEnter}
           onMouseLeave={onMouseLeave}
           placeholder={placeholder}
-          className={`w-full px-3 pr-9 text-[0.825rem] font-semibold outline-none cursor-pointer transition-all ${inputClassName}`}
+          className={`w-full px-3 pr-[64px] text-[0.825rem] font-semibold outline-none cursor-pointer transition-all ${inputClassName}`}
           style={mergedInputStyle}
         />
+        {value && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleClear();
+            }}
+            className="absolute right-[40px] top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-[18px] h-[18px] rounded-full cursor-pointer transition-all duration-150 hover:scale-110"
+            style={{ color: 'var(--text-muted)', background: 'var(--bg-badge)' }}
+            title="Clear date filter"
+            aria-label="Clear date filter"
+          >
+            <XIcon />
+          </button>
+        )}
         <button
           type="button"
           tabIndex={-1}

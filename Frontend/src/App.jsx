@@ -160,6 +160,30 @@ export default function App() {
     setCurrentPage(1);
   };
 
+  const handleClearEcosystem = () => {
+    setEcosystem('');
+    setActiveEcosystem('');
+    setCurrentPage(1);
+  };
+
+  const handleClearTechName = () => {
+    setTechName('');
+    setActiveTechName('');
+    setCurrentPage(1);
+  };
+
+  const handleClearStartDate = () => {
+    setStartDate('');
+    setActiveStartDate('');
+    setCurrentPage(1);
+  };
+
+  const handleClearEndDate = () => {
+    setEndDate('');
+    setActiveEndDate('');
+    setCurrentPage(1);
+  };
+
   const handleToggleSeverity = (sev) => {
     setSelectedSeverities((prev) => {
       if (prev.includes(sev)) {
@@ -323,6 +347,10 @@ export default function App() {
             selectedSeverities={selectedSeverities}
             onToggleSeverity={handleToggleSeverity}
             onClearFilters={handleClearFilters}
+            onClearEcosystem={handleClearEcosystem}
+            onClearTechName={handleClearTechName}
+            onClearStartDate={handleClearStartDate}
+            onClearEndDate={handleClearEndDate}
             ecosystemOptions={ecosystemOptions}
             techNameOptions={techNameOptions}
           />

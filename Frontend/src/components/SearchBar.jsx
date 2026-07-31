@@ -100,6 +100,10 @@ export default function SearchBar({
   selectedSeverities,
   onToggleSeverity,
   onClearFilters,
+  onClearEcosystem,
+  onClearTechName,
+  onClearStartDate,
+  onClearEndDate,
   ecosystemOptions = DEFAULT_ECOSYSTEM_OPTIONS,
   techNameOptions = DEFAULT_TECH_NAME_OPTIONS,
 }) {
@@ -266,7 +270,8 @@ export default function SearchBar({
                     type="button"
                     onMouseDown={(e) => {
                       e.preventDefault();
-                      onEcosystemChange('');
+                      if (onClearEcosystem) onClearEcosystem();
+                      else onEcosystemChange('');
                       setShowEcoMenu(false);
                     }}
                     className="absolute right-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 rounded-full cursor-pointer transition-all duration-150 hover:scale-110"
@@ -364,7 +369,8 @@ export default function SearchBar({
                     type="button"
                     onMouseDown={(e) => {
                       e.preventDefault();
-                      onTechNameChange('');
+                      if (onClearTechName) onClearTechName();
+                      else onTechNameChange('');
                       setShowTechMenu(false);
                     }}
                     className="absolute right-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 rounded-full cursor-pointer transition-all duration-150 hover:scale-110"
@@ -443,44 +449,58 @@ export default function SearchBar({
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-              <div className="flex items-center gap-2">
-                <label htmlFor="start-date-input" className="text-[0.775rem] font-medium whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center w-full min-w-0">
+              <div className="flex items-center gap-2 w-full min-w-0">
+                <label htmlFor="start-date-input" className="text-[0.775rem] font-medium whitespace-nowrap shrink-0" style={{ color: 'var(--text-secondary)' }}>
                   From:
                 </label>
-                <CustomDatePicker
-                  id="start-date-input"
-                  value={startDate}
-                  onChange={(val) => {
-                    onStartDateChange(val);
-                    if (val && endDate && toDateNum(val) > toDateNum(endDate)) {
-                      onEndDateChange(val);
-                    }
-                  }}
-                  maxDate={endDate || `${String(new Date().getDate()).padStart(2, '0')}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date().getFullYear()}`}
-                  disableFuture={true}
-                  placeholder="DD-MM-YYYY"
-                />
+                <div className="flex-1 min-w-0 w-full">
+                  <CustomDatePicker
+                    id="start-date-input"
+                    value={startDate}
+                    onChange={(val) => {
+                      if (!val) {
+                        if (onClearStartDate) onClearStartDate();
+                        else onStartDateChange('');
+                      } else {
+                        onStartDateChange(val);
+                        if (endDate && toDateNum(val) > toDateNum(endDate)) {
+                          onEndDateChange(val);
+                        }
+                      }
+                    }}
+                    maxDate={endDate || `${String(new Date().getDate()).padStart(2, '0')}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date().getFullYear()}`}
+                    disableFuture={true}
+                    placeholder="DD-MM-YYYY"
+                  />
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <label htmlFor="end-date-input" className="text-[0.775rem] font-medium whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
+              <div className="flex items-center gap-2 w-full min-w-0">
+                <label htmlFor="end-date-input" className="text-[0.775rem] font-medium whitespace-nowrap shrink-0" style={{ color: 'var(--text-secondary)' }}>
                   To:
                 </label>
-                <CustomDatePicker
-                  id="end-date-input"
-                  value={endDate}
-                  onChange={(val) => {
-                    onEndDateChange(val);
-                    if (val && startDate && toDateNum(val) < toDateNum(startDate)) {
-                      onStartDateChange(val);
-                    }
-                  }}
-                  minDate={startDate}
-                  maxDate={`${String(new Date().getDate()).padStart(2, '0')}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date().getFullYear()}`}
-                  disableFuture={true}
-                  placeholder="DD-MM-YYYY"
-                />
+                <div className="flex-1 min-w-0 w-full">
+                  <CustomDatePicker
+                    id="end-date-input"
+                    value={endDate}
+                    onChange={(val) => {
+                      if (!val) {
+                        if (onClearEndDate) onClearEndDate();
+                        else onEndDateChange('');
+                      } else {
+                        onEndDateChange(val);
+                        if (startDate && toDateNum(val) < toDateNum(startDate)) {
+                          onStartDateChange(val);
+                        }
+                      }
+                    }}
+                    minDate={startDate}
+                    maxDate={`${String(new Date().getDate()).padStart(2, '0')}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date().getFullYear()}`}
+                    disableFuture={true}
+                    placeholder="DD-MM-YYYY"
+                  />
+                </div>
               </div>
             </div>
           </div>

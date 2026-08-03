@@ -1,18 +1,42 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
 
-/** Helper to format ISO date string or raw date to 'DD MMM YYYY' */
+/** Helper to format ISO date string, YYYY-MM-DD, or DD-MM-YYYY to 'DD MMM YYYY' */
 export function formatDate(dateString) {
   if (!dateString) return 'N/A';
+  const trimmed = String(dateString).trim();
+
+  // Handle DD-MM-YYYY format e.g. "28-07-2026"
+  const ddmmyyyyMatch = trimmed.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (ddmmyyyyMatch) {
+    const [, day, month, year] = ddmmyyyyMatch;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const mIdx = parseInt(month, 10) - 1;
+    if (mIdx >= 0 && mIdx < 12) {
+      return `${day} ${months[mIdx]} ${year}`;
+    }
+  }
+
+  // Handle YYYY-MM-DD format e.g. "2026-07-28"
+  const yyyymmddMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (yyyymmddMatch) {
+    const [, year, month, day] = yyyymmddMatch;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const mIdx = parseInt(month, 10) - 1;
+    if (mIdx >= 0 && mIdx < 12) {
+      return `${day} ${months[mIdx]} ${year}`;
+    }
+  }
+
   try {
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return dateString;
+    const d = new Date(trimmed);
+    if (isNaN(d.getTime())) return trimmed;
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const day = String(d.getDate()).padStart(2, '0');
     const month = months[d.getMonth()];
     const year = d.getFullYear();
     return `${day} ${month} ${year}`;
   } catch (e) {
-    return dateString;
+    return trimmed;
   }
 }
 
@@ -26,7 +50,8 @@ export function deriveReferenceName(url) {
   if (url.includes('wordpress.org')) return 'WordPress Trac';
   if (url.includes('openwall.com')) return 'Openwall';
   if (url.includes('huntr.com')) return 'Huntr Bounty';
-  
+  if (url.includes('patchstack.com')) return 'Patchstack';
+
   try {
     const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
     return parsed.hostname.replace(/^www\./, '');
@@ -63,7 +88,7 @@ export function normalizeVulnerability(raw) {
   const rawDate = raw.published_at || raw.date || raw.published;
   const formattedDate = formatDate(rawDate);
 
-  // Normalize references: convert { id, url } or string to { id, name, url }
+  // Normalize references: convert string URL or { id, url } to { id, name, url }
   const normalizedRefs = (raw.references || []).map((ref, idx) => {
     if (typeof ref === 'string') {
       return { id: idx, name: deriveReferenceName(ref), url: ref };
@@ -81,18 +106,56 @@ export function normalizeVulnerability(raw) {
   // Extract source
   let primarySource = extractString(raw.source);
   if (!primarySource) {
-    primarySource = normalizedRefs.length > 0 ? normalizedRefs[0].name : 'NVD';
+    primarySource = normalizedRefs.length > 0 ? normalizedRefs[0].name : 'ThreatLens';
   }
 
-  // Derive ecosystem
-  let primaryEcosystem = extractString(raw.ecosystem);
+  // Extract tech names
+  const techNames = Array.isArray(raw.filter_tech_names) && raw.filter_tech_names.length > 0
+    ? raw.filter_tech_names.map(t => extractString(t))
+    : (raw.tech_name || raw.techName ? [extractString(raw.tech_name || raw.techName)] : []);
+  const primaryTechName = techNames.length > 0 ? techNames[0] : '';
+
+  // Derive primary ecosystem
+  let primaryEcosystem = Array.isArray(raw.filter_ecosystems) && raw.filter_ecosystems.length > 0
+    ? extractString(raw.filter_ecosystems[0])
+    : extractString(raw.ecosystem);
   if (!primaryEcosystem && raw.tags && raw.tags.length > 0) {
     primaryEcosystem = extractString(raw.tags[0], 'Security');
   }
   if (!primaryEcosystem) primaryEcosystem = 'Security';
 
-  // Normalize remediation (handles string, object with fixed_version, array of objects, etc.)
-  let remediationText = extractString(raw.remediation);
+  // Normalize description text
+  let descriptionText = '';
+  if (Array.isArray(raw.descriptions) && raw.descriptions.length > 0) {
+    descriptionText = raw.descriptions.map(d => extractString(d)).join('\n\n');
+  } else if (raw.description) {
+    descriptionText = extractString(raw.description);
+  }
+  if (!descriptionText) {
+    descriptionText = `Security advisory ${displayId} published on ${formattedDate}. Details and patch info available in reference links.`;
+  }
+
+  // Derive title text
+  let titleText = extractString(raw.title);
+  if (!titleText) {
+    if (raw.descriptions && raw.descriptions.length > 0) {
+      const firstDesc = extractString(raw.descriptions[0]);
+      if (firstDesc) {
+        titleText = firstDesc.length > 120 ? firstDesc.substring(0, 117) + '...' : firstDesc;
+      }
+    }
+  }
+  if (!titleText) {
+    titleText = primaryTechName ? `${primaryTechName} Security Advisory` : `${displayId} Security Advisory`;
+  }
+
+  // Normalize remediation text
+  let remediationText = '';
+  if (Array.isArray(raw.vendor_remediations) && raw.vendor_remediations.length > 0) {
+    remediationText = raw.vendor_remediations.map(r => extractString(r)).join('; ');
+  } else if (raw.remediation) {
+    remediationText = extractString(raw.remediation);
+  }
   if (!remediationText && raw.affected_components && Array.isArray(raw.affected_components) && raw.affected_components.length > 0) {
     const firstComp = raw.affected_components[0];
     if (typeof firstComp === 'object' && firstComp) {
@@ -107,34 +170,62 @@ export function normalizeVulnerability(raw) {
     remediationText = normalizedRefs.length > 0 ? `See official reference: ${normalizedRefs[0].name}` : 'Review vendor security bulletin';
   }
 
-  // Normalize affected components into array of safe objects
-  const rawComponents = raw.affectedComponents || raw.affected_components || [];
-  const affectedComponents = Array.isArray(rawComponents) && rawComponents.length > 0
-    ? rawComponents.map((comp) => {
-        if (typeof comp === 'string') {
-          return { component: comp, affectedVersions: 'All versions', instance: primaryEcosystem, status: 'VULNERABLE' };
+  // Parse affected components array
+  let affectedComponents = [];
+  if (Array.isArray(raw.vulnerable_components) && raw.vulnerable_components.length > 0) {
+    affectedComponents = raw.vulnerable_components.map((compStr) => {
+      if (typeof compStr === 'string') {
+        const parts = compStr.split(':');
+        if (parts.length >= 3) {
+          const compName = parts[0];
+          const vers = parts[parts.length - 1];
+          const inst = parts.slice(1, parts.length - 1).join(':');
+          return { component: compName, affectedVersions: vers, instance: inst || primaryEcosystem, status: 'VULNERABLE' };
         }
-        if (typeof comp === 'object' && comp) {
-          return {
-            component: extractString(comp.tech_name || comp.component || comp.name, displayId),
-            affectedVersions: extractString(comp.raw_version_expression || comp.affectedVersions || (comp.fixed_version ? `< ${comp.fixed_version}` : 'See advisory')),
-            instance: extractString(comp.ecosystem || comp.instance, primaryEcosystem),
-            status: extractString(comp.status, 'VULNERABLE'),
-          };
-        }
-        return { component: displayId, affectedVersions: 'See references', instance: primaryEcosystem, status: 'VULNERABLE' };
-      })
-    : [
-        {
-          component: displayId,
-          affectedVersions: 'See references',
-          instance: primaryEcosystem,
-          status: 'VULNERABLE',
-        },
-      ];
+        return { component: compStr, affectedVersions: 'See advisory', instance: primaryEcosystem, status: 'VULNERABLE' };
+      }
+      return { component: displayId, affectedVersions: 'See references', instance: primaryEcosystem, status: 'VULNERABLE' };
+    });
+  } else if (Array.isArray(raw.affectedComponents || raw.affected_components) && (raw.affectedComponents || raw.affected_components).length > 0) {
+    const rawComps = raw.affectedComponents || raw.affected_components;
+    affectedComponents = rawComps.map((comp) => {
+      if (typeof comp === 'string') {
+        return { component: comp, affectedVersions: 'All versions', instance: primaryEcosystem, status: 'VULNERABLE' };
+      }
+      if (typeof comp === 'object' && comp) {
+        return {
+          component: extractString(comp.tech_name || comp.component || comp.name, displayId),
+          affectedVersions: extractString(comp.raw_version_expression || comp.affectedVersions || (comp.fixed_version ? `< ${comp.fixed_version}` : 'See advisory')),
+          instance: extractString(comp.ecosystem || comp.instance, primaryEcosystem),
+          status: extractString(comp.status, 'VULNERABLE'),
+        };
+      }
+      return { component: displayId, affectedVersions: 'See references', instance: primaryEcosystem, status: 'VULNERABLE' };
+    });
+  } else {
+    affectedComponents = [
+      {
+        component: primaryTechName || displayId,
+        affectedVersions: 'See references',
+        instance: primaryEcosystem,
+        status: 'VULNERABLE',
+      },
+    ];
+  }
 
-  const titleText = extractString(raw.title, `${displayId} Security Advisory`);
   const severityText = extractString(raw.severity, 'MEDIUM').toUpperCase();
+  let cvssVal = 7.5;
+  if (typeof raw.cvss === 'number') {
+    cvssVal = raw.cvss;
+  } else if (typeof raw.cvss === 'string' && !isNaN(parseFloat(raw.cvss))) {
+    cvssVal = parseFloat(raw.cvss);
+  } else {
+    if (severityText === 'CRITICAL') cvssVal = 9.5;
+    else if (severityText === 'HIGH') cvssVal = 8.0;
+    else if (severityText === 'MEDIUM') cvssVal = 6.0;
+    else if (severityText === 'LOW') cvssVal = 3.5;
+    else if (severityText === 'UNKNOWN') cvssVal = 'N/A';
+  }
 
   return {
     id: displayId,
@@ -142,16 +233,17 @@ export function normalizeVulnerability(raw) {
     display_id: displayId,
     title: titleText,
     severity: severityText,
-    cvss: typeof raw.cvss === 'number' ? raw.cvss : parseFloat(raw.cvss) || 7.5,
+    cvss: cvssVal,
     cvssVersion: extractString(raw.cvssVersion, 'CVSS V3.1'),
     remediation: remediationText,
     ecosystem: primaryEcosystem,
+    tech_name: primaryTechName,
     source: primarySource,
     date: formattedDate,
     published: formattedDate,
     lastUpdated: raw.lastUpdated ? formatDate(raw.lastUpdated) : formattedDate,
     status: extractString(raw.status, 'OPEN'),
-    description: extractString(raw.description, `Security advisory ${displayId} published on ${formattedDate}. Details and patch info available in reference links.`),
+    description: descriptionText,
     affectedComponents,
     references: normalizedRefs,
     tags: Array.isArray(raw.tags) ? raw.tags.map(t => extractString(t)) : [],
@@ -168,8 +260,9 @@ function toISO(dateStr) {
 }
 
 /**
- * API 1: Fetch vulnerability list / search with query parameters
- * GET /api/v1/vulnerabilities/?severity=...&ecosystem=...&tech_name=...&page=...
+ * API 1: Fetch master list (dashboard) OR search with filters
+ * Master endpoint: GET /api/v1/vulnerabilities/?limit=...&page=...
+ * Search endpoint: GET /api/v1/vulnerabilities/search/?q=...&tech_name=...&severity=...&ecosystem=...&start_date=...&end_date=...&sort=...
  */
 export async function fetchVulnerabilities({
   page = 1,
@@ -183,25 +276,42 @@ export async function fetchVulnerabilities({
   sortBy = 'Date',
   sortDir = 'Descending',
 } = {}) {
-  const url = new URL(`${API_BASE_URL}/vulnerabilities/`);
-  
+  const hasSearchOrFilters = Boolean(
+    (query && query.trim()) ||
+    (tech_name && tech_name.trim()) ||
+    (ecosystem && ecosystem.trim()) ||
+    (severities && severities.length > 0) ||
+    (startDate && startDate.trim()) ||
+    (endDate && endDate.trim())
+  );
+
+  const endpoint = hasSearchOrFilters ? `${API_BASE_URL}/vulnerabilities/search/` : `${API_BASE_URL}/vulnerabilities/`;
+  const url = new URL(endpoint);
+
   if (page) url.searchParams.append('page', page);
   if (limit) {
     url.searchParams.append('limit', limit);
     url.searchParams.append('page_size', limit);
   }
-  if (query) url.searchParams.append('search', query);
-  if (ecosystem) url.searchParams.append('ecosystem', ecosystem);
-  if (tech_name) url.searchParams.append('tech_name', tech_name);
-  if (startDate) url.searchParams.append('start_date', toISO(startDate));
-  if (endDate) url.searchParams.append('end_date', toISO(endDate));
-  if (severities && severities.length > 0) {
-    severities.forEach((sev) => url.searchParams.append('severity', sev));
-  }
-  if (sortBy) {
-    const sortPrefix = sortDir === 'Descending' ? '-' : '';
-    const field = sortBy === 'Date' ? 'published_at' : 'cvss_score';
-    url.searchParams.append('ordering', `${sortPrefix}${field}`);
+
+  if (hasSearchOrFilters) {
+    if (query && query.trim()) url.searchParams.append('q', query.trim());
+    if (tech_name && tech_name.trim()) url.searchParams.append('tech_name', tech_name.trim());
+    if (ecosystem && ecosystem.trim()) url.searchParams.append('ecosystem', ecosystem.trim());
+    if (startDate && startDate.trim()) url.searchParams.append('start_date', toISO(startDate.trim()));
+    if (endDate && endDate.trim()) url.searchParams.append('end_date', toISO(endDate.trim()));
+
+    if (severities && severities.length > 0) {
+      severities.forEach((sev) => {
+        if (sev) url.searchParams.append('severity', sev);
+      });
+    }
+
+    if (sortBy) {
+      const field = sortBy === 'Date' ? 'published_at' : 'cvss_score';
+      const dir = sortDir === 'Ascending' ? 'asc' : 'desc';
+      url.searchParams.append('sort', `${field}:${dir}`);
+    }
   }
 
   try {
@@ -209,21 +319,30 @@ export async function fetchVulnerabilities({
       headers: { 'Accept': 'application/json' },
     });
 
+    if (response.status === 404) {
+      // Backend returns HTTP 404 ("No MasterVulnerability matches the given query") when 0 results match
+      return {
+        results: [],
+        count: 0,
+        next: null,
+        previous: null,
+      };
+    }
+
     if (!response.ok) {
       throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
     }
 
     const data = await response.json();
-    
-    // DRF Paginated Response: { count, next, previous, results }
+
     const results = (data.results || []).map(normalizeVulnerability);
-    const count = data.count || results.length;
-    
+    const count = data.pagination?.total_records ?? data.count ?? results.length;
+
     return {
       results,
       count,
-      next: data.next,
-      previous: data.previous,
+      next: data.pagination?.next_page ?? data.next ?? null,
+      previous: data.pagination?.previous_page ?? data.previous ?? null,
     };
   } catch (err) {
     console.error(`[Backend API Fetch Error] Failed to connect to ${url.toString()}:`, err);
@@ -233,7 +352,7 @@ export async function fetchVulnerabilities({
 
 /**
  * API 2: Select specific vulnerability by display_id or UUID
- * GET /api/v1/vulnerabilities/{display_id}
+ * GET /api/v1/vulnerabilities/{display_id}/
  */
 export async function fetchVulnerabilityById(displayId) {
   if (!displayId) return null;
@@ -244,6 +363,10 @@ export async function fetchVulnerabilityById(displayId) {
     const response = await fetch(url, {
       headers: { 'Accept': 'application/json' },
     });
+
+    if (response.status === 404) {
+      return null;
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
@@ -256,3 +379,147 @@ export async function fetchVulnerabilityById(displayId) {
     return null;
   }
 }
+
+/**
+ * API 3: View manual guidance (comments) for a vulnerability
+ * GET /api/v1/vulnerabilities/{display_id}/remediations/
+ */
+export async function fetchManualGuidance(displayId) {
+  if (!displayId) return [];
+
+  const url = `${API_BASE_URL}/vulnerabilities/${encodeURIComponent(displayId)}/remediations/`;
+
+  try {
+    const response = await fetch(url, {
+      headers: { 'Accept': 'application/json' },
+    });
+
+    if (response.status === 404) {
+      return [];
+    }
+
+    if (!response.ok) {
+      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    if (!Array.isArray(data)) return [];
+
+    return data.map((item) => ({
+      id: item.id,
+      author: item.author_name || item.author || 'Anonymous',
+      description: item.guidance_text || item.description || '',
+      timestamp: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
+    }));
+  } catch (err) {
+    console.error(`[Manual Guidance Fetch Error] Failed to fetch remediations for '${displayId}' from ${url}:`, err);
+    return [];
+  }
+}
+
+/**
+ * API 4: Create manual guidance (comment) for a vulnerability
+ * POST /api/v1/vulnerabilities/{display_id}/remediations/
+ */
+export async function createManualGuidance(displayId, { author, description }) {
+  if (!displayId) return null;
+
+  const url = `${API_BASE_URL}/vulnerabilities/${encodeURIComponent(displayId)}/remediations/`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        author_name: author,
+        guidance_text: description,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+    }
+
+    const item = await response.json();
+    return {
+      id: item.id || `local-${Date.now()}`,
+      author: item.author_name || author,
+      description: item.guidance_text || description,
+      timestamp: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
+    };
+  } catch (err) {
+    console.error(`[Manual Guidance Create Error] Failed to post remediation for '${displayId}':`, err);
+    return {
+      id: `local-${Date.now()}`,
+      author,
+      description,
+      timestamp: Date.now(),
+    };
+  }
+}
+
+/**
+ * API 5: Edit manual guidance (comment)
+ * PATCH /api/v1/remediations/{id}/
+ */
+export async function updateManualGuidance(id, guidanceText) {
+  if (!id) return null;
+
+  const url = `${API_BASE_URL}/remediations/${encodeURIComponent(id)}/`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        guidance_text: guidanceText,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+    }
+
+    const item = await response.json();
+    return {
+      id: item.id || id,
+      author: item.author_name,
+      description: item.guidance_text || guidanceText,
+      timestamp: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
+    };
+  } catch (err) {
+    console.error(`[Manual Guidance Edit Error] Failed to patch remediation '${id}':`, err);
+    return null;
+  }
+}
+
+/**
+ * API 6: Delete manual guidance (comment)
+ * DELETE /api/v1/remediations/{id}/
+ */
+export async function deleteManualGuidance(id) {
+  if (!id) return false;
+
+  const url = `${API_BASE_URL}/remediations/${encodeURIComponent(id)}/`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok && response.status !== 204) {
+      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+    }
+    return true;
+  } catch (err) {
+    console.error(`[Manual Guidance Delete Error] Failed to delete remediation '${id}':`, err);
+    return false;
+  }
+}
+

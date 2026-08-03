@@ -19,6 +19,13 @@ const ChevronRightIcon = () => (
   </svg>
 );
 
+const EditIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </svg>
+);
+
 /* Hover border accent — per severity */
 const SEVERITY_ACCENT = {
   CRITICAL: '#ef4444',
@@ -66,7 +73,7 @@ function HighlightText({ text, query }) {
 }
 
 /* ── Card view (grid) — matches design spec ── */
-function CardView({ vuln, onClick, activeQuery }) {
+function CardView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
   if (!vuln) return null;
   const severityKey = (vuln.severity || 'MEDIUM').toUpperCase();
   const accent = SEVERITY_ACCENT[severityKey] || '#9e9e9e';
@@ -74,7 +81,7 @@ function CardView({ vuln, onClick, activeQuery }) {
 
   return (
     <article
-      className="vuln-card rounded-[12px] border cursor-pointer flex flex-col transition-all duration-200 outline-none"
+      className="vuln-card rounded-[12px] border cursor-pointer flex flex-col transition-all duration-200 outline-none relative"
       style={{
         background: 'var(--bg-card)',
         borderColor: 'var(--border-card)',
@@ -101,7 +108,7 @@ function CardView({ vuln, onClick, activeQuery }) {
       aria-label={`View details for ${vuln.title || 'Vulnerability'}`}
     >
       {/* Header: ecosystem pill */}
-      <div className="mb-1">
+      <div className="mb-1 flex items-center justify-between">
         <span
           className="vuln-card-badge text-[0.72rem] px-[10px] py-[3px] rounded-[6px] truncate max-w-[220px] inline-block align-middle"
           style={{
@@ -115,25 +122,28 @@ function CardView({ vuln, onClick, activeQuery }) {
         </span>
       </div>
 
-      {/* Title + CVE ID */}
+      {/* CVE ID Heading + Description */}
       <div className="mb-2" style={{ minHeight: '3.8rem' }}>
         <h2
-          className="text-[0.9875rem] leading-snug mb-0.5 transition-colors duration-150 line-clamp-2"
-          style={{ color: 'var(--text-heading)', fontWeight: 500 }}
-          title={vuln.title}
-        >
-          <HighlightText text={vuln.title || 'Security Advisory'} query={activeQuery} />
-        </h2>
-        <p
-          className="text-[0.75rem] truncate"
+          className="text-[1.05rem] leading-snug mb-1 transition-colors duration-150 truncate"
           style={{
-            color: 'var(--text-muted)',
+            color: 'var(--text-heading)',
+            fontWeight: 700,
             fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace",
-            fontWeight: 400,
           }}
           title={vuln.id}
         >
           <HighlightText text={vuln.id || 'N/A'} query={activeQuery} />
+        </h2>
+        <p
+          className="text-[0.8rem] leading-snug line-clamp-2"
+          style={{
+            color: 'var(--text-secondary)',
+            fontWeight: 400,
+          }}
+          title={vuln.description || vuln.title}
+        >
+          <HighlightText text={vuln.description || vuln.title || 'Security Advisory'} query={activeQuery} />
         </p>
       </div>
 
@@ -215,7 +225,7 @@ function CardView({ vuln, onClick, activeQuery }) {
 }
 
 /* ── List view (row) ── */
-function ListView({ vuln, onClick, activeQuery }) {
+function ListView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
   if (!vuln) return null;
   const severityKey = (vuln.severity || 'MEDIUM').toUpperCase();
   const accent = SEVERITY_ACCENT[severityKey] || '#9e9e9e';
@@ -245,18 +255,16 @@ function ListView({ vuln, onClick, activeQuery }) {
       aria-label={`View details for ${vuln.title || 'Vulnerability'}`}
     >
       <SeverityBadge severity={severityKey} cvss={vuln.cvss ?? 'N/A'} />
-      <span
-        className="text-[0.78rem] font-semibold tracking-[0.01em] w-[148px] flex-shrink-0 hidden sm:block truncate"
-        style={{ color: 'var(--text-muted)', fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace" }}
-        title={vuln.id}
-      >
-        <HighlightText text={vuln.id || 'N/A'} query={activeQuery} />
-      </span>
-      <h2 className="flex-1 text-[0.9rem] font-medium leading-snug min-w-0" style={{ color: 'var(--text-primary)' }}>
-        <span className="block truncate" title={vuln.title}>
-          <HighlightText text={vuln.title || 'Security Advisory'} query={activeQuery} />
+      <h2 className="w-[180px] flex-shrink-0 hidden sm:block truncate text-[0.88rem] font-bold" style={{ color: 'var(--text-heading)', fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace" }}>
+        <span className="block truncate" title={vuln.id}>
+          <HighlightText text={vuln.id || 'N/A'} query={activeQuery} />
         </span>
       </h2>
+      <div className="flex-1 min-w-0">
+        <p className="text-[0.88rem] font-medium leading-snug truncate" style={{ color: 'var(--text-secondary)' }} title={vuln.description || vuln.title}>
+          <HighlightText text={vuln.description || vuln.title || 'Security Advisory'} query={activeQuery} />
+        </p>
+      </div>
       <span
         className="text-[0.8rem] font-medium flex-shrink-0 hidden md:block px-2.5 py-1 rounded-[5px] border max-w-[140px] truncate"
         style={{ color: 'var(--text-secondary)', background: 'var(--bg-badge)', borderColor: 'var(--border-card)' }}
@@ -276,10 +284,10 @@ function ListView({ vuln, onClick, activeQuery }) {
 }
 
 /* ── Export ── */
-export default function VulnCard({ vuln, onClick, activeQuery, viewMode }) {
+export default function VulnCard({ vuln, onClick, activeQuery, viewMode, isAdmin = false, onEdit }) {
   if (!vuln) return null;
   if (viewMode === 'list') {
-    return <ListView vuln={vuln} onClick={onClick} activeQuery={activeQuery} />;
+    return <ListView vuln={vuln} onClick={onClick} activeQuery={activeQuery} isAdmin={isAdmin} onEdit={onEdit} />;
   }
-  return <CardView vuln={vuln} onClick={onClick} activeQuery={activeQuery} />;
+  return <CardView vuln={vuln} onClick={onClick} activeQuery={activeQuery} isAdmin={isAdmin} onEdit={onEdit} />;
 }

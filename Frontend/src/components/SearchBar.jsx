@@ -87,7 +87,7 @@ export const DEFAULT_TECH_NAME_OPTIONS = [
 export default function SearchBar({
   query,
   onQueryChange,
-  isLoading = false,
+  isSearching = false,
   ecosystem = '',
   onEcosystemChange = () => {},
   techName = '',
@@ -217,21 +217,21 @@ export default function SearchBar({
         {/* Search button with fixed width & smooth transition */}
         <button
           id="search-btn"
-          disabled={isLoading}
+          disabled={isSearching}
           className={`h-12 w-[120px] rounded-[10px] border-0 text-white text-[0.9375rem] font-semibold font-[inherit] flex-shrink-0 transition-all duration-300 flex items-center justify-center gap-2 sm:flex-none ${
-            isLoading ? 'opacity-90 cursor-not-allowed' : 'cursor-pointer hover:-translate-y-px active:translate-y-0'
+            isSearching ? 'opacity-90 cursor-not-allowed' : 'cursor-pointer hover:-translate-y-px active:translate-y-0'
           }`}
           style={{ background: 'var(--accent-blue)' }}
-          onMouseEnter={e => { if (!isLoading) e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
-          onMouseLeave={e => { if (!isLoading) e.currentTarget.style.background = 'var(--accent-blue)'; }}
+          onMouseEnter={e => { if (!isSearching) e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
+          onMouseLeave={e => { if (!isSearching) e.currentTarget.style.background = 'var(--accent-blue)'; }}
           onClick={() => {
-            if (isLoading) return;
+            if (isSearching) return;
             setShowEcoMenu(false);
             setShowTechMenu(false);
             onSearch();
           }}
         >
-          {isLoading ? (
+          {isSearching ? (
             <span className="flex items-center gap-1.5 animate-fadeIn">
               <svg className="animate-spin h-4 w-4 text-white shrink-0" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3.5"></circle>

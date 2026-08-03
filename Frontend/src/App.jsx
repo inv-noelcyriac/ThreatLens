@@ -50,6 +50,7 @@ export default function App() {
   const [totalCount, setTotalCount] = useState(0);
   const [globalTotalCount, setGlobalTotalCount] = useState(226711);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
 
@@ -110,7 +111,10 @@ export default function App() {
         setTotalCount(0);
       })
       .finally(() => {
-        if (isMounted) setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+          setIsSearching(false);
+        }
       });
 
     return () => { isMounted = false; };
@@ -150,6 +154,12 @@ export default function App() {
   };
 
   const handleSearch = () => {
+    const hasInputData = Boolean(
+      query.trim() || ecosystem.trim() || techName.trim() || startDate || endDate || (selectedSeverities && selectedSeverities.length > 0)
+    );
+    if (hasInputData) {
+      setIsSearching(true);
+    }
     setActiveQuery(query.trim());
     setActiveEcosystem(ecosystem.trim());
     setActiveTechName(techName.trim());
@@ -341,7 +351,7 @@ export default function App() {
           <SearchBar
             query={query}
             onQueryChange={setQuery}
-            isLoading={isLoading}
+            isSearching={isSearching}
             ecosystem={ecosystem}
             onEcosystemChange={setEcosystem}
             techName={techName}

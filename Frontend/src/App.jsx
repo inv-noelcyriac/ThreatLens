@@ -341,6 +341,7 @@ export default function App() {
           <SearchBar
             query={query}
             onQueryChange={setQuery}
+            isLoading={isLoading}
             ecosystem={ecosystem}
             onEcosystemChange={setEcosystem}
             techName={techName}

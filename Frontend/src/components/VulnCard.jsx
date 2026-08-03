@@ -110,48 +110,49 @@ function EcosystemBadges({ vuln }) {
   const ecosystems = getEcosystemList(vuln);
   if (ecosystems.length === 1) {
     return (
-      <span
-        className="vuln-card-badge text-[0.72rem] px-[10px] py-[3px] rounded-[6px] truncate max-w-[220px] inline-block align-middle"
-        style={{
-          background: 'var(--bg-badge)',
-          color: 'var(--text-secondary)',
-          fontWeight: 400,
-        }}
-        title={`${ecosystems[0]} ecosystem`}
-      >
-        {ecosystems[0]} ecosystem
-      </span>
-    );
-  }
-
-  const showCount = 2;
-  const visible = ecosystems.slice(0, showCount);
-  const remaining = ecosystems.length - showCount;
-
-  return (
-    <div className="flex items-center gap-1.5 flex-wrap max-w-full" title={`Ecosystems: ${ecosystems.join(', ')}`}>
-      {visible.map((eco, idx) => (
+      <div className="h-6 flex items-center">
         <span
-          key={idx}
-          className="vuln-card-badge text-[0.71rem] px-[8px] py-[2px] rounded-[6px] truncate max-w-[120px] inline-block align-middle"
+          className="text-[0.72rem] px-[8px] py-[2px] rounded-[5px] border truncate max-w-[240px] inline-block"
           style={{
             background: 'var(--bg-badge)',
             color: 'var(--text-secondary)',
+            borderColor: 'var(--border-card)',
             fontWeight: 500,
           }}
+          title={`ecosystem: ${ecosystems[0]}`}
         >
-          {eco}
+          ecosystem: {ecosystems[0]}
         </span>
-      ))}
+      </div>
+    );
+  }
+
+  const visible = ecosystems.slice(0, 1);
+  const remaining = ecosystems.length - 1;
+
+  return (
+    <div className="flex items-center gap-1.5 flex-nowrap overflow-hidden max-w-full h-6" title={`ecosystems: ${ecosystems.join(', ')}`}>
+      <span
+        className="text-[0.71rem] px-[8px] py-[2px] rounded-[5px] border truncate max-w-[160px] shrink inline-block"
+        style={{
+          background: 'var(--bg-badge)',
+          color: 'var(--text-secondary)',
+          borderColor: 'var(--border-card)',
+          fontWeight: 500,
+        }}
+      >
+        ecosystems: {visible[0]}
+      </span>
       {remaining > 0 && (
         <span
-          className="vuln-card-badge text-[0.68rem] px-[6px] py-[2px] rounded-[6px] font-semibold flex-shrink-0"
+          className="text-[0.68rem] px-[6px] py-[2px] rounded-[5px] border font-semibold shrink-0"
           style={{
-            background: 'var(--accent-blue-light)',
-            color: 'var(--accent-blue)',
+            background: 'var(--bg-badge)',
+            color: 'var(--text-primary)',
+            borderColor: 'var(--border-card)',
           }}
         >
-          +{remaining} ecosystems
+          +{remaining} more
         </span>
       )}
     </div>
@@ -163,7 +164,7 @@ function ListViewEcosystemBadges({ vuln }) {
   if (ecosystems.length === 1) {
     return (
       <span
-        className="text-[0.8rem] font-medium flex-shrink-0 hidden md:block px-2.5 py-1 rounded-[5px] border max-w-[140px] truncate"
+        className="text-[0.8rem] font-medium shrink-0 hidden md:block px-2.5 py-1 rounded-[5px] border max-w-[140px] truncate"
         style={{ color: 'var(--text-secondary)', background: 'var(--bg-badge)', borderColor: 'var(--border-card)' }}
         title={ecosystems[0]}
       >
@@ -173,7 +174,7 @@ function ListViewEcosystemBadges({ vuln }) {
   }
   return (
     <div
-      className="hidden md:flex items-center gap-1 flex-shrink-0 max-w-[170px] overflow-hidden"
+      className="hidden md:flex items-center gap-1 shrink-0 max-w-[170px] overflow-hidden"
       title={`Ecosystems: ${ecosystems.join(', ')}`}
     >
       <span
@@ -183,8 +184,8 @@ function ListViewEcosystemBadges({ vuln }) {
         {ecosystems[0]}
       </span>
       <span
-        className="text-[0.72rem] font-bold px-1.5 py-0.5 rounded-[5px]"
-        style={{ color: 'var(--accent-blue)', background: 'var(--accent-blue-light)' }}
+        className="text-[0.72rem] font-semibold px-1.5 py-0.5 rounded-[5px] border"
+        style={{ color: 'var(--text-primary)', background: 'var(--bg-badge)', borderColor: 'var(--border-card)' }}
       >
         +{ecosystems.length - 1}
       </span>
@@ -228,7 +229,7 @@ function CardView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
       aria-label={`View details for ${vuln.title || 'Vulnerability'}`}
     >
       {/* Header: ecosystem pill */}
-      <div className="mb-1 flex items-center justify-between">
+      <div className="mb-1.5 h-6 flex items-center justify-between overflow-hidden">
         <EcosystemBadges vuln={vuln} />
       </div>
 

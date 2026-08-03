@@ -469,11 +469,11 @@ function MinimalEcosystemList({ ecosystems }) {
           <button
             type="button"
             onClick={() => setShowPopover(!showPopover)}
-            className="text-[0.72rem] font-medium px-2 py-0.5 rounded-[5px] border cursor-pointer transition-all duration-150 flex items-center gap-1"
+            className="text-[0.72rem] font-semibold px-2 py-0.5 rounded-[5px] border cursor-pointer transition-all duration-150 flex items-center gap-1 hover:opacity-90"
             style={{
-              background: showPopover ? 'var(--border-card)' : 'var(--bg-badge)',
-              color: 'var(--text-primary)',
-              borderColor: 'var(--border-card)',
+              background: 'var(--accent-blue-light)',
+              color: 'var(--accent-blue)',
+              borderColor: 'rgba(37, 99, 235, 0.28)',
             }}
             title={showPopover ? 'Close ecosystems list' : `View all ${ecosystems.length} ecosystems`}
           >

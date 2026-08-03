@@ -72,6 +72,126 @@ function HighlightText({ text, query }) {
   );
 }
 
+export function formatEcosystemName(name) {
+  if (!name) return '';
+  const trimmed = String(name).trim();
+  if (!trimmed) return '';
+  const lower = trimmed.toLowerCase();
+  if (lower === 'pypi' || lower === 'python') return 'PyPI';
+  if (lower === 'npm' || lower === 'javascript' || lower === 'node') return 'npm';
+  if (lower === 'maven' || lower === 'java') return 'Maven';
+  if (lower === 'golang' || lower === 'go') return 'Go';
+  if (lower === 'cargo' || lower === 'rust') return 'Cargo';
+  if (lower === 'nuget' || lower === 'dotnet' || lower === '.net') return 'NuGet';
+  if (lower === 'rubygems' || lower === 'ruby') return 'RubyGems';
+  if (lower === 'packagist' || lower === 'php') return 'Packagist';
+  if (trimmed === trimmed.toLowerCase()) {
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  }
+  return trimmed;
+}
+
+export function getEcosystemList(vuln) {
+  if (!vuln) return ['Security'];
+  let list = [];
+  if (Array.isArray(vuln.ecosystems) && vuln.ecosystems.length > 0) {
+    list = vuln.ecosystems.map(e => String(e).trim()).filter(Boolean);
+  } else if (typeof vuln.ecosystem === 'string' && vuln.ecosystem.trim()) {
+    list = vuln.ecosystem.split(/[,;/]\s*/).map(s => s.trim()).filter(Boolean);
+  } else if (Array.isArray(vuln.affectedComponents) && vuln.affectedComponents.length > 0) {
+    const compEco = vuln.affectedComponents.map(c => c.instance || c.ecosystem).filter(Boolean);
+    list = compEco;
+  }
+  const unique = [...new Set(list)];
+  return unique.length > 0 ? unique : ['Security'];
+}
+
+function EcosystemBadges({ vuln }) {
+  const ecosystems = getEcosystemList(vuln);
+  if (ecosystems.length === 1) {
+    return (
+      <span
+        className="vuln-card-badge text-[0.72rem] px-[10px] py-[3px] rounded-[6px] truncate max-w-[220px] inline-block align-middle"
+        style={{
+          background: 'var(--bg-badge)',
+          color: 'var(--text-secondary)',
+          fontWeight: 400,
+        }}
+        title={`${ecosystems[0]} ecosystem`}
+      >
+        {ecosystems[0]} ecosystem
+      </span>
+    );
+  }
+
+  const showCount = 2;
+  const visible = ecosystems.slice(0, showCount);
+  const remaining = ecosystems.length - showCount;
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap max-w-full" title={`Ecosystems: ${ecosystems.join(', ')}`}>
+      {visible.map((eco, idx) => (
+        <span
+          key={idx}
+          className="vuln-card-badge text-[0.71rem] px-[8px] py-[2px] rounded-[6px] truncate max-w-[120px] inline-block align-middle"
+          style={{
+            background: 'var(--bg-badge)',
+            color: 'var(--text-secondary)',
+            fontWeight: 500,
+          }}
+        >
+          {eco}
+        </span>
+      ))}
+      {remaining > 0 && (
+        <span
+          className="vuln-card-badge text-[0.68rem] px-[6px] py-[2px] rounded-[6px] font-semibold flex-shrink-0"
+          style={{
+            background: 'var(--accent-blue-light)',
+            color: 'var(--accent-blue)',
+          }}
+        >
+          +{remaining} ecosystems
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ListViewEcosystemBadges({ vuln }) {
+  const ecosystems = getEcosystemList(vuln);
+  if (ecosystems.length === 1) {
+    return (
+      <span
+        className="text-[0.8rem] font-medium flex-shrink-0 hidden md:block px-2.5 py-1 rounded-[5px] border max-w-[140px] truncate"
+        style={{ color: 'var(--text-secondary)', background: 'var(--bg-badge)', borderColor: 'var(--border-card)' }}
+        title={ecosystems[0]}
+      >
+        {ecosystems[0]}
+      </span>
+    );
+  }
+  return (
+    <div
+      className="hidden md:flex items-center gap-1 flex-shrink-0 max-w-[170px] overflow-hidden"
+      title={`Ecosystems: ${ecosystems.join(', ')}`}
+    >
+      <span
+        className="text-[0.8rem] font-medium px-2 py-0.5 rounded-[5px] border max-w-[100px] truncate"
+        style={{ color: 'var(--text-secondary)', background: 'var(--bg-badge)', borderColor: 'var(--border-card)' }}
+      >
+        {ecosystems[0]}
+      </span>
+      <span
+        className="text-[0.72rem] font-bold px-1.5 py-0.5 rounded-[5px]"
+        style={{ color: 'var(--accent-blue)', background: 'var(--accent-blue-light)' }}
+      >
+        +{ecosystems.length - 1}
+      </span>
+    </div>
+  );
+}
+
 /* ── Card view (grid) — matches design spec ── */
 function CardView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
   if (!vuln) return null;
@@ -109,17 +229,7 @@ function CardView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
     >
       {/* Header: ecosystem pill */}
       <div className="mb-1 flex items-center justify-between">
-        <span
-          className="vuln-card-badge text-[0.72rem] px-[10px] py-[3px] rounded-[6px] truncate max-w-[220px] inline-block align-middle"
-          style={{
-            background: 'var(--bg-badge)',
-            color: 'var(--text-secondary)',
-            fontWeight: 400,
-          }}
-          title={vuln.ecosystem ? `${vuln.ecosystem} ecosystem` : undefined}
-        >
-          {vuln.ecosystem || 'Security'} ecosystem
-        </span>
+        <EcosystemBadges vuln={vuln} />
       </div>
 
       {/* CVE ID Heading + Description */}
@@ -265,13 +375,7 @@ function ListView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
           <HighlightText text={vuln.description || vuln.title || 'Security Advisory'} query={activeQuery} />
         </p>
       </div>
-      <span
-        className="text-[0.8rem] font-medium flex-shrink-0 hidden md:block px-2.5 py-1 rounded-[5px] border max-w-[140px] truncate"
-        style={{ color: 'var(--text-secondary)', background: 'var(--bg-badge)', borderColor: 'var(--border-card)' }}
-        title={vuln.ecosystem}
-      >
-        {vuln.ecosystem || 'Security'}
-      </span>
+      <ListViewEcosystemBadges vuln={vuln} />
       <span className="text-[0.78rem] flex-shrink-0 hidden lg:flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
         <CalendarIcon />
         {vuln.date || 'N/A'}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   fetchVulnerabilityById,
   fetchManualGuidance,
@@ -7,6 +7,94 @@ import {
   deleteManualGuidance,
 } from '../services/api';
 import CustomDatePicker from './CustomDatePicker';
+import { getEcosystemList, formatEcosystemName } from './VulnCard';
+
+/* ─── Ecosystem Tag Manager Component ─── */
+function EcosystemTagInput({
+  ecosystemsList,
+  onChange,
+  hasError,
+  baseEditableStyle,
+  baseEditableBorderColor,
+  handleEditableMouseEnter,
+  handleEditableMouseLeave,
+}) {
+  const [tagInput, setTagInput] = useState('');
+
+  const addTags = (input) => {
+    if (!input || !input.trim()) return;
+    const parts = input.split(/[,;/]\s*/).map(formatEcosystemName).filter(Boolean);
+    if (parts.length === 0) return;
+    const updated = [...new Set([...ecosystemsList, ...parts])];
+    updated.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    onChange(updated);
+    setTagInput('');
+  };
+
+  const removeTag = (tagToRemove) => {
+    const updated = ecosystemsList.filter((t) => t !== tagToRemove);
+    onChange(updated);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addTags(tagInput);
+    } else if (e.key === 'Backspace' && !tagInput && ecosystemsList.length > 0) {
+      removeTag(ecosystemsList[ecosystemsList.length - 1]);
+    }
+  };
+
+  return (
+    <div
+      className="flex items-center gap-1.5 flex-wrap p-2 rounded-[8px] min-h-[38px] transition-all cursor-text"
+      style={{
+        ...baseEditableStyle,
+        borderColor: hasError ? '#ef4444' : baseEditableBorderColor,
+      }}
+      onMouseEnter={handleEditableMouseEnter}
+      onMouseLeave={handleEditableMouseLeave}
+    >
+      {ecosystemsList.map((eco) => (
+        <span
+          key={eco}
+          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-[5px] text-xs font-bold"
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-card)',
+            color: 'var(--text-primary)',
+          }}
+        >
+          {eco}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              removeTag(eco);
+            }}
+            className="hover:text-red-500 font-bold ml-1 text-[0.85rem] transition-colors cursor-pointer"
+            aria-label={`Remove ${eco}`}
+            style={{ color: 'var(--text-muted)' }}
+          >
+            &times;
+          </button>
+        </span>
+      ))}
+      <input
+        type="text"
+        value={tagInput}
+        onChange={(e) => setTagInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => {
+          if (tagInput.trim()) addTags(tagInput);
+        }}
+        placeholder={ecosystemsList.length === 0 ? "Type ecosystem & press Enter..." : "+ Add..."}
+        className="flex-1 min-w-[120px] text-xs bg-transparent outline-none font-semibold cursor-text"
+        style={{ color: 'var(--text-primary)' }}
+      />
+    </div>
+  );
+}
 
 /* ─── Icons ─── */
 const CloseIcon = () => (
@@ -331,6 +419,126 @@ const formatForDisplayDate = (dateStr) => {
   return parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+/* ─── Minimal Ecosystem Badges with Popover Truncation ─── */
+function MinimalEcosystemList({ ecosystems }) {
+  const [showPopover, setShowPopover] = useState(false);
+  const popoverRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (popoverRef.current && !popoverRef.current.contains(event.target)) {
+        setShowPopover(false);
+      }
+    };
+    if (showPopover) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showPopover]);
+
+  if (!ecosystems || ecosystems.length === 0) {
+    return <span className="text-[0.88rem] font-semibold" style={{ color: 'var(--text-primary)' }}>N/A</span>;
+  }
+
+  const limit = 3;
+  const showMore = ecosystems.length > limit;
+  const visible = ecosystems.slice(0, limit);
+  const remainingCount = ecosystems.length - limit;
+
+  return (
+    <div className="relative inline-block">
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {visible.map((eco, idx) => (
+          <span
+            key={idx}
+            className="text-[0.78rem] font-medium px-2 py-0.5 rounded-[5px] truncate max-w-[140px] inline-block transition-colors"
+            style={{
+              background: 'var(--bg-badge)',
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border-card)',
+            }}
+            title={eco}
+          >
+            {eco}
+          </span>
+        ))}
+
+        {showMore && (
+          <button
+            type="button"
+            onClick={() => setShowPopover(!showPopover)}
+            className="text-[0.72rem] font-medium px-2 py-0.5 rounded-[5px] border cursor-pointer transition-all duration-150 flex items-center gap-1"
+            style={{
+              background: showPopover ? 'var(--border-card)' : 'var(--bg-badge)',
+              color: 'var(--text-primary)',
+              borderColor: 'var(--border-card)',
+            }}
+            title={showPopover ? 'Close ecosystems list' : `View all ${ecosystems.length} ecosystems`}
+          >
+            <span>+{remainingCount} more</span>
+            <svg
+              width="9"
+              height="9"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              className={`transition-transform duration-200 ${showPopover ? 'rotate-180' : ''}`}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Floating Mini Window Overlaying Towards Left showing ALL Ecosystems */}
+      {showPopover && (
+        <div
+          ref={popoverRef}
+          className="absolute top-full mt-1.5 right-0 z-[300] p-3 rounded-[10px] border shadow-2xl flex flex-col gap-2 min-w-[260px] max-w-[340px]"
+          style={{
+            background: 'var(--bg-card)',
+            borderColor: 'var(--border-card)',
+            boxShadow: 'var(--shadow-lg)',
+            animation: 'fadeSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        >
+          <div className="flex items-center justify-between border-b pb-1.5" style={{ borderColor: 'var(--border-color)' }}>
+            <span className="text-[0.68rem] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+              All Ecosystems ({ecosystems.length})
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowPopover(false)}
+              className="text-[0.72rem] font-bold text-gray-400 hover:text-gray-200 cursor-pointer px-1 transition-colors"
+              aria-label="Close window"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap max-h-[180px] overflow-y-auto pt-1">
+            {ecosystems.map((eco, idx) => (
+              <span
+                key={idx}
+                className="text-[0.75rem] font-medium px-2 py-0.5 rounded-[5px] border truncate"
+                style={{
+                  background: 'var(--bg-badge)',
+                  color: 'var(--text-primary)',
+                  borderColor: 'var(--border-card)',
+                }}
+              >
+                {eco}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Main export ─── */
 export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) {
   const [detailData, setDetailData] = useState(vuln);
@@ -350,6 +558,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
   const [editSeverity, setEditSeverity] = useState('');
   const [editCvss, setEditCvss] = useState('');
   const [editEcosystem, setEditEcosystem] = useState('');
+  const [editEcosystemsList, setEditEcosystemsList] = useState([]);
   const [editTechName, setEditTechName] = useState('');
   const [editPublished, setEditPublished] = useState('');
   const [editStatus, setEditStatus] = useState('');
@@ -536,7 +745,9 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
     setEditTitle(target.title || '');
     setEditSeverity(target.severity ? target.severity.toUpperCase() : '');
     setEditCvss(target.cvss !== undefined && target.cvss !== null ? String(target.cvss) : '');
-    setEditEcosystem(target.ecosystem || '');
+    const ecosList = getEcosystemList(target);
+    setEditEcosystemsList(ecosList);
+    setEditEcosystem(ecosList.join(', '));
     setEditTechName(target.tech_name || '');
     setEditPublished(formatForDateInput(target.published || target.date || ''));
     setEditStatus(target.status || '');
@@ -569,6 +780,10 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
     const finalId = editCveId.trim() || target.display_id || target.id || `VULN-${Date.now()}`;
     const formattedPublished = editPublished.trim() ? (formatForDisplayDate(editPublished.trim()) || editPublished.trim()) : '';
 
+    const sortedEcos = editEcosystemsList.length > 0
+      ? [...editEcosystemsList].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+      : editEcosystem.split(/[,;/]\s*/).map(formatEcosystemName).filter(Boolean);
+
     const updatedRecord = {
       ...target,
       id: finalId,
@@ -576,7 +791,8 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
       title: editTitle.trim(),
       severity: editSeverity ? editSeverity.toUpperCase() : '',
       cvss: cvssVal,
-      ecosystem: editEcosystem.trim(),
+      ecosystem: sortedEcos.join(', '),
+      ecosystems: sortedEcos.length > 0 ? sortedEcos : ['Security'],
       tech_name: editTechName.trim(),
       published: formattedPublished,
       date: formattedPublished,
@@ -632,7 +848,9 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
         setEditTitle(vuln.title || '');
         setEditSeverity(vuln.severity ? vuln.severity.toUpperCase() : '');
         setEditCvss(vuln.cvss ? String(vuln.cvss) : '');
-        setEditEcosystem(vuln.ecosystem || '');
+        const initialEcos = getEcosystemList(vuln);
+        setEditEcosystemsList(initialEcos);
+        setEditEcosystem(initialEcos.join(', '));
         setEditTechName(vuln.tech_name || '');
         setEditPublished(formatForDateInput(vuln.published || vuln.date || ''));
         setEditStatus(vuln.status || '');
@@ -974,26 +1192,20 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
                 />
               </div>
 
-              <div className="flex flex-col gap-1">
-                <span className="text-[0.68rem] font-bold tracking-[0.05em] uppercase" style={{ color: formErrors.ecosystem ? '#ef4444' : 'var(--text-muted)' }}>ECOSYSTEM *</span>
-                <input
-                  type="text"
-                  maxLength={50}
-                  value={editEcosystem}
-                  onChange={(e) => {
-                    setEditEcosystem(e.target.value);
+              <div className="flex flex-col gap-1 col-span-2 sm:col-span-3">
+                <span className="text-[0.68rem] font-bold tracking-[0.05em] uppercase" style={{ color: formErrors.ecosystem ? '#ef4444' : 'var(--text-muted)' }}>AFFECTED ECOSYSTEMS *</span>
+                <EcosystemTagInput
+                  ecosystemsList={editEcosystemsList}
+                  onChange={(newList) => {
+                    setEditEcosystemsList(newList);
+                    setEditEcosystem(newList.join(', '));
                     if (formErrors.ecosystem) setFormErrors((prev) => ({ ...prev, ecosystem: null }));
                   }}
-                  placeholder="e.g. PyPI, npm"
-                  className="px-3 py-1.5 rounded-[8px] text-xs font-semibold cursor-text"
-                  style={{
-                    ...baseEditableStyle,
-                    borderColor: formErrors.ecosystem ? '#ef4444' : baseEditableBorderColor,
-                  }}
-                  onFocus={handleEditableFocus}
-                  onBlur={handleEditableBlur}
-                  onMouseEnter={handleEditableMouseEnter}
-                  onMouseLeave={handleEditableMouseLeave}
+                  hasError={!!formErrors.ecosystem}
+                  baseEditableStyle={baseEditableStyle}
+                  baseEditableBorderColor={baseEditableBorderColor}
+                  handleEditableMouseEnter={handleEditableMouseEnter}
+                  handleEditableMouseLeave={handleEditableMouseLeave}
                 />
               </div>
 
@@ -1073,13 +1285,27 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-10 sm:gap-14 mb-[22px] py-1">
-              {[{ label: 'PUBLISHED', value: current.published }, { label: current.cvssVersion || 'CVSS V3.1', value: current.cvss }].map(({ label, value }) => (
-                <div key={label} className="flex flex-col gap-1 min-w-0">
-                  <span className="text-[0.7rem] font-bold tracking-[0.06em] uppercase truncate" style={{ color: 'var(--text-muted)' }}>{label}</span>
-                  <span className="text-[0.9375rem] font-semibold transition-colors duration-300 truncate" style={{ color: 'var(--text-primary)' }} title={String(value ?? '')}>{value ?? 'N/A'}</span>
-                </div>
-              ))}
+            <div className="flex items-start gap-8 sm:gap-12 mb-[22px] py-1 flex-wrap">
+              <div className="flex flex-col gap-1 min-w-0">
+                <span className="text-[0.7rem] font-bold tracking-[0.06em] uppercase truncate" style={{ color: 'var(--text-muted)' }}>PUBLISHED</span>
+                <span className="text-[0.9375rem] font-semibold transition-colors duration-300 truncate" style={{ color: 'var(--text-primary)' }} title={String(current.published ?? '')}>
+                  {current.published || 'N/A'}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1 min-w-0">
+                <span className="text-[0.7rem] font-bold tracking-[0.06em] uppercase truncate" style={{ color: 'var(--text-muted)' }}>{current.cvssVersion || 'CVSS V3.1'}</span>
+                <span className="text-[0.9375rem] font-semibold transition-colors duration-300 truncate" style={{ color: 'var(--text-primary)' }} title={String(current.cvss ?? '')}>
+                  {current.cvss ?? 'N/A'}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1 min-w-0">
+                <span className="text-[0.7rem] font-bold tracking-[0.06em] uppercase truncate" style={{ color: 'var(--text-muted)' }}>
+                  {getEcosystemList(current).length > 1 ? 'ECOSYSTEMS' : 'ECOSYSTEM'}
+                </span>
+                <MinimalEcosystemList ecosystems={getEcosystemList(current)} />
+              </div>
             </div>
           )}
 

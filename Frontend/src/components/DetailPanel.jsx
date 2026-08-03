@@ -340,6 +340,8 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
   const [isClosing, setIsClosing] = useState(false);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
   const [isFixExpanded, setIsFixExpanded] = useState(false);
+  const [isComponentsExpanded, setIsComponentsExpanded] = useState(false);
+  const [isReferencesExpanded, setIsReferencesExpanded] = useState(false);
 
   // Inline Edit Mode State
   const [isEditing, setIsEditing] = useState(false);
@@ -623,6 +625,8 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
       setPrevId(vuln.id);
       setIsDescExpanded(false);
       setIsFixExpanded(false);
+      setIsComponentsExpanded(false);
+      setIsReferencesExpanded(false);
       if (vuln.isNew) {
         setEditCveId(vuln.display_id || vuln.id || '');
         setEditTitle(vuln.title || '');
@@ -1234,7 +1238,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
           <section className="mb-[22px]">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-[0.72rem] font-bold tracking-[0.08em] uppercase" style={{ color: 'var(--text-muted)' }}>
-                AFFECTED COMPONENTS
+                AFFECTED COMPONENTS {current.affectedComponents?.length > 0 && `(${current.affectedComponents.length})`}
               </h3>
               {isEditing && (
                 <button
@@ -1256,9 +1260,9 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
                     No affected components added yet. Click "+ Add Component" above.
                   </p>
                 ) : (
-                  <div className="border rounded-[10px] overflow-x-auto p-2" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
+                  <div className="border rounded-[10px] overflow-x-auto p-2 max-h-[360px]" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
                     <table className="w-full min-w-[520px] border-collapse text-[0.84rem]">
-                      <thead style={{ background: 'var(--bg-table-head)' }}>
+                      <thead style={{ background: 'var(--bg-table-head)', position: 'sticky', top: 0, zIndex: 1 }}>
                         <tr>
                           <th className="px-2 py-2 text-left text-[0.72rem] font-bold uppercase" style={{ color: 'var(--text-muted)' }}>Component</th>
                           <th className="px-2 py-2 text-left text-[0.72rem] font-bold uppercase" style={{ color: 'var(--text-muted)' }}>Versions</th>
@@ -1332,26 +1336,56 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
                 )}
               </div>
             ) : current.affectedComponents && current.affectedComponents.length > 0 ? (
-              <div className="border rounded-[10px] overflow-x-auto" style={{ borderColor: 'var(--border-color)' }}>
-                <table className="w-full min-w-[480px] border-collapse text-[0.875rem]">
-                  <thead style={{ background: 'var(--bg-table-head)' }}>
-                    <tr>
-                      {['Component', 'Affected Versions', 'Instance', 'Status'].map((h) => (
-                        <th key={h} className="px-3.5 py-2.5 text-left text-[0.78rem] font-semibold border-b whitespace-nowrap" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-color)' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {current.affectedComponents.map((comp, i) => (
-                      <tr key={i} style={{ background: i % 2 === 1 ? 'var(--bg-table-alt)' : 'var(--bg-table-row)' }}>
-                        <td className="px-3.5 py-3 border-b last:border-b-0 font-semibold text-[0.84rem] max-w-[160px] truncate" style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', fontFamily: "'SF Mono','Fira Code',monospace" }} title={comp.component}>{comp.component}</td>
-                        <td className="px-3.5 py-3 border-b last:border-b-0 align-middle max-w-[180px] truncate" style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }} title={comp.affectedVersions}>{comp.affectedVersions}</td>
-                        <td className="px-3.5 py-3 border-b last:border-b-0 align-middle max-w-[150px] truncate" style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }} title={comp.instance}>{comp.instance}</td>
-                        <td className="px-3.5 py-3 border-b last:border-b-0 align-middle whitespace-nowrap" style={{ borderColor: 'var(--border-color)' }}><StatusBadge status={comp.status} /></td>
+              <div>
+                <div
+                  className={`border rounded-[10px] overflow-x-auto ${isComponentsExpanded && current.affectedComponents.length > 8 ? 'max-h-[380px] overflow-y-auto' : ''}`}
+                  style={{ borderColor: 'var(--border-color)' }}
+                >
+                  <table className="w-full min-w-[480px] border-collapse text-[0.875rem]">
+                    <thead style={{ background: 'var(--bg-table-head)', position: isComponentsExpanded && current.affectedComponents.length > 8 ? 'sticky' : 'static', top: 0, zIndex: 1 }}>
+                      <tr>
+                        {['Component', 'Affected Versions', 'Instance', 'Status'].map((h) => (
+                          <th key={h} className="px-3.5 py-2.5 text-left text-[0.78rem] font-semibold border-b whitespace-nowrap" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-color)', background: 'var(--bg-table-head)' }}>{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {(isComponentsExpanded ? current.affectedComponents : current.affectedComponents.slice(0, 3)).map((comp, i) => (
+                        <tr key={i} style={{ background: i % 2 === 1 ? 'var(--bg-table-alt)' : 'var(--bg-table-row)' }}>
+                          <td className="px-3.5 py-3 border-b last:border-b-0 font-semibold text-[0.84rem] max-w-[160px] truncate" style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', fontFamily: "'SF Mono','Fira Code',monospace" }} title={comp.component}>{comp.component}</td>
+                          <td className="px-3.5 py-3 border-b last:border-b-0 align-middle max-w-[180px] truncate" style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }} title={comp.affectedVersions}>{comp.affectedVersions}</td>
+                          <td className="px-3.5 py-3 border-b last:border-b-0 align-middle max-w-[150px] truncate" style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }} title={comp.instance}>{comp.instance}</td>
+                          <td className="px-3.5 py-3 border-b last:border-b-0 align-middle whitespace-nowrap" style={{ borderColor: 'var(--border-color)' }}><StatusBadge status={comp.status} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {current.affectedComponents.length > 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsComponentsExpanded((v) => !v)}
+                    className="mt-2.5 w-full py-2 px-3 rounded-[8px] border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-150 cursor-pointer"
+                    style={{
+                      borderColor: 'var(--border-color)',
+                      background: 'var(--bg-badge)',
+                      color: 'var(--accent-blue)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--accent-blue-light)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--bg-badge)';
+                    }}
+                  >
+                    <span>
+                      {isComponentsExpanded
+                        ? 'Show less'
+                        : `Show all ${current.affectedComponents.length} components (${current.affectedComponents.length - 3} more)`}
+                    </span>
+                    <span className="text-[0.75rem]">{isComponentsExpanded ? '▲' : '▼'}</span>
+                  </button>
+                )}
               </div>
             ) : (
               <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>No affected components specified.</p>
@@ -1363,7 +1397,9 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
           {/* References */}
           <section className="mb-[22px]">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[0.72rem] font-bold tracking-[0.08em] uppercase" style={{ color: 'var(--text-muted)' }}>REFERENCES</h3>
+              <h3 className="text-[0.72rem] font-bold tracking-[0.08em] uppercase" style={{ color: 'var(--text-muted)' }}>
+                REFERENCES {current.references?.length > 0 && `(${current.references.length})`}
+              </h3>
               {isEditing && (
                 <button
                   type="button"
@@ -1378,7 +1414,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
             </div>
 
             {isEditing ? (
-              <div className="flex flex-col gap-2.5">
+              <div className="flex flex-col gap-2.5 max-h-[300px] overflow-y-auto pr-1">
                 {editReferences.length === 0 ? (
                   <p className="text-xs italic text-center py-3 border rounded-[8px]" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-color)' }}>
                     No reference links added yet. Click "+ Add Reference" above.
@@ -1417,21 +1453,50 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
                 )}
               </div>
             ) : current.references && current.references.length > 0 ? (
-              <div className="flex flex-col gap-2.5">
-                {current.references.map((ref, i) => {
-                  const targetUrl = ref.url.startsWith('http') ? ref.url : `https://${ref.url}`;
-                  return (
-                    <a key={i} href={targetUrl} target="_blank" rel="noopener noreferrer" id={`ref-link-${i}`}
-                      className="flex items-center gap-2.5 px-4 py-3 rounded-[10px] border no-underline transition-all duration-200"
-                      style={{ borderColor: 'var(--border-color)', background: 'var(--bg-secondary)' }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.background = 'var(--accent-blue-light)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.background = 'var(--bg-secondary)'; }}>
-                      <span className="flex flex-shrink-0" style={{ color: 'var(--accent-blue)' }}><ExternalLinkIcon /></span>
-                      <span className="text-[0.875rem] font-semibold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{ref.name || 'Reference'}</span>
-                      <span className="text-[0.8rem] overflow-hidden text-ellipsis whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{ref.url}</span>
-                    </a>
-                  );
-                })}
+              <div>
+                <div
+                  className={`flex flex-col gap-2.5 ${isReferencesExpanded && current.references.length > 8 ? 'max-h-[350px] overflow-y-auto pr-1' : ''}`}
+                >
+                  {(isReferencesExpanded ? current.references : current.references.slice(0, 3)).map((ref, i) => {
+                    const targetUrl = ref.url.startsWith('http') ? ref.url : `https://${ref.url}`;
+                    return (
+                      <a key={i} href={targetUrl} target="_blank" rel="noopener noreferrer" id={`ref-link-${i}`}
+                        className="flex items-center gap-2.5 px-4 py-3 rounded-[10px] border no-underline transition-all duration-200"
+                        style={{ borderColor: 'var(--border-color)', background: 'var(--bg-secondary)' }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.background = 'var(--accent-blue-light)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.background = 'var(--bg-secondary)'; }}>
+                        <span className="flex flex-shrink-0" style={{ color: 'var(--accent-blue)' }}><ExternalLinkIcon /></span>
+                        <span className="text-[0.875rem] font-semibold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{ref.name || 'Reference'}</span>
+                        <span className="text-[0.8rem] overflow-hidden text-ellipsis whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{ref.url}</span>
+                      </a>
+                    );
+                  })}
+                </div>
+                {current.references.length > 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsReferencesExpanded((v) => !v)}
+                    className="mt-2.5 w-full py-2 px-3 rounded-[8px] border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-150 cursor-pointer"
+                    style={{
+                      borderColor: 'var(--border-color)',
+                      background: 'var(--bg-badge)',
+                      color: 'var(--accent-blue)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--accent-blue-light)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--bg-badge)';
+                    }}
+                  >
+                    <span>
+                      {isReferencesExpanded
+                        ? 'Show less'
+                        : `Show all ${current.references.length} references (${current.references.length - 3} more)`}
+                    </span>
+                    <span className="text-[0.75rem]">{isReferencesExpanded ? '▲' : '▼'}</span>
+                  </button>
+                )}
               </div>
             ) : (
               <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>No reference links available.</p>

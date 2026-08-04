@@ -8,6 +8,7 @@ import Pagination from './components/Pagination';
 import DetailPanel from './components/DetailPanel';
 import AdminLogin from './components/AdminLogin';
 import VulnFormModal from './components/VulnFormModal';
+import NotFound from './components/NotFound';
 import { fetchVulnerabilities } from './services/api';
 
 export default function App() {
@@ -360,7 +361,23 @@ export default function App() {
     );
   }
 
-  // Route 2: Main Vulnerability Search Dashboard
+  // Route 2: 404 Error Page for non-existing paths
+  if (normalizedPath !== '' && normalizedPath !== '/') {
+    return (
+      <NotFound
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        isAdmin={isAdmin}
+        adminUser={adminUser}
+        onOpenAddModal={handleOpenAddModal}
+        onAdminLoginClick={handleOpenDjangoAdminInNewTab}
+        onLogout={handleAdminLogout}
+        onNavigateHome={() => navigateTo('/')}
+      />
+    );
+  }
+
+  // Route 3: Main Vulnerability Search Dashboard
   return (
     <div className="min-h-screen flex flex-col">
       <Header

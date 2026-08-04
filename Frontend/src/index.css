@@ -496,4 +496,21 @@
   [data-theme="dark"] .vuln-card-badge {
     background: rgba(255, 255, 255, 0.05) !important;
   }
+
+  /* Smooth hardware-accelerated floating animation for error icon */
+  @keyframes float-icon {
+    0%, 100% {
+      transform: translate3d(0, 0px, 0);
+    }
+    50% {
+      transform: translate3d(0, -5px, 0);
+    }
+  }
+
+  .animate-float-icon {
+    will-change: transform;
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
+    animation: float-icon 3.2s ease-in-out infinite;
+  }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import SearchBar, { DEFAULT_ECOSYSTEM_OPTIONS, DEFAULT_TECH_NAME_OPTIONS } from './components/SearchBar';
@@ -313,20 +313,39 @@ export default function App() {
     setTimeout(() => html.classList.remove('theme-transitioning'), 400);
   };
 
-  // Automatically redirect authenticated admins away from /admin/login, or redirect /admin / /admin/ to '/'
-  useEffect(() => {
-    if (isAdmin && currentPath === '/admin/login') {
-      window.history.replaceState({}, '', '/');
-      setCurrentPath('/');
-    } else if (currentPath === '/admin' || currentPath === '/admin/') {
-      window.history.replaceState({}, '', '/');
-      setCurrentPath('/');
-    }
-  }, [isAdmin, currentPath]);
+  const hasRedirectedRef = useRef(false);
 
-  // Route 1: Admin Login Endpoint (ONLY /admin/login works)
-  if (currentPath === '/admin/login') {
-    if (isAdmin) return null;
+  // Get Django Admin backend URL using explicit network endpoint
+  const getDjangoAdminUrl = () => {
+    return 'http://10.10.13.44:8000/admin/';
+  };
+
+  const handleOpenDjangoAdminInNewTab = () => {
+    const win = window.open(getDjangoAdminUrl(), '_blank');
+    if (win) win.focus();
+  };
+
+  // Direct URL navigation (STRICTLY /admin/login) uses window.location.href to bypass popup blockers completely
+  useEffect(() => {
+    const path = currentPath.toLowerCase().replace(/\/$/, '');
+    if (path === '/admin/login') {
+      if (!hasRedirectedRef.current) {
+        hasRedirectedRef.current = true;
+        window.location.href = getDjangoAdminUrl();
+      }
+    } else {
+      hasRedirectedRef.current = false;
+    }
+  }, [currentPath]);
+
+  // Route 1: Test UI Frontend Admin Login (/test_ui/admin/login)
+  const normalizedPath = currentPath.toLowerCase().replace(/\/$/, '');
+  if (normalizedPath === '/test_ui/admin/login') {
+    if (isAdmin) {
+      window.history.replaceState({}, '', '/');
+      setCurrentPath('/');
+      return null;
+    }
 
     return (
       <AdminLogin
@@ -350,7 +369,7 @@ export default function App() {
         isAdmin={isAdmin}
         adminUser={adminUser}
         onOpenAddModal={handleOpenAddModal}
-        onAdminLoginClick={() => navigateTo('/admin/login')}
+        onAdminLoginClick={handleOpenDjangoAdminInNewTab}
         onLogout={handleAdminLogout}
       />
 

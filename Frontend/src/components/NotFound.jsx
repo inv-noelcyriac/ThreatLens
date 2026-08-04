@@ -29,11 +29,11 @@ export default function NotFound({
 }) {
   return (
     <div
-      className="h-[100dvh] w-full min-h-screen overflow-hidden flex flex-col justify-between relative transition-colors duration-300"
+      className="h-screen min-h-[100dvh] w-full overflow-hidden flex flex-col justify-between relative transition-colors duration-300"
       style={{ background: 'var(--main-bg, var(--bg-primary))' }}
     >
-      {/* Standard Full Application Header — Layered on top */}
-      <div className="relative z-10">
+      {/* Standard Full Application Header */}
+      <div className="relative z-10 flex-shrink-0">
         <Header
           theme={theme}
           onToggleTheme={onToggleTheme}
@@ -45,10 +45,10 @@ export default function NotFound({
         />
       </div>
 
-      {/* Main Content Area — Absolute 50% Viewport Center across all zoom levels */}
-      <main className="absolute inset-0 flex items-center justify-center px-4 pointer-events-none z-0">
+      {/* Main Content Area — Flex-1 centered with increased optical upward offset */}
+      <main className="flex-1 flex items-center justify-center px-4 py-4 z-10 min-h-0 overflow-y-auto pb-16 sm:pb-24">
         <div
-          className="pointer-events-auto w-full max-w-[520px] rounded-[16px] border p-6 sm:p-8 shadow-sm flex items-center gap-5 sm:gap-7 transition-all duration-300"
+          className="w-full max-w-[520px] rounded-[16px] border p-6 sm:p-8 shadow-sm flex items-center gap-5 sm:gap-7 transition-all duration-300 -translate-y-14 sm:-translate-y-20 my-auto"
           style={{
             background: 'var(--bg-card)',
             borderColor: 'var(--border-card)',
@@ -121,9 +121,9 @@ export default function NotFound({
         </div>
       </main>
 
-      {/* Footer — Layered at bottom */}
+      {/* Footer */}
       <footer
-        className="relative z-10 py-3 text-center text-[0.72rem] transition-colors duration-300 pointer-events-none"
+        className="relative z-10 py-3 text-center text-[0.72rem] transition-colors duration-300 flex-shrink-0"
         style={{ color: 'var(--text-muted)' }}
       >
         ThreatLens · Security Intelligence Platform

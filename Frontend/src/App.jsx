@@ -50,6 +50,7 @@ export default function App() {
   const [totalCount, setTotalCount] = useState(0);
   const [globalTotalCount, setGlobalTotalCount] = useState(226711);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
 
@@ -110,7 +111,10 @@ export default function App() {
         setTotalCount(0);
       })
       .finally(() => {
-        if (isMounted) setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+          setIsSearching(false);
+        }
       });
 
     return () => { isMounted = false; };
@@ -150,9 +154,25 @@ export default function App() {
   };
 
   const handleSearch = () => {
-    setActiveQuery(query.trim());
-    setActiveEcosystem(ecosystem.trim());
-    setActiveTechName(techName.trim());
+    const qTrim = query.trim();
+    const ecoTrim = ecosystem.trim();
+    const techTrim = techName.trim();
+
+    const isAlreadySearched =
+      qTrim === activeQuery &&
+      ecoTrim === activeEcosystem &&
+      techTrim === activeTechName &&
+      startDate === activeStartDate &&
+      endDate === activeEndDate;
+
+    if (isAlreadySearched) {
+      return;
+    }
+
+    setIsSearching(true);
+    setActiveQuery(qTrim);
+    setActiveEcosystem(ecoTrim);
+    setActiveTechName(techTrim);
     setActiveStartDate(startDate);
     setActiveEndDate(endDate);
     setCurrentPage(1);
@@ -341,6 +361,7 @@ export default function App() {
           <SearchBar
             query={query}
             onQueryChange={setQuery}
+            isSearching={isSearching}
             ecosystem={ecosystem}
             onEcosystemChange={setEcosystem}
             techName={techName}

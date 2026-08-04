@@ -145,6 +145,8 @@ export default function VulnFormModal({
 
     const cvssNum = Math.min(10, Math.max(0, parseFloat(cvss) || 5.0));
 
+    const ecos = ecosystem.split(/[,;/]\s*/).map(s => s.trim()).filter(Boolean);
+
     const formData = {
       ...(targetData || {}),
       id: cveId.trim(),
@@ -153,7 +155,8 @@ export default function VulnFormModal({
       title: title.trim(),
       severity: severity.toUpperCase(),
       cvss: cvssNum,
-      ecosystem: ecosystem.trim(),
+      ecosystem: ecos.join(', '),
+      ecosystems: ecos.length > 0 ? ecos : ['Security'],
       source: targetData?.source || 'Admin Entry',
       date: publishedDate.trim() || 'Today',
       published: publishedDate.trim() || 'Today',

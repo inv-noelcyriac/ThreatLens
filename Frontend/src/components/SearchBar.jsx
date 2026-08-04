@@ -68,7 +68,7 @@ export const DEFAULT_TECH_NAME_OPTIONS = [
   'django',
   'openssl',
   'express',
-  'spring-boot',
+  'spring_boot',
   'vue',
   'angular',
   'next.js',
@@ -87,14 +87,15 @@ export const DEFAULT_TECH_NAME_OPTIONS = [
 export default function SearchBar({
   query,
   onQueryChange,
+  isSearching = false,
   ecosystem = '',
-  onEcosystemChange = () => {},
+  onEcosystemChange = () => { },
   techName = '',
-  onTechNameChange = () => {},
+  onTechNameChange = () => { },
   startDate = '',
-  onStartDateChange = () => {},
+  onStartDateChange = () => { },
   endDate = '',
-  onEndDateChange = () => {},
+  onEndDateChange = () => { },
   onSearch,
   onClear,
   selectedSeverities,
@@ -165,7 +166,13 @@ export default function SearchBar({
               color: 'var(--text-primary)',
             }}
             onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.12)'; }}
-            onBlur={e => { e.currentTarget.style.borderColor = 'var(--border-input)'; e.currentTarget.style.boxShadow = 'none'; }}
+            onBlur={e => {
+              e.currentTarget.style.borderColor = 'var(--border-input)';
+              e.currentTarget.style.boxShadow = 'none';
+              if (!query.trim() && onClear) {
+                onClear();
+              }
+            }}
           />
           {/* Clear (×) button */}
           {query && (
@@ -207,20 +214,33 @@ export default function SearchBar({
           )}
         </button>
 
-        {/* Search button */}
+        {/* Search button with fixed width & smooth transition */}
         <button
           id="search-btn"
-          className="h-12 px-7 rounded-[10px] border-0 text-white text-[0.9375rem] font-semibold font-[inherit] cursor-pointer flex-shrink-0 transition-all duration-200 hover:-translate-y-px active:translate-y-0 sm:flex-none flex-1"
+          disabled={isSearching}
+          className={`h-12 w-[120px] rounded-[10px] border-0 text-white text-[0.9375rem] font-semibold font-[inherit] flex-shrink-0 transition-all duration-300 flex items-center justify-center gap-2 sm:flex-none ${isSearching ? 'opacity-90 cursor-not-allowed' : 'cursor-pointer hover:-translate-y-px active:translate-y-0'
+            }`}
           style={{ background: 'var(--accent-blue)' }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent-blue)'; }}
+          onMouseEnter={e => { if (!isSearching) e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
+          onMouseLeave={e => { if (!isSearching) e.currentTarget.style.background = 'var(--accent-blue)'; }}
           onClick={() => {
+            if (isSearching) return;
             setShowEcoMenu(false);
             setShowTechMenu(false);
             onSearch();
           }}
         >
-          Search
+          {isSearching ? (
+            <span className="flex items-center gap-1.5 animate-fadeIn">
+              <svg className="animate-spin h-4 w-4 text-white shrink-0" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3.5"></circle>
+                <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span className="text-[0.875rem]">Searching</span>
+            </span>
+          ) : (
+            <span className="animate-fadeIn">Search</span>
+          )}
         </button>
       </div>
 
@@ -255,7 +275,12 @@ export default function SearchBar({
                   }}
                   onKeyDown={handleKeyDown}
                   onFocus={() => setShowEcoMenu(true)}
-                  onBlur={() => setTimeout(() => setShowEcoMenu(false), 200)}
+                  onBlur={() => {
+                    setTimeout(() => setShowEcoMenu(false), 200);
+                    if (!ecosystem.trim() && onClearEcosystem) {
+                      onClearEcosystem();
+                    }
+                  }}
                   placeholder="Select or type ecosystem..."
                   className={`w-full h-9 pl-3 ${ecosystem ? 'pr-[62px]' : 'pr-9'} rounded-[8px] border-[1.5px] text-[0.85rem] font-[inherit] outline-none transition-all duration-200`}
                   style={{
@@ -354,7 +379,12 @@ export default function SearchBar({
                   }}
                   onKeyDown={handleKeyDown}
                   onFocus={() => setShowTechMenu(true)}
-                  onBlur={() => setTimeout(() => setShowTechMenu(false), 200)}
+                  onBlur={() => {
+                    setTimeout(() => setShowTechMenu(false), 200);
+                    if (!techName.trim() && onClearTechName) {
+                      onClearTechName();
+                    }
+                  }}
                   placeholder="Select or type technology..."
                   className={`w-full h-9 pl-3 ${techName ? 'pr-[62px]' : 'pr-9'} rounded-[8px] border-[1.5px] text-[0.85rem] font-[inherit] outline-none transition-all duration-200`}
                   style={{

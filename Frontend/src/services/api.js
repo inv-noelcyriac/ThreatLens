@@ -115,14 +115,23 @@ export function normalizeVulnerability(raw) {
     : (raw.tech_name || raw.techName ? [extractString(raw.tech_name || raw.techName)] : []);
   const primaryTechName = techNames.length > 0 ? techNames[0] : '';
 
-  // Derive primary ecosystem
-  let primaryEcosystem = Array.isArray(raw.filter_ecosystems) && raw.filter_ecosystems.length > 0
-    ? extractString(raw.filter_ecosystems[0])
-    : extractString(raw.ecosystem);
-  if (!primaryEcosystem && raw.tags && raw.tags.length > 0) {
-    primaryEcosystem = extractString(raw.tags[0], 'Security');
+  // Derive ecosystem list (supporting multiple ecosystems)
+  let rawEcosystems = [];
+  if (Array.isArray(raw.filter_ecosystems) && raw.filter_ecosystems.length > 0) {
+    rawEcosystems = raw.filter_ecosystems.map(e => extractString(e)).filter(Boolean);
+  } else if (Array.isArray(raw.ecosystems) && raw.ecosystems.length > 0) {
+    rawEcosystems = raw.ecosystems.map(e => extractString(e)).filter(Boolean);
+  } else if (raw.ecosystem) {
+    const str = extractString(raw.ecosystem);
+    rawEcosystems = str.split(/[,;/]\s*/).map(s => s.trim()).filter(Boolean);
   }
-  if (!primaryEcosystem) primaryEcosystem = 'Security';
+
+  if (rawEcosystems.length === 0 && raw.tags && raw.tags.length > 0) {
+    rawEcosystems = raw.tags.map(t => extractString(t)).filter(Boolean);
+  }
+
+  const ecosystems = [...new Set(rawEcosystems.length > 0 ? rawEcosystems : ['Security'])];
+  const primaryEcosystem = ecosystems.join(', ');
 
   // Normalize description text
   let descriptionText = '';
@@ -237,6 +246,7 @@ export function normalizeVulnerability(raw) {
     cvssVersion: extractString(raw.cvssVersion, 'CVSS V3.1'),
     remediation: remediationText,
     ecosystem: primaryEcosystem,
+    ecosystems: ecosystems,
     tech_name: primaryTechName,
     source: primarySource,
     date: formattedDate,

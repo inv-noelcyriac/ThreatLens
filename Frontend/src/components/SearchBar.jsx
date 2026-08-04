@@ -68,7 +68,7 @@ export const DEFAULT_TECH_NAME_OPTIONS = [
   'django',
   'openssl',
   'express',
-  'spring-boot',
+  'spring_boot',
   'vue',
   'angular',
   'next.js',
@@ -89,13 +89,13 @@ export default function SearchBar({
   onQueryChange,
   isSearching = false,
   ecosystem = '',
-  onEcosystemChange = () => {},
+  onEcosystemChange = () => { },
   techName = '',
-  onTechNameChange = () => {},
+  onTechNameChange = () => { },
   startDate = '',
-  onStartDateChange = () => {},
+  onStartDateChange = () => { },
   endDate = '',
-  onEndDateChange = () => {},
+  onEndDateChange = () => { },
   onSearch,
   onClear,
   selectedSeverities,
@@ -218,9 +218,8 @@ export default function SearchBar({
         <button
           id="search-btn"
           disabled={isSearching}
-          className={`h-12 w-[120px] rounded-[10px] border-0 text-white text-[0.9375rem] font-semibold font-[inherit] flex-shrink-0 transition-all duration-300 flex items-center justify-center gap-2 sm:flex-none ${
-            isSearching ? 'opacity-90 cursor-not-allowed' : 'cursor-pointer hover:-translate-y-px active:translate-y-0'
-          }`}
+          className={`h-12 w-[120px] rounded-[10px] border-0 text-white text-[0.9375rem] font-semibold font-[inherit] flex-shrink-0 transition-all duration-300 flex items-center justify-center gap-2 sm:flex-none ${isSearching ? 'opacity-90 cursor-not-allowed' : 'cursor-pointer hover:-translate-y-px active:translate-y-0'
+            }`}
           style={{ background: 'var(--accent-blue)' }}
           onMouseEnter={e => { if (!isSearching) e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
           onMouseLeave={e => { if (!isSearching) e.currentTarget.style.background = 'var(--accent-blue)'; }}

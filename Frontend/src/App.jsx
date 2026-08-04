@@ -154,15 +154,25 @@ export default function App() {
   };
 
   const handleSearch = () => {
-    const hasInputData = Boolean(
-      query.trim() || ecosystem.trim() || techName.trim() || startDate || endDate || (selectedSeverities && selectedSeverities.length > 0)
-    );
-    if (hasInputData) {
-      setIsSearching(true);
+    const qTrim = query.trim();
+    const ecoTrim = ecosystem.trim();
+    const techTrim = techName.trim();
+
+    const isAlreadySearched =
+      qTrim === activeQuery &&
+      ecoTrim === activeEcosystem &&
+      techTrim === activeTechName &&
+      startDate === activeStartDate &&
+      endDate === activeEndDate;
+
+    if (isAlreadySearched) {
+      return;
     }
-    setActiveQuery(query.trim());
-    setActiveEcosystem(ecosystem.trim());
-    setActiveTechName(techName.trim());
+
+    setIsSearching(true);
+    setActiveQuery(qTrim);
+    setActiveEcosystem(ecoTrim);
+    setActiveTechName(techTrim);
     setActiveStartDate(startDate);
     setActiveEndDate(endDate);
     setCurrentPage(1);

@@ -12,7 +12,7 @@ from search.meilisearch_client import INDEX_NAME, get_meilisearch_client
 
 logger = logging.getLogger("ingestion_logger")
 
-ALLOWED_SORT_FIELDS = {"published_at", "severity", "cvss_score"}
+ALLOWED_SORT_FIELDS = {"published_at", "severity", "severity_score", "cvss_score"}
 
 
 def parse_date_to_timestamp(date_str: str, end_of_day: bool = False) -> int | None:
@@ -126,15 +126,15 @@ def parse_multi_value_param(request, param_name: str, uppercase: bool = False) -
     return extracted_values
 
 
-def parse_sort_param(sort_input: str) -> str:
-    """Validates and formats the sort query parameter.
-
-    Handles both 'field:direction' (e.g. 'cvss_score:desc') and bare 'field'
-    (e.g. 'cvss_score'). Defaults to 'published_at:desc' if an invalid
-    attribute is provided.
+def parse_sort_params(sort_input: str) -> list[str]:
+    """Returns sort array for Meilisearch.
+    
+    Defaults to Date DESC -> Severity Score DESC (Tie-breaker for same date).
     """
+    default_sort = ["published_at:desc", "severity_score:desc"]
+
     if not sort_input:
-        return "published_at:desc"
+        return default_sort
 
     sort_input = sort_input.strip()
 
@@ -143,14 +143,21 @@ def parse_sort_param(sort_input: str) -> str:
         field = field.strip()
         direction = direction.strip().lower()
 
-        if field in ALLOWED_SORT_FIELDS and direction in {"asc", "desc"}:
-            return f"{field}:{direction}"
+        if direction not in {"asc", "desc"}:
+            direction = "desc"
+
+        if field == "published_at":
+            return [f"published_at:{direction}", "severity_score:desc"]
+        elif field in ALLOWED_SORT_FIELDS:
+            return [f"{field}:{direction}"]
     else:
         field = sort_input.strip()
-        if field in ALLOWED_SORT_FIELDS:
-            return f"{field}:desc"
+        if field == "published_at":
+            return ["published_at:desc", "severity_score:desc"]
+        elif field in ALLOWED_SORT_FIELDS:
+            return [f"{field}:desc"]
 
-    return "published_at:desc"
+    return default_sort
 
 
 class MasterVulnerabilityListView(APIView):
@@ -164,9 +171,8 @@ class MasterVulnerabilityListView(APIView):
         if isinstance(offset, Response):
             return offset
 
-        sort_param = parse_sort_param(
-            request.GET.get("sort", "published_at:desc")
-        )
+        raw_sort_param = request.GET.get("sort", "published_at:desc")
+        sort_params = parse_sort_params(raw_sort_param)
 
         try:
             client = get_meilisearch_client()
@@ -177,8 +183,8 @@ class MasterVulnerabilityListView(APIView):
                 {
                     "page": page,
                     "hitsPerPage": limit,
-                    "sort": [sort_param],
-                    "filter": "is_hidden = false",  # <-- Guarantees soft-hidden items are omitted
+                    "sort": sort_params,
+                    "filter": "is_hidden = false",
                 },
             )
 
@@ -278,9 +284,9 @@ class VulnerabilitySearchView(APIView):
         end_ts = parse_date_to_timestamp(
             request.GET.get("end_date", ""), end_of_day=True
         )
-        sort_param = parse_sort_param(
-            request.GET.get("sort", "published_at:desc")
-        )
+        
+        raw_sort_param = request.GET.get("sort", "published_at:desc")
+        sort_params = parse_sort_params(raw_sort_param)
 
         # Base filter mandatory for public queries
         filters = ["is_hidden = false"]
@@ -289,9 +295,22 @@ class VulnerabilitySearchView(APIView):
             escaped_eco = [f"'{escape_filter_val(v)}'" for v in ecosystems]
             filters.append(f"filter_ecosystems IN [{', '.join(escaped_eco)}]")
 
+        # ------------------------------------------------------------------
+        # Dynamic Tech Name Filtering (Option A: Exact + Sub-package Prefixes)
+        # ------------------------------------------------------------------
         if tech_names:
-            escaped_tech = [f"'{escape_filter_val(v)}'" for v in tech_names]
-            filters.append(f"filter_tech_names IN [{', '.join(escaped_tech)}]")
+            tech_sub_clauses = []
+            for t in tech_names:
+                escaped_t = escape_filter_val(t.lower())
+                # Matches exact 'react' OR sub-packages like 'react-dom', 'react-router', 'react-dropzone'
+                tech_sub_clauses.append(
+                    f'(filter_tech_names = \'{escaped_t}\' OR filter_tech_names STARTS WITH \'{escaped_t}-\')'
+                )
+            
+            if len(tech_sub_clauses) == 1:
+                filters.append(tech_sub_clauses[0])
+            else:
+                filters.append(f"({' OR '.join(tech_sub_clauses)})")
 
         if severities:
             escaped_sev = [f"'{escape_filter_val(v)}'" for v in severities]
@@ -315,8 +334,8 @@ class VulnerabilitySearchView(APIView):
             search_params = {
                 "page": page,
                 "hitsPerPage": limit,
-                "sort": [sort_param],
-                "filter": filter_expression,  # Always includes 'is_hidden = false'
+                "sort": sort_params,
+                "filter": filter_expression,
             }
 
             raw_results = index.search(query, search_params)

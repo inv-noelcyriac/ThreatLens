@@ -1,4 +1,5 @@
 import logging
+import re
 from abc import ABC, abstractmethod
 from datetime import datetime
 from email.utils import parsedate_to_datetime
@@ -180,39 +181,58 @@ class BaseParser(ABC):
     @staticmethod
     def normalize_ecosystem(ecosystem: Optional[str]) -> str:
         """
-        Converts different vendor ecosystem names
-        into a common representation.
+        Converts vendor ecosystem names into standard representations.
+        Strips 'root:' prefix and separates OS distro names from version numbers.
+        
+        Examples:
+          'root:pypi'           -> 'PyPI'
+          'root:debian:12'      -> 'Debian'
+          'root:ubuntu:22.04'   -> 'Ubuntu'
+          'root:alpine:3.18'    -> 'Alpine'
         """
-
         if not ecosystem:
             return "generic"
 
-        eco = ecosystem.lower()
+        eco = str(ecosystem).strip()
 
+        # Strip case-insensitive 'root:' prefix if present
+        if eco.lower().startswith("root:"):
+            eco = eco[5:].strip()
+
+        if not eco:
+            return "generic"
+
+        # Handle versioned ecosystems like 'debian:12' or 'ubuntu:22.04' -> extract base name
+        if ":" in eco:
+            eco = eco.split(":")[0].strip()
+
+        # Canonical mapping for ecosystems & package managers
         mapping = {
-            "pypi": "pip",
-            "python": "pip",
-            "pip": "pip",
-
+            "pypi": "PyPI",
+            "python": "PyPI",
+            "pip": "PyPI",
             "npm": "npm",
-
-            "go": "go",
-            "golang": "go",
-
-            "maven": "maven",
-
-            "rubygems": "rubygems",
-
-            "crates.io": "cargo",
-
-            "nuget": "nuget",
-
-            "composer": "composer",
+            "go": "Go",
+            "golang": "Go",
+            "maven": "Maven",
+            "rubygems": "RubyGems",
+            "ruby": "RubyGems",
+            "crates.io": "Cargo",
+            "cargo": "Cargo",
+            "nuget": "NuGet",
+            "composer": "Packagist",
+            "packagist": "Packagist",
+            "alpine": "Alpine",
+            "debian": "Debian",
+            "ubuntu": "Ubuntu",
+            "arch": "Arch Linux",
+            "fedora": "Fedora",
+            "rhel": "RHEL",
         }
 
-        return mapping.get(eco, eco)
+        return mapping.get(eco.lower(), eco.title())
 
-    # ------------------------------------------------------------------
+ # ------------------------------------------------------------------
     # Validation
     # ------------------------------------------------------------------
 
@@ -227,3 +247,40 @@ class BaseParser(ABC):
             raise ValueError(
                 "Parser failed to produce a vulnerability identifier."
             )
+
+# ------------------------------------------------------------------
+    # Common Tech Name Normalization
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    @staticmethod
+    def normalize_tech_name(tech_name: Optional[str]) -> str:
+        """
+        Standardizes technology and package names while preserving 
+        valid hyphenated package names (e.g., 'react-router').
+        """
+        if not tech_name:
+            return "unknown"
+
+        cleaned = str(tech_name).strip()
+
+        # 1. Strip trailing version numbers (e.g., 'buildpacks-spring-boot-5.36.2' -> 'buildpacks-spring-boot')
+        cleaned = re.sub(r'-\d+(\.\d+)*.*$', '', cleaned)
+
+        # 2. Strip buildpack / wrapper / container prefixes
+        cleaned = re.sub(r'^(buildpacks?|wrapper|docker|pack)-', '', cleaned, flags=re.IGNORECASE)
+
+        # 3. Handle Maven / PURL coordinates (e.g., 'org.springframework.boot:spring-boot-starter')
+        if ":" in cleaned:
+            parts = cleaned.split(":")
+            cleaned = parts[1] if len(parts) > 1 else parts[0]
+
+        # 4. Handle NPM scoped packages (e.g., '@angular/core' -> 'angular-core')
+        if cleaned.startswith("@"):
+            cleaned = cleaned.lstrip("@").replace("/", "-")
+
+        # 5. Clean special characters, convert to lowercase, PRESERVE HYPHENS!
+        cleaned = cleaned.lower()
+        cleaned = re.sub(r'[^\w\-]+', '', cleaned).strip('-_')
+
+        return cleaned or "unknown"

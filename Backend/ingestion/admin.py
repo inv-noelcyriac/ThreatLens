@@ -20,7 +20,8 @@ from ingestion.forms import (
     VulnerabilityReferenceForm,
     ManualRemediationForm,
 )
-
+from django.contrib import admin
+admin.site.site_url = "http://10.10.13.83:5173/"  # Or your frontend app URL
 
 # 1. Changes the header text on the login page and top of admin pages (e.g., replaces "Django administration")
 admin.site.site_header = "ThreatLens Administration"

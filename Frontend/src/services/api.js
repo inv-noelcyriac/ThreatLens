@@ -532,3 +532,226 @@ export async function deleteManualGuidance(id) {
   }
 }
 
+/** Authentication & Storage Helpers */
+export function getAccessToken() {
+  return localStorage.getItem('threatlens_access_token') || localStorage.getItem('access_token') || null;
+}
+
+export function getRefreshToken() {
+  return localStorage.getItem('threatlens_refresh_token') || localStorage.getItem('refresh_token') || null;
+}
+
+export function setAuthTokens({ access, refresh, user }) {
+  if (access) {
+    localStorage.setItem('threatlens_access_token', access);
+  }
+  if (refresh) {
+    localStorage.setItem('threatlens_refresh_token', refresh);
+  }
+  if (user) {
+    localStorage.setItem('threatlens_user', JSON.stringify(user));
+  }
+}
+
+export function clearAuthTokens() {
+  localStorage.removeItem('threatlens_access_token');
+  localStorage.removeItem('threatlens_refresh_token');
+  localStorage.removeItem('threatlens_user');
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+}
+
+export function getStoredUser() {
+  try {
+    const raw = localStorage.getItem('threatlens_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Step 2: POST /api/v1/auth/google/
+ * Sends Google ID Token to backend for verification, domain check (@innovaturelabs.com), auto-provisioning & JWT minting
+ */
+export async function googleAuthLogin(credential) {
+  if (!credential) {
+    throw new Error('Google ID Token credential is required');
+  }
+
+  const url = `${API_BASE_URL}/auth/google/`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ credential }),
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Authentication failed (HTTP ${response.status})`;
+      try {
+        const errorData = await response.json();
+        console.error('[Backend Auth Error Data]:', errorData);
+        if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        } else if (Array.isArray(errorData.non_field_errors) && errorData.non_field_errors.length > 0) {
+          errorMessage = errorData.non_field_errors.join(', ');
+        } else if (typeof errorData === 'object') {
+          errorMessage = Object.entries(errorData)
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+            .join(' | ');
+        }
+      } catch (e) {
+        // Response was not JSON
+      }
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    setAuthTokens(data);
+    return data;
+  } catch (err) {
+    console.error('[Google Auth API Error]:', err);
+    throw err;
+  }
+}
+
+
+/**
+ * Step 5: POST /api/v1/auth/token/refresh/
+ * Silent Session Renewal using stored refresh token
+ */
+export async function refreshAccessToken() {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    clearAuthTokens();
+    return null;
+  }
+
+  const url = `${API_BASE_URL}/auth/token/refresh/`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refresh: refreshToken }),
+    });
+
+    if (!response.ok) {
+      clearAuthTokens();
+      return null;
+    }
+
+    const data = await response.json();
+    if (data.access) {
+      localStorage.setItem('threatlens_access_token', data.access);
+      if (data.refresh) {
+        localStorage.setItem('threatlens_refresh_token', data.refresh);
+      }
+      return data.access;
+    }
+
+    clearAuthTokens();
+    return null;
+  } catch (err) {
+    console.error('[Token Refresh Error]:', err);
+    clearAuthTokens();
+    return null;
+  }
+}
+
+/**
+ * Step 4: GET /api/v1/auth/me/
+ * Session Restore & User State Fetching using Authorization: Bearer <access_token>
+ */
+export async function fetchCurrentUser() {
+  let token = getAccessToken();
+  if (!token) return null;
+
+  const url = `${API_BASE_URL}/auth/me/`;
+
+  try {
+    let response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    // Catch 401 Unauthorized for silent token renewal
+    if (response.status === 401) {
+      const newAccessToken = await refreshAccessToken();
+      if (newAccessToken) {
+        response = await fetch(url, {
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${newAccessToken}`,
+          },
+        });
+      } else {
+        return null;
+      }
+    }
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        clearAuthTokens();
+        return null;
+      }
+      throw new Error(`HTTP error ${response.status}`);
+    }
+
+    const userData = await response.json();
+    if (userData) {
+      localStorage.setItem('threatlens_user', JSON.stringify(userData));
+    }
+    return userData;
+  } catch (err) {
+    console.error('[Fetch Current User Error]:', err);
+    return null;
+  }
+}
+
+/**
+ * HTTP Interceptor Wrapper for authenticated requests
+ */
+export async function authenticatedFetch(url, options = {}) {
+  let token = getAccessToken();
+  const headers = {
+    'Accept': 'application/json',
+    ...(options.headers || {}),
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  let response = await fetch(url, { ...options, headers });
+
+  if (response.status === 401 && getRefreshToken()) {
+    const newAccessToken = await refreshAccessToken();
+    if (newAccessToken) {
+      headers['Authorization'] = `Bearer ${newAccessToken}`;
+      response = await fetch(url, { ...options, headers });
+    } else {
+      clearAuthTokens();
+    }
+  }
+
+  return response;
+}
+
+

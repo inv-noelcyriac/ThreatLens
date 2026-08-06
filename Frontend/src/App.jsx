@@ -8,7 +8,8 @@ import Pagination from './components/Pagination';
 import DetailPanel from './components/DetailPanel';
 import AdminLogin from './components/AdminLogin';
 import NotFound from './components/NotFound';
-import { fetchVulnerabilities } from './services/api';
+import { fetchVulnerabilities, googleAuthLogin, fetchCurrentUser, clearAuthTokens, getStoredUser, getAccessToken } from './services/api';
+
 
 export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('threatlens-theme') || 'light');
@@ -30,6 +31,10 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedVuln, setSelectedVuln] = useState(null);
 
+  // Standard User Auth State
+  const [currentUser, setCurrentUser] = useState(() => getStoredUser());
+  const [isUserAuthLoading, setIsUserAuthLoading] = useState(false);
+
   // Admin & Routing State
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('threatlens-is-admin') === 'true');
   const [adminUser, setAdminUser] = useState(() => {
@@ -37,6 +42,22 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
+
+  // Step 4: Session Restore (GET /api/v1/auth/me/) on app load
+  useEffect(() => {
+    if (getAccessToken()) {
+      fetchCurrentUser()
+        .then((user) => {
+          if (user) {
+            setCurrentUser(user);
+          }
+        })
+        .catch((err) => {
+          console.warn('[Session Restore Warning]:', err);
+        });
+    }
+  }, []);
+
 
   // Dropdown Options State
   const ecosystemOptions = DEFAULT_ECOSYSTEM_OPTIONS;
@@ -153,6 +174,34 @@ export default function App() {
     window.history.replaceState({}, '', '/');
     setCurrentPath('/');
   };
+
+  // Steps 1 & 2: Google Authentication Callback (POST /api/v1/auth/google/)
+  const handleGoogleLoginSuccess = async (credential) => {
+    setIsUserAuthLoading(true);
+    try {
+      const data = await googleAuthLogin(credential);
+      const user = data.user || data;
+      setCurrentUser(user);
+      const email = user.email || 'corporate account';
+      showToast(`Signed in successfully as ${email}`, 'success');
+    } catch (err) {
+      console.error('[Google Auth Login Error]:', err);
+      showToast(err.message || 'Domain check or Google authentication failed', 'error');
+    } finally {
+      setIsUserAuthLoading(false);
+    }
+  };
+
+  const handleGoogleLoginError = (errorMsg) => {
+    showToast(errorMsg || 'Google Sign-In failed', 'error');
+  };
+
+  const handleUserLogout = () => {
+    clearAuthTokens();
+    setCurrentUser(null);
+    showToast('Signed out of corporate account.', 'info');
+  };
+
 
   const handleSearch = () => {
     const qTrim = query.trim();
@@ -419,10 +468,16 @@ export default function App() {
         onToggleTheme={handleToggleTheme}
         isAdmin={isAdmin}
         adminUser={adminUser}
+        currentUser={currentUser}
         onOpenAddModal={handleOpenAddModal}
         onAdminLoginClick={handleOpenDjangoAdminInNewTab}
         onLogout={handleAdminLogout}
+        onGoogleLoginSuccess={handleGoogleLoginSuccess}
+        onGoogleLoginError={handleGoogleLoginError}
+        onUserLogout={handleUserLogout}
+        isLoggingIn={isUserAuthLoading}
       />
+
 
       <main className="flex-1 pb-12" style={{ background: 'var(--main-bg, transparent)' }}>
         <Hero totalCount={globalTotalCount} />
@@ -566,9 +621,11 @@ export default function App() {
           vuln={selectedVuln}
           onClose={() => setSelectedVuln(null)}
           isAdmin={isAdmin}
+          currentUser={currentUser}
           onSave={handleSaveVuln}
         />
       )}
+
 
       {/* Toast Notification */}
       {toast && (

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import GoogleLoginButton from './GoogleLoginButton';
 
 const SunIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -48,12 +49,32 @@ export default function Header({
   onToggleTheme,
   isAdmin = false,
   adminUser = null,
+  currentUser = null,
   onOpenAddModal = () => {},
   onAdminLoginClick = () => {},
   onLogout = () => {},
+  onGoogleLoginSuccess = () => {},
+  onGoogleLoginError = () => {},
+  onUserLogout = () => {},
+  isLoggingIn = false,
 }) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const logoutContainerRef = useRef(null);
+  const userMenuRef = useRef(null);
+
+  // Close User Menu popover when clicking anywhere outside
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const handleClickOutside = (e) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showUserMenu]);
+
 
   // Close Logout popover when clicking anywhere outside
   useEffect(() => {
@@ -238,7 +259,85 @@ export default function Header({
             </>
           )}
 
+          {/* Standard User Authentication UI */}
+          {!isAdmin && (
+            currentUser ? (
+              /* Logged In User Pill & Dropdown Menu */
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowUserMenu((v) => !v)}
+                  className="h-8 px-2.5 rounded-[8px] border text-xs font-semibold flex items-center gap-2 cursor-pointer transition-all shadow-sm"
+                  style={{
+                    borderColor: 'var(--border-input, rgba(255, 255, 255, 0.2))',
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-primary)',
+                  }}
+                  title={`Signed in as ${currentUser.email || currentUser.username}`}
+                >
+                  <div className="w-5 h-5 rounded-full bg-emerald-500 text-white font-bold text-[0.65rem] flex items-center justify-center uppercase">
+                    {(currentUser.first_name?.[0] || currentUser.email?.[0] || 'U')}
+                  </div>
+                  <span className="max-w-[110px] truncate font-medium hidden sm:inline">
+                    {currentUser.first_name || currentUser.username || currentUser.email?.split('@')[0]}
+                  </span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" title="Corporate Access Active" />
+                </button>
+
+                {showUserMenu && (
+                  <div
+                    className="absolute right-0 top-full mt-1.5 w-[250px] z-[150] rounded-[12px] border p-3.5 shadow-xl animate-fade-in flex flex-col gap-3"
+                    style={{
+                      background: 'var(--bg-card)',
+                      borderColor: 'var(--border-card)',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+                    }}
+                  >
+                    <div className="flex items-center gap-2.5 pb-2 border-b" style={{ borderColor: 'var(--border-color)' }}>
+                      <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-500 font-extrabold text-xs flex items-center justify-center border border-emerald-500/30">
+                        {(currentUser.first_name?.[0] || currentUser.email?.[0] || 'U').toUpperCase()}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>
+                          {currentUser.first_name ? `${currentUser.first_name} ${currentUser.last_name || ''}` : (currentUser.username || 'ThreatLens User')}
+                        </span>
+                        <span className="text-[0.72rem] text-emerald-500 font-medium truncate">
+                          {currentUser.email || 'authenticated@innovaturelabs.com'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[0.72rem] font-medium text-emerald-400 bg-emerald-500/10 px-2.5 py-1.5 rounded-md">
+                      <span>Domain Guardrail</span>
+                      <span className="font-semibold">@innovaturelabs.com</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onUserLogout();
+                      }}
+                      className="w-full py-1.5 rounded-[7px] text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1.5 border border-red-500/30 text-red-400 hover:bg-red-500/15"
+                    >
+                      <LogOutIcon />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Google Sign-In Button */
+              <GoogleLoginButton
+                onSuccess={onGoogleLoginSuccess}
+                onError={onGoogleLoginError}
+                isLoading={isLoggingIn}
+              />
+            )
+          )}
+
           {/* Theme Toggle Button */}
+
           <button
             id="theme-toggle-btn"
             className="w-8 h-8 rounded-full border flex items-center justify-center cursor-pointer transition-all duration-200 hover:scale-105"

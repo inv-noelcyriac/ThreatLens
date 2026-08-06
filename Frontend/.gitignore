@@ -41,3 +41,7 @@ frontend_api.txt
 manualguidanceapi.txt
 response.txt
 
+# Secrets
+client_secret_*.json
+
+

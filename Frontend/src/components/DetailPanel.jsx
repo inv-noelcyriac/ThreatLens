@@ -169,13 +169,25 @@ function formatTimestamp(ts) {
   });
 }
 
-function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
-  const [author, setAuthor] = useState('');
+function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix, currentUser = null }) {
+  const defaultAuthorName = currentUser
+    ? (currentUser.first_name ? `${currentUser.first_name} ${currentUser.last_name || ''}`.trim() : (currentUser.email || currentUser.username || ''))
+    : '';
+
+  const [author, setAuthor] = useState(() => defaultAuthorName);
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
   const [editingIdx, setEditingIdx] = useState(null);
   const [editText, setEditText] = useState('');
   const [expandedIdx, setExpandedIdx] = useState(null);
+
+  useEffect(() => {
+    if (defaultAuthorName) {
+      setAuthor(defaultAuthorName);
+    }
+  }, [defaultAuthorName]);
+
+
 
   const TRUNCATE_LINES = 4;
   const inputStyle = { borderColor: 'var(--border-input)', background: 'var(--bg-input)', color: 'var(--text-primary)' };
@@ -540,7 +552,8 @@ function MinimalEcosystemList({ ecosystems }) {
 }
 
 /* ─── Main export ─── */
-export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) {
+export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUser = null, onSave }) {
+
   const [detailData, setDetailData] = useState(vuln);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [fixes, setFixes] = useState([]);
@@ -1738,7 +1751,9 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
                 onAddFix={handleAddFix}
                 onEditFix={handleEditFix}
                 onDeleteFix={handleDeleteFix}
+                currentUser={currentUser}
               />
+
             </>
           )}
         </div>

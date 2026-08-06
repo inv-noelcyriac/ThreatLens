@@ -98,7 +98,12 @@ export default function SearchBar({
   onEndDateChange = () => { },
   onSearch,
   onClear,
-  selectedSeverities,
+  selectedSeverities = [],
+  activeSelectedSeverities = [],
+  activeEcosystem = '',
+  activeTechName = '',
+  activeStartDate = '',
+  activeEndDate = '',
   onToggleSeverity,
   onClearFilters,
   onClearEcosystem,
@@ -112,18 +117,34 @@ export default function SearchBar({
   const [showEcoMenu, setShowEcoMenu] = useState(false);
   const [showTechMenu, setShowTechMenu] = useState(false);
 
-  const activeCount =
+  const pendingCount =
     selectedSeverities.length +
     (ecosystem.trim() ? 1 : 0) +
     (techName.trim() ? 1 : 0) +
     (startDate ? 1 : 0) +
     (endDate ? 1 : 0);
+
+  const hasActiveFilters =
+    (activeSelectedSeverities && activeSelectedSeverities.length > 0) ||
+    Boolean(activeEcosystem && activeEcosystem.trim()) ||
+    Boolean(activeTechName && activeTechName.trim()) ||
+    Boolean(activeStartDate) ||
+    Boolean(activeEndDate);
+
+  const isApplied =
+    pendingCount > 0 &&
+    ecosystem.trim() === (activeEcosystem || '').trim() &&
+    techName.trim() === (activeTechName || '').trim() &&
+    startDate === (activeStartDate || '') &&
+    endDate === (activeEndDate || '') &&
+    JSON.stringify(selectedSeverities.slice().sort()) === JSON.stringify((activeSelectedSeverities || []).slice().sort());
   const isMaxReached = selectedSeverities.length >= 3;
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       setShowEcoMenu(false);
       setShowTechMenu(false);
+      setShowFilters(false);
       onSearch();
     }
   };
@@ -193,9 +214,9 @@ export default function SearchBar({
           id="filter-btn"
           className="relative w-12 h-12 rounded-[10px] border-[1.5px] flex items-center justify-center cursor-pointer flex-shrink-0 transition-all duration-200"
           style={{
-            borderColor: showFilters || activeCount > 0 ? 'var(--accent-blue)' : 'var(--border-input)',
+            borderColor: showFilters ? 'var(--accent-blue)' : 'var(--border-input)',
             background: showFilters ? 'var(--accent-blue-light)' : 'var(--bg-input)',
-            color: showFilters || activeCount > 0 ? 'var(--accent-blue)' : 'var(--text-secondary)',
+            color: showFilters ? 'var(--accent-blue)' : 'var(--text-secondary)',
           }}
           onClick={() => setShowFilters((v) => !v)}
           aria-label="Toggle search filters"
@@ -203,13 +224,18 @@ export default function SearchBar({
           title="Filter by severity, ecosystem, tech name & date range"
         >
           <FilterIcon />
-          {activeCount > 0 && (
+          {/* Filter count badge */}
+          {pendingCount > 0 && (
             <span
-              className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[0.625rem] font-extrabold min-w-[17px] h-[17px] px-[3px] rounded-full flex items-center justify-center leading-none border-2"
-              style={{ borderColor: 'var(--bg-primary)' }}
-              aria-label={`${activeCount} filter${activeCount > 1 ? 's' : ''} active`}
+              className="absolute -top-1.5 -right-1.5 text-white text-[0.625rem] font-extrabold min-w-[17px] h-[17px] px-[3px] rounded-full flex items-center justify-center leading-none border-2 transition-colors duration-200"
+              style={{
+                background: isApplied ? '#6b7280' : '#ef4444',
+                borderColor: 'var(--bg-primary)',
+              }}
+              aria-label={`${pendingCount} filter${pendingCount > 1 ? 's' : ''} ${isApplied ? 'applied' : 'pending'}`}
+              title={isApplied ? `${pendingCount} active filter${pendingCount > 1 ? 's' : ''} applied` : `${pendingCount} pending filter${pendingCount > 1 ? 's' : ''} (click Search to apply)`}
             >
-              {activeCount}
+              {pendingCount}
             </span>
           )}
         </button>
@@ -227,6 +253,7 @@ export default function SearchBar({
             if (isSearching) return;
             setShowEcoMenu(false);
             setShowTechMenu(false);
+            setShowFilters(false);
             onSearch();
           }}
         >
@@ -567,7 +594,7 @@ export default function SearchBar({
               })}
             </div>
 
-            {activeCount > 0 && (
+            {(pendingCount > 0 || hasActiveFilters) && (
               <button
                 id="clear-filters-btn"
                 className="ml-auto text-[0.8125rem] font-semibold bg-transparent border-0 cursor-pointer font-[inherit] px-0.5 py-1 transition-opacity duration-150 hover:opacity-70 hover:underline"

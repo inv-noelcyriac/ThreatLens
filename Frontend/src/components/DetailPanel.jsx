@@ -933,7 +933,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
 
       {/* Panel */}
       <aside
-        className="fixed top-0 right-0 w-[min(680px,100vw)] h-screen flex flex-col overflow-hidden z-[210] transition-colors duration-300"
+        className="fixed inset-y-0 right-0 w-[min(680px,100vw)] flex flex-col overflow-hidden z-[210] transition-colors duration-300"
         style={{
           background: 'var(--bg-panel)',
           boxShadow: 'var(--shadow-panel)',
@@ -1052,7 +1052,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
         </button>
 
         {/* Scrollable content — only this scrolls, body is locked in App.jsx */}
-        <div className="flex-1 overflow-y-auto px-7 pt-5 pb-10 flex flex-col gap-0 min-w-0">
+        <div className="flex-1 overflow-y-auto px-7 pt-5 pb-20 flex flex-col gap-0 min-w-0">
           {/* Validation Errors Summary Banner */}
           {isEditing && Object.keys(formErrors).length > 0 && (
             <div className="mb-5 p-3.5 rounded-[10px] bg-red-500/10 border border-red-500/30 text-red-500 text-xs flex flex-col gap-1.5 animate-fadeIn">
@@ -1294,7 +1294,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
               </div>
 
               <div className="flex flex-col gap-1 min-w-0">
-                <span className="text-[0.7rem] font-bold tracking-[0.06em] uppercase truncate" style={{ color: 'var(--text-muted)' }}>{current.cvssVersion || 'CVSS V3.1'}</span>
+                <span className="text-[0.7rem] font-bold tracking-[0.06em] uppercase truncate" style={{ color: 'var(--text-muted)' }}>CVSS Score</span>
                 <span className="text-[0.9375rem] font-semibold transition-colors duration-300 truncate" style={{ color: 'var(--text-primary)' }} title={String(current.cvss ?? '')}>
                   {current.cvss ?? 'N/A'}
                 </span>

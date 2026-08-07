@@ -301,7 +301,12 @@ export async function fetchVulnerabilities({
   if (page) url.searchParams.append('page', page);
   if (limit) {
     url.searchParams.append('limit', limit);
-    url.searchParams.append('page_size', limit);
+  }
+
+  if (sortBy) {
+    const field = sortBy === 'Date' ? 'published_at' : (sortBy === 'CVSS' ? 'cvss_score' : sortBy);
+    const dir = sortDir === 'Ascending' ? 'asc' : 'desc';
+    url.searchParams.append('sort', `${field}:${dir}`);
   }
 
   if (hasSearchOrFilters) {
@@ -315,12 +320,6 @@ export async function fetchVulnerabilities({
       severities.forEach((sev) => {
         if (sev) url.searchParams.append('severity', sev);
       });
-    }
-
-    if (sortBy) {
-      const field = sortBy === 'Date' ? 'published_at' : 'cvss_score';
-      const dir = sortDir === 'Ascending' ? 'asc' : 'desc';
-      url.searchParams.append('sort', `${field}:${dir}`);
     }
   }
 

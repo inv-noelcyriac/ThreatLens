@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import SearchBar, { DEFAULT_ECOSYSTEM_OPTIONS, DEFAULT_TECH_NAME_OPTIONS } from './components/SearchBar';
@@ -7,11 +7,11 @@ import VulnCard from './components/VulnCard';
 import Pagination from './components/Pagination';
 import DetailPanel from './components/DetailPanel';
 import AdminLogin from './components/AdminLogin';
-import VulnFormModal from './components/VulnFormModal';
+import NotFound from './components/NotFound';
 import { fetchVulnerabilities } from './services/api';
 
 export default function App() {
-  const [theme, setTheme] = useState(() => localStorage.getItem('threatlens-theme') || 'dark');
+  const [theme, setTheme] = useState(() => localStorage.getItem('threatlens-theme') || 'light');
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
   const [ecosystem, setEcosystem] = useState('');
@@ -24,6 +24,7 @@ export default function App() {
   const [activeEndDate, setActiveEndDate] = useState('');
   const [cardsPerPage, setCardsPerPage] = useState(6);
   const [selectedSeverities, setSelectedSeverities] = useState([]);
+  const [activeSelectedSeverities, setActiveSelectedSeverities] = useState([]);
   const [sortBy, setSortBy] = useState('Date');
   const [sortDir, setSortDir] = useState('Descending');
   const [currentPage, setCurrentPage] = useState(1);
@@ -91,7 +92,7 @@ export default function App() {
       tech_name: activeTechName,
       startDate: activeStartDate,
       endDate: activeEndDate,
-      severities: selectedSeverities,
+      severities: activeSelectedSeverities,
       sortBy,
       sortDir,
     })
@@ -99,7 +100,7 @@ export default function App() {
         if (!isMounted) return;
         setVulnerabilities(res.results);
         setTotalCount(res.count);
-        if (!activeQuery && !activeEcosystem && !activeTechName && !activeStartDate && !activeEndDate && selectedSeverities.length === 0 && res.count > 0) {
+        if (!activeQuery && !activeEcosystem && !activeTechName && !activeStartDate && !activeEndDate && activeSelectedSeverities.length === 0 && res.count > 0) {
           setGlobalTotalCount(res.count);
         }
       })
@@ -118,7 +119,7 @@ export default function App() {
       });
 
     return () => { isMounted = false; };
-  }, [activeQuery, activeEcosystem, activeTechName, activeStartDate, activeEndDate, selectedSeverities, currentPage, cardsPerPage, sortBy, sortDir, retryTrigger]);
+  }, [activeQuery, activeEcosystem, activeTechName, activeStartDate, activeEndDate, activeSelectedSeverities, currentPage, cardsPerPage, sortBy, sortDir, retryTrigger]);
 
   const navigateTo = (path) => {
     window.history.pushState({}, '', path);
@@ -163,7 +164,8 @@ export default function App() {
       ecoTrim === activeEcosystem &&
       techTrim === activeTechName &&
       startDate === activeStartDate &&
-      endDate === activeEndDate;
+      endDate === activeEndDate &&
+      JSON.stringify(selectedSeverities) === JSON.stringify(activeSelectedSeverities);
 
     if (isAlreadySearched) {
       return;
@@ -175,62 +177,95 @@ export default function App() {
     setActiveTechName(techTrim);
     setActiveStartDate(startDate);
     setActiveEndDate(endDate);
+    setActiveSelectedSeverities([...selectedSeverities]);
     setCurrentPage(1);
   };
 
   const handleClear = () => {
     setQuery('');
-    setActiveQuery('');
-    setCurrentPage(1);
+    if (activeQuery !== '') {
+      setActiveQuery('');
+      setCurrentPage(1);
+    }
   };
 
   const handleClearEcosystem = () => {
     setEcosystem('');
-    setActiveEcosystem('');
-    setCurrentPage(1);
+    if (activeEcosystem !== '') {
+      setActiveEcosystem('');
+      setCurrentPage(1);
+    }
   };
 
   const handleClearTechName = () => {
     setTechName('');
-    setActiveTechName('');
-    setCurrentPage(1);
+    if (activeTechName !== '') {
+      setActiveTechName('');
+      setCurrentPage(1);
+    }
   };
 
   const handleClearStartDate = () => {
     setStartDate('');
-    setActiveStartDate('');
-    setCurrentPage(1);
+    if (activeStartDate !== '') {
+      setActiveStartDate('');
+      setCurrentPage(1);
+    }
   };
 
   const handleClearEndDate = () => {
     setEndDate('');
-    setActiveEndDate('');
-    setCurrentPage(1);
+    if (activeEndDate !== '') {
+      setActiveEndDate('');
+      setCurrentPage(1);
+    }
   };
 
   const handleToggleSeverity = (sev) => {
     setSelectedSeverities((prev) => {
+      let next;
       if (prev.includes(sev)) {
-        setCurrentPage(1);
-        return prev.filter(s => s !== sev);
+        next = prev.filter(s => s !== sev);
+      } else {
+        if (prev.length >= 3) return prev;
+        next = [...prev, sev];
       }
-      if (prev.length >= 3) return prev;
-      setCurrentPage(1);
-      return [...prev, sev];
+
+      // If a search was performed with severity filters, removing/changing severity reloads API data immediately
+      if (activeSelectedSeverities.length > 0) {
+        setActiveSelectedSeverities(next);
+        setCurrentPage(1);
+      }
+
+      return next;
     });
   };
 
   const handleClearFilters = () => {
+    // Reset pending UI form inputs
     setSelectedSeverities([]);
     setEcosystem('');
-    setActiveEcosystem('');
     setTechName('');
-    setActiveTechName('');
     setStartDate('');
-    setActiveStartDate('');
     setEndDate('');
-    setActiveEndDate('');
-    setCurrentPage(1);
+
+    // Check if any active filter was actually applied to the active query results on screen
+    const hasActiveFilters =
+      activeEcosystem !== '' ||
+      activeTechName !== '' ||
+      activeStartDate !== '' ||
+      activeEndDate !== '' ||
+      activeSelectedSeverities.length > 0;
+
+    // Only reset active state (which triggers an API fetch) if active filters were applied
+    if (hasActiveFilters) {
+      setActiveEcosystem('');
+      setActiveTechName('');
+      setActiveStartDate('');
+      setActiveEndDate('');
+      setActiveSelectedSeverities([]);
+      setCurrentPage(1);
+    }
   };
 
 
@@ -313,20 +348,39 @@ export default function App() {
     setTimeout(() => html.classList.remove('theme-transitioning'), 400);
   };
 
-  // Automatically redirect authenticated admins away from /admin/login, or redirect /admin / /admin/ to '/'
-  useEffect(() => {
-    if (isAdmin && currentPath === '/admin/login') {
-      window.history.replaceState({}, '', '/');
-      setCurrentPath('/');
-    } else if (currentPath === '/admin' || currentPath === '/admin/') {
-      window.history.replaceState({}, '', '/');
-      setCurrentPath('/');
-    }
-  }, [isAdmin, currentPath]);
+  const hasRedirectedRef = useRef(false);
 
-  // Route 1: Admin Login Endpoint (ONLY /admin/login works)
-  if (currentPath === '/admin/login') {
-    if (isAdmin) return null;
+  // Get Django Admin backend URL using explicit network endpoint
+  const getDjangoAdminUrl = () => {
+    return 'http://10.10.13.44:8000/admin/';
+  };
+
+  const handleOpenDjangoAdminInNewTab = () => {
+    const win = window.open(getDjangoAdminUrl(), '_blank');
+    if (win) win.focus();
+  };
+
+  // Direct URL navigation (STRICTLY /admin/login) uses window.location.href to bypass popup blockers completely
+  useEffect(() => {
+    const path = currentPath.toLowerCase().replace(/\/$/, '');
+    if (path === '/admin/login') {
+      if (!hasRedirectedRef.current) {
+        hasRedirectedRef.current = true;
+        window.location.href = getDjangoAdminUrl();
+      }
+    } else {
+      hasRedirectedRef.current = false;
+    }
+  }, [currentPath]);
+
+  // Route 1: Test UI Frontend Admin Login (/test_ui/admin/login)
+  const normalizedPath = currentPath.toLowerCase().replace(/\/$/, '');
+  if (normalizedPath === '/test_ui/admin/login') {
+    if (isAdmin) {
+      window.history.replaceState({}, '', '/');
+      setCurrentPath('/');
+      return null;
+    }
 
     return (
       <AdminLogin
@@ -341,7 +395,23 @@ export default function App() {
     );
   }
 
-  // Route 2: Main Vulnerability Search Dashboard
+  // Route 2: 404 Error Page for non-existing paths
+  if (normalizedPath !== '' && normalizedPath !== '/') {
+    return (
+      <NotFound
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        isAdmin={isAdmin}
+        adminUser={adminUser}
+        onOpenAddModal={handleOpenAddModal}
+        onAdminLoginClick={handleOpenDjangoAdminInNewTab}
+        onLogout={handleAdminLogout}
+        onNavigateHome={() => navigateTo('/')}
+      />
+    );
+  }
+
+  // Route 3: Main Vulnerability Search Dashboard
   return (
     <div className="min-h-screen flex flex-col">
       <Header
@@ -350,7 +420,7 @@ export default function App() {
         isAdmin={isAdmin}
         adminUser={adminUser}
         onOpenAddModal={handleOpenAddModal}
-        onAdminLoginClick={() => navigateTo('/admin/login')}
+        onAdminLoginClick={handleOpenDjangoAdminInNewTab}
         onLogout={handleAdminLogout}
       />
 
@@ -373,6 +443,11 @@ export default function App() {
             onSearch={handleSearch}
             onClear={handleClear}
             selectedSeverities={selectedSeverities}
+            activeSelectedSeverities={activeSelectedSeverities}
+            activeEcosystem={activeEcosystem}
+            activeTechName={activeTechName}
+            activeStartDate={activeStartDate}
+            activeEndDate={activeEndDate}
             onToggleSeverity={handleToggleSeverity}
             onClearFilters={handleClearFilters}
             onClearEcosystem={handleClearEcosystem}

@@ -45,14 +45,39 @@ export default function Pagination({
   onPageChange,
 }) {
   const [jumpPage, setJumpPage] = useState('');
+  const [jumpError, setJumpError] = useState('');
   const pages = totalPages && totalPages > 1 ? getVisiblePages(currentPage, totalPages) : [];
+
+  const handleJumpChange = (e) => {
+    // Only accept numeric digits 0-9
+    const rawVal = e.target.value;
+    const cleanVal = rawVal.replace(/\D/g, '');
+
+    setJumpPage(cleanVal);
+
+    if (!cleanVal) {
+      setJumpError('');
+      return;
+    }
+
+    const pageNum = parseInt(cleanVal, 10);
+    if (pageNum < 1) {
+      setJumpError('Page must be at least 1');
+    } else if (pageNum > totalPages) {
+      setJumpError(`Page cannot exceed ${totalPages.toLocaleString()}`);
+    } else {
+      setJumpError('');
+    }
+  };
 
   const handleJumpSubmit = (e) => {
     e.preventDefault();
+    if (!jumpPage || jumpError) return;
     const pageNum = parseInt(jumpPage, 10);
     if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
       onPageChange(pageNum);
       setJumpPage('');
+      setJumpError('');
     }
   };
 
@@ -93,43 +118,55 @@ export default function Pagination({
           </div>
         )}
 
-        {/* Direct "Go to page" input box */}
+        {/* Direct "Go to page" input box with strict numeric validation & fixed width */}
         {totalPages && totalPages > 1 && (
-          <form onSubmit={handleJumpSubmit} className="flex items-center gap-1.5 text-[0.8125rem]" style={{ color: 'var(--text-muted)' }}>
-            <label htmlFor="jump-to-page-input" className="font-medium whitespace-nowrap">
-              Go to page:
-            </label>
-            <input
-              id="jump-to-page-input"
-              type="number"
-              min="1"
-              max={totalPages}
-              placeholder="#"
-              value={jumpPage}
-              onChange={(e) => setJumpPage(e.target.value)}
-              className="h-8 min-w-[52px] px-2 text-center rounded-[8px] border-[1.5px] text-[0.8125rem] font-semibold outline-none transition-all duration-150 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              style={{
-                width: `${Math.max(52, (jumpPage ? jumpPage.length : 1) * 10 + 32)}px`,
-                borderColor: jumpPage ? 'var(--accent-blue)' : 'var(--border-input)',
-                background: 'var(--bg-input)',
-                color: 'var(--text-primary)',
-              }}
-              onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; }}
-              onBlur={e => { e.currentTarget.style.borderColor = jumpPage ? 'var(--accent-blue)' : 'var(--border-input)'; }}
-            />
-            <button
-              type="submit"
-              disabled={!jumpPage || parseInt(jumpPage, 10) < 1 || parseInt(jumpPage, 10) > totalPages}
-              className="h-8 px-2.5 rounded-[8px] border-[1.5px] text-[0.775rem] font-semibold cursor-pointer transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{
-                borderColor: 'var(--accent-blue)',
-                background: 'var(--accent-blue)',
-                color: '#ffffff',
-              }}
-            >
-              Go
-            </button>
-          </form>
+          <div className="flex flex-col items-center sm:items-start gap-0.5 relative">
+            <form onSubmit={handleJumpSubmit} className="flex items-center gap-1.5 text-[0.8125rem]" style={{ color: 'var(--text-muted)' }}>
+              <label htmlFor="jump-to-page-input" className="font-medium whitespace-nowrap">
+                Go to page:
+              </label>
+              <input
+                id="jump-to-page-input"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="#"
+                value={jumpPage}
+                onChange={handleJumpChange}
+                maxLength={String(totalPages).length + 2}
+                className="h-8 w-[60px] flex-shrink-0 px-2 text-center rounded-[8px] border-[1.5px] text-[0.8125rem] font-semibold outline-none transition-all duration-150"
+                style={{
+                  borderColor: jumpError ? '#ef4444' : (jumpPage ? 'var(--accent-blue)' : 'var(--border-input)'),
+                  background: 'var(--bg-input)',
+                  color: 'var(--text-primary)',
+                  boxShadow: jumpError ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
+                }}
+                onFocus={e => {
+                  if (!jumpError) e.currentTarget.style.borderColor = 'var(--accent-blue)';
+                }}
+                onBlur={e => {
+                  if (!jumpError) e.currentTarget.style.borderColor = jumpPage ? 'var(--accent-blue)' : 'var(--border-input)';
+                }}
+              />
+              <button
+                type="submit"
+                disabled={!jumpPage || Boolean(jumpError)}
+                className="h-8 px-2.5 rounded-[8px] border-[1.5px] text-[0.775rem] font-semibold cursor-pointer transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                style={{
+                  borderColor: 'var(--accent-blue)',
+                  background: 'var(--accent-blue)',
+                  color: '#ffffff',
+                }}
+              >
+                Go
+              </button>
+            </form>
+            {jumpError && (
+              <span className="text-[0.725rem] font-bold text-red-500 flex items-center animate-fadeIn whitespace-nowrap pt-0.5">
+                {jumpError}
+              </span>
+            )}
+          </div>
         )}
       </div>
 

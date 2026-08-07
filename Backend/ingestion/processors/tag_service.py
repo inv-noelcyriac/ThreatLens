@@ -28,24 +28,27 @@ class TagService:
         tags: list[NormalizedTag],
     ) -> None:
 
-        logger.info(
-            f"[Tag Service] Processing {len(tags)} tag(s) "
-            f"for '{master.display_id}'."
-        )
+        # Clean up stale tags for this vulnerability before inserting updated tags
+        master.tags.all().delete()
 
         for tag in tags:
+            tech_clean = str(tag.tech_name or "unknown").strip()[:99]
+            eco_clean = str(tag.ecosystem or "generic").strip()[:99]
+            intro_clean = str(tag.introduced_version).strip()[:99] if tag.introduced_version else None
+            fixed_clean = str(tag.fixed_version).strip()[:99] if tag.fixed_version else None
+            raw_expr_clean = str(tag.raw_version_expression).strip()[:500] if tag.raw_version_expression else None
 
             try:
 
                 obj, created = (
                     VulnerabilityTag.objects.update_or_create(
                         master_vuln=master,
-                        tech_name=tag.tech_name or "unknown",
-                        ecosystem=tag.ecosystem or "generic",
-                        raw_version_expression=tag.raw_version_expression,
+                        tech_name=tech_clean,
+                        ecosystem=eco_clean,
+                        raw_version_expression=raw_expr_clean,
                         defaults={
-                            "introduced_version": tag.introduced_version,
-                            "fixed_version": tag.fixed_version,
+                            "introduced_version": intro_clean,
+                            "fixed_version": fixed_clean,
                         },
                     )
                 )

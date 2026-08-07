@@ -242,7 +242,10 @@ class BaseIngestionTask:
                 advisory, created = SourceAdvisory.objects.update_or_create(
                     source=source_name,
                     external_id=external_id,
-                    defaults={"raw_payload": raw_payload},
+                    defaults={"raw_payload": raw_payload,
+                    "normalized_at": None,  # Reset normalized_at on update
+                    "fetched_at": now,      # Refresh fetch timestamp
+                    }
                 )
                 if created:
                     logger.info(

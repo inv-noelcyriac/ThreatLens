@@ -35,6 +35,7 @@ def configure_vulnerabilities_index():
     index.update_searchable_attributes([
         "display_id",
         "filter_tech_names",
+        "filter_ecosystems",
         "descriptions",
     ])
 
@@ -68,13 +69,14 @@ def configure_vulnerabilities_index():
 
     # 5. Ranking Rules (Ensures CVSS/Severity tie-break same-day items)
     index.update_ranking_rules([
-        "words",
-        "typo",
+        "words",      # 1. Document MUST contain the searched word(s)
+        "sort",       # 2. STRICT CHRONOLOGICAL ORDER across ALL matches (No jumbled dates!)
+        "typo",       # 3. Tie-breakers...
         "proximity",
-        "attribute",
-        "sort",
-        "exactness"
+        "attribute",   # Prioritizes matches in title/package/display_id over description
+        "exactness",   # Prioritizes exact matches for "react"
     ])
+
 
     logger.info(f"[MEILISEARCH] Index '{INDEX_NAME}' configuration task submitted successfully.")
     return index

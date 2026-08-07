@@ -281,6 +281,12 @@ class NVDParser(BaseParser):
                         )
                     )
 
+        # Also extract from structured 'affected' block if present
+        affected_list = cve.get("affected", [])
+        if isinstance(affected_list, list) and affected_list:
+            affected_tags = self.extract_tags_from_affected(affected_list)
+            tags.extend(affected_tags)
+
         return tags
 
     @staticmethod

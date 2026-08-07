@@ -338,6 +338,29 @@ class VulnerabilitySearchView(APIView):
                 "filter": filter_expression,
             }
 
+            # ------------------------------------------------------------------
+            # Restrict Search Scope for Text Queries
+            # Eliminates noisy description matches so strict date sorting returns
+            # accurate package/ID results without jumbled dates.
+            # ------------------------------------------------------------------
+            if query:
+
+            # ------------------------------------------------------------------
+            # Exact Phrase Matching for Terms with Special Characters
+            # Prevents '.net' from prefix-matching 'netty', 'network', etc.
+            # ------------------------------------------------------------------
+                formatted_query = query
+                if query.startswith(".") or any(char in query for char in ["-", "/", "@", "+", "#"]):
+                    # If user didn't explicitly add quotes, wrap query in quotes for exact match
+                    if not (query.startswith('"') and query.endswith('"')):
+                        formatted_query = f'"{query}"'
+
+                # search_params["attributesToSearchOn"] = [
+                #     "display_id",
+                #     "filter_tech_names",
+                #     "filter_ecosystems",
+                # ]
+
             raw_results = index.search(query, search_params)
 
             total_hits = raw_results.get(

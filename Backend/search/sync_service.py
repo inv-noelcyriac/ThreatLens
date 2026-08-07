@@ -1,4 +1,3 @@
-# search/sync_service.py
 import json
 import logging
 from datetime import timezone
@@ -131,22 +130,46 @@ def parse_raw_payload(raw_payload) -> dict:
     if raw_payload.get("custom_vendor_remediation"):
         remediations.append(str(raw_payload["custom_vendor_remediation"]))
 
-    if "affected" in raw_payload and isinstance(raw_payload["affected"], list):
-        for item in raw_payload["affected"]:
+    affected_list = []
+    if isinstance(cve_node, dict) and "affected" in cve_node:
+        affected_list = cve_node.get("affected", [])
+    elif "affected" in raw_payload and isinstance(raw_payload["affected"], list):
+        affected_list = raw_payload["affected"]
+
+    if isinstance(affected_list, list):
+        for item in affected_list:
             if not isinstance(item, dict):
                 continue
-            ranges = item.get("ranges", [])
-            if isinstance(ranges, list):
-                for r in ranges:
-                    if not isinstance(r, dict):
-                        continue
-                    events = r.get("events", [])
-                    if isinstance(events, list):
-                        for event in events:
-                            if isinstance(event, dict) and "fixed" in event:
-                                pkg_info = item.get("package", {})
-                                pkg_name = pkg_info.get("name", "package") if isinstance(pkg_info, dict) else "package"
-                                remediations.append(f"Upgrade {pkg_name} to fixed version: {event['fixed']}")
+            product_targets = item.get("affectedData", [item]) if "affectedData" in item else [item]
+            for target in product_targets:
+                if not isinstance(target, dict):
+                    continue
+                ranges = target.get("ranges", [])
+                if isinstance(ranges, list):
+                    for r in ranges:
+                        if not isinstance(r, dict):
+                            continue
+                        events = r.get("events", [])
+                        if isinstance(events, list):
+                            for event in events:
+                                if isinstance(event, dict) and "fixed" in event:
+                                    pkg_info = target.get("package", {})
+                                    pkg_name = (
+                                        pkg_info.get("name")
+                                        if isinstance(pkg_info, dict)
+                                        else target.get("product") or target.get("packageName") or "package"
+                                    )
+                                    remediations.append(f"Upgrade {pkg_name} to fixed version: {event['fixed']}")
+
+                versions = target.get("versions", [])
+                if isinstance(versions, list):
+                    for v in versions:
+                        if not isinstance(v, dict):
+                            continue
+                        fixed_val = v.get("lessThan") or v.get("lessThanOrEqual")
+                        if fixed_val and str(fixed_val).strip() not in ("*", ""):
+                            pkg_name = target.get("packageName") or target.get("product") or "package"
+                            remediations.append(f"Upgrade {pkg_name} to fixed version: {fixed_val}")
 
     return {
         "descriptions": list(dict.fromkeys(descriptions)),
@@ -155,36 +178,59 @@ def parse_raw_payload(raw_payload) -> dict:
 
 
 def build_meilisearch_document(master_vuln: MasterVulnerability, advisory_map: dict) -> dict:
-    """
-    Builds a clean, JSON-serializable Meilisearch document including source name.
-    """
     tags = list(master_vuln.tags.all())
     references = [str(ref.url) for ref in master_vuln.references.all() if ref.url]
 
+    advisory_data = advisory_map.get(master_vuln.display_id, {})
+    raw_payload = advisory_data.get("raw_payload", {}) if isinstance(advisory_data, dict) else {}
+    raw_source = advisory_data.get("source") if isinstance(advisory_data, dict) else None
+
+    # Fallback to raw_payload parsing if DB tags are missing
+    if not tags and raw_payload:
+        cve_node = raw_payload.get("cve") or raw_payload.get("CVE") or {}
+        affected_list = []
+        if isinstance(cve_node, dict) and "affected" in cve_node:
+            affected_list = cve_node.get("affected", [])
+        elif "affected" in raw_payload and isinstance(raw_payload["affected"], list):
+            affected_list = raw_payload["affected"]
+
+        if affected_list:
+            tags = BaseParser.extract_tags_from_affected(affected_list)
+
+    # Clean Tech Names (Components)
     tech_names = list({
-    BaseParser.normalize_tech_name(t.tech_name) 
-    for t in tags 
-    if t.tech_name
+        BaseParser.normalize_tech_name(t.tech_name) 
+        for t in tags 
+        if t.tech_name and not str(t.tech_name).upper().startswith("CVE-")
     })
-    # Reuse BaseParser.normalize_ecosystem
+
+    # Clean Ecosystems
     ecosystems = list({
         BaseParser.normalize_ecosystem(t.ecosystem) 
         for t in tags 
         if t.ecosystem
     })
 
-    comp_matrix = [
-    f"{BaseParser.normalize_tech_name(t.tech_name)}:{BaseParser.normalize_ecosystem(t.ecosystem)}:{t.raw_version_expression or ''}"
-    for t in tags
-    ]
+    # Build structured component entries (never allow display_id as component name)
+    comp_matrix = []
+    affected_components = []
 
-    advisory_data = advisory_map.get(master_vuln.display_id, {})
-    if isinstance(advisory_data, dict):
-        raw_payload = advisory_data.get("raw_payload", {})
-        raw_source = advisory_data.get("source")
-    else:
-        raw_payload = {}
-        raw_source = None
+    for t in tags:
+        # Extract real package/tech name
+        comp_name = t.tech_name if (t.tech_name and not str(t.tech_name).upper().startswith("CVE-")) else "Unknown Component"
+        norm_tech = BaseParser.normalize_tech_name(comp_name)
+        norm_eco = BaseParser.normalize_ecosystem(t.ecosystem)
+        ver_expr = t.raw_version_expression or "See references"
+
+        comp_matrix.append(f"{norm_tech}:{norm_eco}:{ver_expr}")
+
+        # Structured dict format for easy UI table consumption
+        affected_components.append({
+            "component": comp_name,
+            "ecosystem": norm_eco,
+            "affected_versions": ver_expr,
+            "status": "VULNERABLE"
+        })
 
     source_name = resolve_source_name(master_vuln.display_id, raw_source)
     parsed_extra = parse_raw_payload(raw_payload)
@@ -196,7 +242,6 @@ def build_meilisearch_document(master_vuln: MasterVulnerability, advisory_map: d
         day_only = dt.replace(hour=0, minute=0, second=0, microsecond=0)
         pub_timestamp = int(day_only.replace(tzinfo=timezone.utc).timestamp())
 
-    # --- Compute Severity & CVSS Score ---
     sev_str = str(master_vuln.severity or "UNKNOWN").upper()
     sev_score = SEVERITY_WEIGHTS.get(sev_str, 0)
     cvss_score = extract_cvss_score(master_vuln, raw_payload)
@@ -206,16 +251,17 @@ def build_meilisearch_document(master_vuln: MasterVulnerability, advisory_map: d
         "display_id": str(master_vuln.display_id),
         "source": source_name,
         "severity": sev_str,
-        "severity_score": sev_score,  # Integer weight (4, 3, 2, 1, 0)
-        "cvss_score": cvss_score,      # Float score (e.g. 9.8)
-        "published_at": pub_timestamp, # Day-normalized UTC timestamp
+        "severity_score": sev_score,
+        "cvss_score": cvss_score,
+        "published_at": pub_timestamp,
         "is_hidden": master_vuln.is_hidden,
         "descriptions": parsed_extra["descriptions"],
         "vendor_remediations": parsed_extra["vendor_remediations"],
-        "filter_tech_names": tech_names,
-        "filter_ecosystems": ecosystems,
+        "filter_tech_names": tech_names if tech_names else ["Unknown Component"],
+        "filter_ecosystems": ecosystems if ecosystems else ["General"],
         "filter_comp_matrix": comp_matrix,
         "vulnerable_components": comp_matrix,
+        "affected_components": affected_components,  # Explicit structured dict for table
         "references": references,
     }
 

@@ -41,7 +41,14 @@ def finish_sync_run_success(
     """
     sync_record.last_run_status = SyncState.RunStatus.SUCCESS
     sync_record.records_processed = records
-    sync_record.last_successful_sync = sync_time or timezone.now()
+
+    # If new records were processed, use vendor's sync_time.
+    # If 0 records were processed, advance checkpoint to right now.
+    if records > 0 and sync_time:
+        sync_record.last_successful_sync = sync_time
+    else:
+        sync_record.last_successful_sync = timezone.now()
+
     sync_record.error_message = None
     sync_record.save()
 

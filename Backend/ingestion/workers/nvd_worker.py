@@ -27,7 +27,7 @@ class NVDApiTask(BaseIngestionTask):
     ]
 
     # Hardcoded fallback to official NIST NVD API 2.0 endpoint
-    DEFAULT_API_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+    DEFAULT_API_URL = os.environ.get("NVD_API_URL")
 
     def validate_schema(self, external_id: str, payload_dict: dict) -> bool:
         cve_block = payload_dict.get("cve", {})
@@ -160,10 +160,23 @@ class NVDApiTask(BaseIngestionTask):
                             )
                         )
 
-                # Single bulk DB transaction
+                # # Single bulk DB transaction
+                # if advisories_to_create:
+                #     SourceAdvisory.objects.bulk_create(
+                #         advisories_to_create, ignore_conflicts=True
+                #     )
+                #     total_processed += len(advisories_to_create)
+
                 if advisories_to_create:
+                    # Ensure every advisory object in this batch has normalized_at set to None
+                    for advisory in advisories_to_create:
+                        advisory.normalized_at = None
+
                     SourceAdvisory.objects.bulk_create(
-                        advisories_to_create, ignore_conflicts=True
+                        advisories_to_create,
+                        update_conflicts=True,
+                        unique_fields=["external_id", "source"],  # Or your unique constraint fields
+                        update_fields=["raw_payload", "normalized_at", "fetched_at"]  # Resets normalized_at to NULL on upsert!
                     )
                     total_processed += len(advisories_to_create)
 

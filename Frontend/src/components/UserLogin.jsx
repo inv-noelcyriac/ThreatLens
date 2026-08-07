@@ -16,40 +16,228 @@ const MoonIcon = () => (
   </svg>
 );
 
-// Animated SVG background — floating network nodes with edges, scan line, and pulse rings
-function CyberBackground({ theme }) {
+// ── Mock CVE data matching ThreatLens card format ──
+const MOCK_VULNS = [
+  {
+    id: 'CVE-2024-21887',
+    description: 'Remote command injection in Ivanti Connect Secure gateway via crafted requests.',
+    severity: 'CRITICAL',
+    cvss: '9.1',
+    ecosystem: 'Security',
+    source: 'NVD',
+    date: '2024-01-10',
+    remediation: 'Apply vendor patch ICS 9.1R18, disable SAML.',
+  },
+  {
+    id: 'CVE-2025-23017',
+    description: 'Heap buffer overflow in libpng allows arbitrary code execution via malformed PNG files.',
+    severity: 'HIGH',
+    cvss: '8.4',
+    ecosystem: 'npm',
+    source: 'OSV',
+    date: '2025-03-14',
+  },
+  {
+    id: 'CVE-2024-38856',
+    description: 'Authentication bypass in Apache OFBiz exposes unauthenticated endpoints.',
+    severity: 'CRITICAL',
+    cvss: '9.8',
+    ecosystem: 'Maven',
+    source: 'GitHub',
+    date: '2024-08-05',
+    remediation: 'Upgrade to OFBiz 18.12.15 or later.',
+  },
+  {
+    id: 'CVE-2025-0411',
+    description: 'Mark-of-the-Web bypass in 7-Zip allows arbitrary code from archive extraction.',
+    severity: 'HIGH',
+    cvss: '7.0',
+    ecosystem: 'Security',
+    source: 'NVD',
+    date: '2025-01-20',
+  },
+  {
+    id: 'CVE-2024-4577',
+    description: 'PHP CGI argument injection on Windows bypasses CVE-2012-1823 protections.',
+    severity: 'CRITICAL',
+    cvss: '9.8',
+    ecosystem: 'PyPI',
+    source: 'CERT',
+    date: '2024-06-07',
+    remediation: 'Upgrade to PHP 8.1.29, 8.2.20, or 8.3.8.',
+  },
+  {
+    id: 'CVE-2024-29988',
+    description: 'SmartScreen bypass lets attackers evade Windows Defender via crafted .zip lnk files.',
+    severity: 'HIGH',
+    cvss: '8.8',
+    ecosystem: 'Security',
+    source: 'Microsoft',
+    date: '2024-04-09',
+  },
+  {
+    id: 'CVE-2025-1094',
+    description: 'SQL injection in PostgreSQL allows privilege escalation via quoting APIs.',
+    severity: 'MEDIUM',
+    cvss: '6.7',
+    ecosystem: 'PyPI',
+    source: 'NVD',
+    date: '2025-02-13',
+    remediation: 'Upgrade to PostgreSQL 17.3, 16.7, or 15.11.',
+  },
+  {
+    id: 'CVE-2024-27198',
+    description: 'Authentication bypass in JetBrains TeamCity allows full server takeover.',
+    severity: 'CRITICAL',
+    cvss: '9.8',
+    ecosystem: 'Maven',
+    source: 'GitHub',
+    date: '2024-03-04',
+    remediation: 'Upgrade to TeamCity 2023.11.4.',
+  },
+  {
+    id: 'CVE-2024-49138',
+    description: 'Windows CLFS driver heap overflow allows SYSTEM privilege escalation.',
+    severity: 'HIGH',
+    cvss: '7.8',
+    ecosystem: 'Security',
+    source: 'Microsoft',
+    date: '2024-12-10',
+  },
+  {
+    id: 'CVE-2025-24054',
+    description: 'NTLM hash spoofing via .library-ms file triggers credential relay.',
+    severity: 'HIGH',
+    cvss: '8.1',
+    ecosystem: 'Security',
+    source: 'NVD',
+    date: '2025-03-11',
+  },
+];
+
+const SEV_COLORS = {
+  CRITICAL: { accent: '#ef4444', bg: 'rgba(239,68,68,0.12)', text: '#ef4444', border: 'rgba(239,68,68,0.25)' },
+  HIGH:     { accent: '#f97316', bg: 'rgba(249,115,22,0.1)',  text: '#f97316', border: 'rgba(249,115,22,0.22)' },
+  MEDIUM:   { accent: '#eab308', bg: 'rgba(234,179,8,0.1)',   text: '#ca8a04', border: 'rgba(234,179,8,0.22)' },
+  LOW:      { accent: '#22c55e', bg: 'rgba(34,197,94,0.1)',   text: '#16a34a', border: 'rgba(34,197,94,0.22)' },
+};
+
+// Inline ghost card (no absolute positioning — used inside marquee strips)
+function GhostCard({ vuln, theme }) {
   const isDark = theme === 'dark';
-  const nodeColor = isDark ? 'rgba(96,165,250,0.9)' : 'rgba(37,99,235,0.75)';
-  const edgeColor = isDark ? 'rgba(96,165,250,0.18)' : 'rgba(37,99,235,0.12)';
-  const scanColor = isDark ? 'rgba(96,165,250,0.08)' : 'rgba(37,99,235,0.05)';
-  const ringColor = isDark ? 'rgba(239,68,68,0.35)' : 'rgba(220,38,38,0.22)';
-  const labelColor = isDark ? 'rgba(96,165,250,0.55)' : 'rgba(37,99,235,0.4)';
+  const sevKey = (vuln.severity || 'MEDIUM').toUpperCase();
+  const sev = SEV_COLORS[sevKey] || SEV_COLORS.MEDIUM;
 
-  // Node positions as % of viewport (kept away from centre where login card is)
-  const nodes = [
-    { id: 'n1', cx: '8%',  cy: '18%', r: 5,   cls: 'cyber-node-a', label: 'CVE-2024-21887' },
-    { id: 'n2', cx: '88%', cy: '12%', r: 4,   cls: 'cyber-node-b', label: 'CRITICAL' },
-    { id: 'n3', cx: '92%', cy: '55%', r: 6,   cls: 'cyber-node-c', label: '0-day' },
-    { id: 'n4', cx: '78%', cy: '85%', r: 4.5, cls: 'cyber-node-d', label: 'EXPLOIT' },
-    { id: 'n5', cx: '12%', cy: '72%', r: 5,   cls: 'cyber-node-e', label: 'CVE-2025-0001' },
-    { id: 'n6', cx: '50%', cy: '6%',  r: 3.5, cls: 'cyber-node-b', label: 'SCAN' },
-    { id: 'n7', cx: '6%',  cy: '44%', r: 4,   cls: 'cyber-node-c', label: 'VULN' },
-    { id: 'n8', cx: '85%', cy: '38%', r: 3.5, cls: 'cyber-node-a', label: 'RCE' },
-  ];
+  const cardBg    = isDark ? 'rgba(22,23,29,0.72)'    : 'rgba(255,255,255,0.65)';
+  const borderCol = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.08)';
+  const headingCol   = isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.55)';
+  const secondaryCol = isDark ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.3)';
+  const badgeBg      = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)';
+  const badgeBorder  = isDark ? 'rgba(255,255,255,0.1)'  : 'rgba(0,0,0,0.08)';
 
-  // Edges between nodes (as pairs of node percentages for simple SVG lines)
-  const edges = [
-    ['8%','18%',  '50%','6%'],
-    ['50%','6%',  '88%','12%'],
-    ['88%','12%', '92%','55%'],
-    ['92%','55%', '85%','38%'],
-    ['92%','55%', '78%','85%'],
-    ['8%','18%',  '6%','44%'],
-    ['6%','44%',  '12%','72%'],
-    ['12%','72%', '78%','85%'],
-    ['85%','38%', '88%','12%'],
-    ['6%','44%',  '8%','18%'],
-  ];
+  return (
+    <div
+      className="flex-shrink-0 pointer-events-none select-none rounded-[12px] border"
+      style={{
+        width: '220px',
+        background: cardBg,
+        borderColor: borderCol,
+        padding: '10px 14px',
+        boxShadow: isDark ? '0 8px 24px rgba(0,0,0,0.45)' : '0 4px 16px rgba(0,0,0,0.10)',
+      }}
+    >
+      {/* Ecosystem badge */}
+      <div className="mb-1.5">
+        <span
+          className="text-[0.62rem] font-medium px-2 py-0.5 rounded-[4px] border"
+          style={{ background: badgeBg, borderColor: badgeBorder, color: secondaryCol }}
+        >
+          ecosystem: {vuln.ecosystem}
+        </span>
+      </div>
+
+      {/* CVE ID */}
+      <div
+        className="text-[0.85rem] font-bold mb-0.5 truncate"
+        style={{ color: headingCol, fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace" }}
+      >
+        {vuln.id}
+      </div>
+
+      {/* Description */}
+      <div
+        className="text-[0.72rem] leading-snug mb-2"
+        style={{
+          color: secondaryCol,
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+        }}
+      >
+        {vuln.description}
+      </div>
+
+      {/* Severity + CVSS blocks */}
+      <div className="flex gap-1.5 mb-1.5">
+        <div
+          className="flex-1 px-2 py-1 rounded-[6px]"
+          style={{ background: sev.bg, border: `1px solid ${sev.border}` }}
+        >
+          <div className="text-[0.56rem] uppercase tracking-widest font-semibold" style={{ color: secondaryCol }}>severity</div>
+          <div className="text-[0.75rem] font-bold uppercase" style={{ color: sev.text }}>{sevKey}</div>
+        </div>
+        <div
+          className="px-2 py-1 rounded-[6px] border min-w-[52px]"
+          style={{ background: badgeBg, borderColor: badgeBorder }}
+        >
+          <div className="text-[0.56rem] uppercase tracking-widest" style={{ color: secondaryCol }}>cvss</div>
+          <div className="text-[0.75rem] font-bold" style={{ color: headingCol }}>{vuln.cvss}</div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between text-[0.62rem]" style={{ color: secondaryCol }}>
+        <span className="truncate">source: {vuln.source}</span>
+        <span className="flex-shrink-0">{vuln.date}</span>
+      </div>
+    </div>
+  );
+}
+
+// Horizontal marquee strip — direction: 'right' | 'left'
+function MarqueeStrip({ vulns, direction, theme }) {
+  // Duplicate for seamless loop: animation moves 50% of total width
+  const items = [...vulns, ...vulns];
+  return (
+    <div style={{ overflow: 'hidden', width: '100%' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: '16px',
+          width: 'max-content',
+          animation: `marquee-${direction} 40s linear infinite`,
+          opacity: 0.7,
+          willChange: 'transform',
+          transform: 'translateZ(0)',
+          backfaceVisibility: 'hidden',
+        }}
+      >
+        {items.map((vuln, i) => (
+          <GhostCard key={i} vuln={vuln} theme={theme} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Floating ghost vulnerability cards background
+function BackgroundVulnCards({ theme }) {
+  const isDark = theme === 'dark';
+
+  // Split mock vulns into two groups for the two strips
+  const topVulns    = MOCK_VULNS.slice(0, 5);
+  const bottomVulns = MOCK_VULNS.slice(5);
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
@@ -58,115 +246,41 @@ function CyberBackground({ theme }) {
         <defs>
           <pattern id="dot-grid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
             <circle cx="1" cy="1" r="1"
-              fill={isDark ? 'rgba(96,165,250,0.12)' : 'rgba(37,99,235,0.08)'} />
+              fill={isDark ? 'rgba(96,165,250,0.08)' : 'rgba(37,99,235,0.06)'} />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#dot-grid)" />
       </svg>
 
-      {/* Network edge lines */}
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        {edges.map(([x1, y1, x2, y2], i) => (
-          <line
-            key={i}
-            x1={x1} y1={y1} x2={x2} y2={y2}
-            stroke={edgeColor}
-            strokeWidth="1"
-            strokeDasharray="4 6"
-          />
-        ))}
-      </svg>
-
-      {/* Floating network nodes with labels */}
-      {nodes.map((n) => (
-        <div
-          key={n.id}
-          className={`absolute ${n.cls}`}
-          style={{ left: n.cx, top: n.cy, transform: 'translate(-50%, -50%)' }}
-        >
-          {/* Pulse rings on larger nodes */}
-          {n.r >= 5 && (
-            <>
-              <div
-                className="absolute inset-0 rounded-full cyber-ring"
-                style={{
-                  border: `1.5px solid ${ringColor}`,
-                  margin: `-${n.r * 1.5}px`,
-                }}
-              />
-              <div
-                className="absolute inset-0 rounded-full cyber-ring2"
-                style={{
-                  border: `1px solid ${ringColor}`,
-                  margin: `-${n.r * 2.2}px`,
-                }}
-              />
-            </>
-          )}
-          {/* Node dot */}
-          <div
-            className="rounded-full cyber-blink"
-            style={{
-              width: `${n.r * 2}px`,
-              height: `${n.r * 2}px`,
-              background: nodeColor,
-              boxShadow: `0 0 ${n.r * 3}px ${nodeColor}`,
-            }}
-          />
-          {/* Label */}
-          <span
-            className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[0.55rem] tracking-widest uppercase mt-1"
-            style={{ top: `${n.r * 2 + 4}px`, color: labelColor }}
-          >
-            {n.label}
-          </span>
-        </div>
-      ))}
-
-      {/* Horizontal scan line sweeping down */}
-      <div
-        className="absolute left-0 right-0 cyber-scan"
-        style={{
-          height: '2px',
-          background: `linear-gradient(90deg, transparent 0%, ${scanColor} 20%, ${isDark ? 'rgba(96,165,250,0.18)' : 'rgba(37,99,235,0.12)'} 50%, ${scanColor} 80%, transparent 100%)`,
-          top: 0,
-        }}
-      />
-
-      {/* Orbiting dot around top-right corner node */}
-      <div
-        className="absolute"
-        style={{ left: '88%', top: '12%', transform: 'translate(-50%, -50%)' }}
-      >
-        <div className="relative w-0 h-0">
-          <div
-            className="absolute w-2 h-2 rounded-full cyber-orbit"
-            style={{ background: nodeColor, boxShadow: `0 0 8px ${nodeColor}`, marginLeft: '-4px', marginTop: '-4px' }}
-          />
-        </div>
-      </div>
-
       {/* Ambient glow blobs */}
-      <div
-        className="absolute w-[560px] h-[560px] rounded-full pointer-events-none cyber-drift"
+      <div className="absolute w-[500px] h-[500px] rounded-full"
         style={{
-          top: '5%', left: '-8%',
+          top: '0%', left: '-10%',
           background: isDark
-            ? 'radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 70%)'
-            : 'radial-gradient(circle, rgba(37,99,235,0.05) 0%, transparent 70%)',
-          filter: 'blur(40px)',
+            ? 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)'
+            : 'radial-gradient(circle, rgba(37,99,235,0.06) 0%, transparent 70%)',
+          filter: 'blur(60px)',
         }}
       />
-      <div
-        className="absolute w-[400px] h-[400px] rounded-full pointer-events-none"
+      <div className="absolute w-[400px] h-[400px] rounded-full"
         style={{
-          bottom: '5%', right: '-5%',
+          bottom: '0%', right: '-5%',
           background: isDark
             ? 'radial-gradient(circle, rgba(239,68,68,0.06) 0%, transparent 70%)'
             : 'radial-gradient(circle, rgba(220,38,38,0.04) 0%, transparent 70%)',
-          filter: 'blur(40px)',
+          filter: 'blur(50px)',
         }}
       />
+
+      {/* Top strip — scrolls right */}
+      <div className="absolute left-0 right-0" style={{ top: '4%' }}>
+        <MarqueeStrip vulns={topVulns} direction="right" theme={theme} />
+      </div>
+
+      {/* Bottom strip — scrolls left */}
+      <div className="absolute left-0 right-0" style={{ bottom: '4%' }}>
+        <MarqueeStrip vulns={bottomVulns} direction="left" theme={theme} />
+      </div>
     </div>
   );
 }
@@ -180,8 +294,8 @@ export default function UserLogin({
 }) {
   return (
     <div className="h-screen flex flex-col justify-between relative overflow-hidden font-sans select-none" style={{ background: 'var(--main-bg, var(--bg-primary))' }}>
-      {/* Animated cyber background */}
-      <CyberBackground theme={theme} />
+      {/* Animated ghost vuln cards background */}
+      <BackgroundVulnCards theme={theme} />
 
       {/* Floating theme toggle — top-right corner */}
       <button

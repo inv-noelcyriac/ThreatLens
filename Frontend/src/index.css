@@ -579,4 +579,20 @@
   .cyber-blink  { animation: blink-dot 2s ease-in-out infinite; }
   .cyber-orbit  { animation: orbit 6s linear infinite; }
   .cyber-drift  { animation: drift-x 12s ease-in-out infinite; }
+
+  /* Ghost vuln card subtle breathe — opacity only, no translate so cards never overlap */
+  @keyframes card-breathe {
+    0%, 100% { opacity: 0.55; }
+    50%       { opacity: 0.85; }
+  }
+
+  /* Login page horizontal marquee strips */
+  @keyframes marquee-left {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(-50%, 0, 0); }
+  }
+  @keyframes marquee-right {
+    from { transform: translate3d(-50%, 0, 0); }
+    to   { transform: translate3d(0, 0, 0); }
+  }
 }

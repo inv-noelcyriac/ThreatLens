@@ -7,6 +7,7 @@ import VulnCard from './components/VulnCard';
 import Pagination from './components/Pagination';
 import DetailPanel from './components/DetailPanel';
 import AdminLogin from './components/AdminLogin';
+import UserLogin from './components/UserLogin';
 import NotFound from './components/NotFound';
 import { fetchVulnerabilities, googleAuthLogin, fetchCurrentUser, clearAuthTokens, getStoredUser, getAccessToken } from './services/api';
 
@@ -34,6 +35,7 @@ export default function App() {
   // Standard User Auth State
   const [currentUser, setCurrentUser] = useState(() => getStoredUser());
   const [isUserAuthLoading, setIsUserAuthLoading] = useState(false);
+  const [isSessionChecking, setIsSessionChecking] = useState(() => !!getAccessToken() && !getStoredUser());
 
   // Admin & Routing State
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('threatlens-is-admin') === 'true');
@@ -54,7 +56,12 @@ export default function App() {
         })
         .catch((err) => {
           console.warn('[Session Restore Warning]:', err);
+        })
+        .finally(() => {
+          setIsSessionChecking(false);
         });
+    } else {
+      setIsSessionChecking(false);
     }
   }, []);
 
@@ -155,6 +162,39 @@ export default function App() {
     setTimeout(() => setToast(null), 3800);
   };
 
+  const renderToast = () => {
+    if (!toast) return null;
+    return (
+      <div
+        className="fixed bottom-6 right-6 z-[9999] px-4 py-3 rounded-[12px] border flex items-center gap-3 text-xs sm:text-sm font-semibold tracking-tight transition-all duration-200 animate-fade-slide-in cursor-default select-none shadow-xl"
+        style={{
+          background: 'var(--bg-card)',
+          borderColor: 'var(--border-color)',
+          color: 'var(--text-primary)',
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.12)',
+        }}
+        role="status"
+      >
+        <span
+          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+          style={{
+            background: toast.type === 'error' ? '#ef4444' : (toast.type === 'success' ? '#10b981' : 'var(--accent-blue)'),
+          }}
+        />
+        <span className="truncate max-w-[340px] font-medium">{toast.message}</span>
+        <button
+          type="button"
+          onClick={() => setToast(null)}
+          className="ml-2 text-xs opacity-50 hover:opacity-100 cursor-pointer border-0 bg-transparent flex items-center justify-center p-1 rounded-md transition-opacity"
+          style={{ color: 'var(--text-secondary)' }}
+          aria-label="Dismiss notification"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  };
+
   const handleAdminLoginSuccess = (userData) => {
     setIsAdmin(true);
     setAdminUser(userData);
@@ -186,20 +226,25 @@ export default function App() {
       showToast(`Signed in successfully as ${email}`, 'success');
     } catch (err) {
       console.error('[Google Auth Login Error]:', err);
-      showToast(err.message || 'Domain check or Google authentication failed', 'error');
+      showToast(err.message || 'Login failed. Could not authenticate corporate account.', 'error');
     } finally {
       setIsUserAuthLoading(false);
     }
   };
 
   const handleGoogleLoginError = (errorMsg) => {
-    showToast(errorMsg || 'Google Sign-In failed', 'error');
+    showToast(errorMsg || 'Login failed. Google Sign-In was cancelled or rejected.', 'error');
   };
 
   const handleUserLogout = () => {
-    clearAuthTokens();
-    setCurrentUser(null);
-    showToast('Signed out of corporate account.', 'info');
+    try {
+      clearAuthTokens();
+      setCurrentUser(null);
+      showToast('Signed out of corporate account.', 'info');
+    } catch (err) {
+      console.error('[Logout Error]:', err);
+      showToast('Logout failed. Could not terminate session.', 'error');
+    }
   };
 
 
@@ -432,20 +477,52 @@ export default function App() {
     }
 
     return (
-      <AdminLogin
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
-        onLoginSuccess={handleAdminLoginSuccess}
-        onCancel={() => {
-          window.history.replaceState({}, '', '/');
-          setCurrentPath('/');
-        }}
-      />
+      <>
+        <AdminLogin
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          onLoginSuccess={handleAdminLoginSuccess}
+          onCancel={() => {
+            window.history.replaceState({}, '', '/');
+            setCurrentPath('/');
+          }}
+        />
+        {renderToast()}
+      </>
     );
   }
 
+  // Session Loading Screen while validating stored token
+  if (isSessionChecking) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center gap-3" style={{ background: 'var(--main-bg, var(--bg-primary))' }}>
+        <div className="w-8 h-8 border-3 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--accent-blue)', borderTopColor: 'transparent' }} />
+        <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Validating corporate session...</p>
+      </div>
+    );
+  }
+
+  // Gate 1: Require Google Auth / Admin authentication before entering search dashboard
+  if (!currentUser && !isAdmin) {
+    // If navigating to non-admin path or root without auth, show dedicated User Login screen
+    if (normalizedPath === '' || normalizedPath === '/' || normalizedPath === '/login') {
+      return (
+        <>
+          <UserLogin
+            theme={theme}
+            onToggleTheme={handleToggleTheme}
+            onGoogleLoginSuccess={handleGoogleLoginSuccess}
+            onGoogleLoginError={handleGoogleLoginError}
+            isLoggingIn={isUserAuthLoading}
+          />
+          {renderToast()}
+        </>
+      );
+    }
+  }
+
   // Route 2: 404 Error Page for non-existing paths
-  if (normalizedPath !== '' && normalizedPath !== '/') {
+  if (normalizedPath !== '' && normalizedPath !== '/' && normalizedPath !== '/login') {
     return (
       <NotFound
         theme={theme}
@@ -460,7 +537,7 @@ export default function App() {
     );
   }
 
-  // Route 3: Main Vulnerability Search Dashboard
+  // Route 3: Main Vulnerability Search Dashboard (Authenticated Users & Admins)
   return (
     <div className="min-h-screen flex flex-col">
       <Header
@@ -627,33 +704,8 @@ export default function App() {
       )}
 
 
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          className="fixed bottom-6 right-6 z-[300] px-4 py-3 rounded-xl border shadow-2xl flex items-center gap-3 text-sm font-medium transition-all animate-bounce-subtle cursor-default"
-          style={{
-            background: 'var(--bg-card)',
-            borderColor: toast.type === 'success' ? '#10b981' : 'var(--accent-blue)',
-            color: 'var(--text-primary)',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
-          }}
-          role="status"
-        >
-          <span
-            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-            style={{ background: toast.type === 'success' ? '#10b981' : 'var(--accent-blue)' }}
-          />
-          <span>{toast.message}</span>
-          <button
-            onClick={() => setToast(null)}
-            className="ml-2 text-xs opacity-60 hover:opacity-100 cursor-pointer font-bold border-0 bg-transparent"
-            style={{ color: 'var(--text-muted)' }}
-            aria-label="Close notification"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+      {/* High-Contrast Toast Notification */}
+      {renderToast()}
     </div>
   );
 }

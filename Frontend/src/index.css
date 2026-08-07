@@ -29,6 +29,13 @@
   --accent-blue-hover: #1d4ed8;
   --accent-blue-light: #dbeafe;
 
+  /* User profile avatar theme tokens - Monochrome Light Mode (Black background, White text) */
+  --user-avatar-bg: #18181b;
+  --user-avatar-text: #ffffff;
+  --user-badge-bg: rgba(24, 24, 27, 0.08);
+  --user-badge-border: rgba(24, 24, 27, 0.2);
+  --user-status-dot: #18181b;
+
   --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.13), 0 1px 2px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.13), 0 2px 8px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.16), 0 4px 16px rgba(0, 0, 0, 0.10);
@@ -95,6 +102,13 @@
   --accent-blue: #3b82f6;
   --accent-blue-hover: #2563eb;
   --accent-blue-light: rgba(59, 130, 246, 0.15);
+
+  /* User profile avatar theme tokens - Monochrome Dark Mode (White background, Black text) */
+  --user-avatar-bg: #f4f4f5;
+  --user-avatar-text: #09090b;
+  --user-badge-bg: rgba(255, 255, 255, 0.12);
+  --user-badge-border: rgba(255, 255, 255, 0.25);
+  --user-status-dot: #f4f4f5;
 
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.35);
@@ -513,4 +527,56 @@
     transform-style: preserve-3d;
     animation: float-icon 3.2s ease-in-out infinite;
   }
+
+  /* ── Login page cyber background animations ── */
+
+  @keyframes node-float-a {
+    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.55; }
+    33%       { transform: translate(18px, -22px) scale(1.08); opacity: 0.75; }
+    66%       { transform: translate(-12px, 14px) scale(0.94); opacity: 0.45; }
+  }
+  @keyframes node-float-b {
+    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.4; }
+    40%       { transform: translate(-20px, 16px) scale(1.1); opacity: 0.65; }
+    75%       { transform: translate(14px, -18px) scale(0.9); opacity: 0.3; }
+  }
+  @keyframes node-float-c {
+    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+    50%       { transform: translate(10px, 20px) scale(1.06); opacity: 0.7; }
+  }
+  @keyframes scan-line {
+    0%   { transform: translateY(-100%); opacity: 0; }
+    5%   { opacity: 0.6; }
+    95%  { opacity: 0.6; }
+    100% { transform: translateY(100vh); opacity: 0; }
+  }
+  @keyframes pulse-ring {
+    0%   { transform: scale(0.85); opacity: 0.7; }
+    70%  { transform: scale(1.6); opacity: 0; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+  @keyframes blink-dot {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.2; }
+  }
+  @keyframes orbit {
+    from { transform: rotate(0deg) translateX(38px) rotate(0deg); }
+    to   { transform: rotate(360deg) translateX(38px) rotate(-360deg); }
+  }
+  @keyframes drift-x {
+    0%, 100% { transform: translateX(0); }
+    50%       { transform: translateX(30px); }
+  }
+
+  .cyber-node-a { animation: node-float-a 9s ease-in-out infinite; }
+  .cyber-node-b { animation: node-float-b 11s ease-in-out infinite; }
+  .cyber-node-c { animation: node-float-c 7.5s ease-in-out infinite; }
+  .cyber-node-d { animation: node-float-b 13s ease-in-out infinite reverse; }
+  .cyber-node-e { animation: node-float-a 8s ease-in-out infinite 3s; }
+  .cyber-scan   { animation: scan-line 8s linear infinite; }
+  .cyber-ring   { animation: pulse-ring 2.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite; }
+  .cyber-ring2  { animation: pulse-ring 2.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite 1.4s; }
+  .cyber-blink  { animation: blink-dot 2s ease-in-out infinite; }
+  .cyber-orbit  { animation: orbit 6s linear infinite; }
+  .cyber-drift  { animation: drift-x 12s ease-in-out infinite; }
 }

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import GoogleLoginButton from './GoogleLoginButton';
 
 const SunIcon = () => (
@@ -59,6 +60,7 @@ export default function Header({
   isLoggingIn = false,
 }) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showUserLogoutConfirm, setShowUserLogoutConfirm] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const logoutContainerRef = useRef(null);
   const userMenuRef = useRef(null);
@@ -69,6 +71,7 @@ export default function Header({
     const handleClickOutside = (e) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
         setShowUserMenu(false);
+        setShowUserLogoutConfirm(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -87,6 +90,18 @@ export default function Header({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showLogoutConfirm]);
+
+  // Lock body scroll when User Logout modal confirmation is active
+  useEffect(() => {
+    if (showUserLogoutConfirm) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showUserLogoutConfirm]);
 
   return (
     <header
@@ -275,13 +290,23 @@ export default function Header({
                   }}
                   title={`Signed in as ${currentUser.email || currentUser.username}`}
                 >
-                  <div className="w-5 h-5 rounded-full bg-emerald-500 text-white font-bold text-[0.65rem] flex items-center justify-center uppercase">
+                  <div
+                    className="w-5 h-5 rounded-full font-bold text-[0.65rem] flex items-center justify-center uppercase shadow-xs transition-colors duration-300"
+                    style={{
+                      background: 'var(--user-avatar-bg)',
+                      color: 'var(--user-avatar-text)',
+                    }}
+                  >
                     {(currentUser.first_name?.[0] || currentUser.email?.[0] || 'U')}
                   </div>
                   <span className="max-w-[110px] truncate font-medium hidden sm:inline">
                     {currentUser.first_name || currentUser.username || currentUser.email?.split('@')[0]}
                   </span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" title="Corporate Access Active" />
+                  <span
+                    className="w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors duration-300"
+                    style={{ background: 'var(--user-status-dot)' }}
+                    title="Corporate Access Active"
+                  />
                 </button>
 
                 {showUserMenu && (
@@ -294,31 +319,31 @@ export default function Header({
                     }}
                   >
                     <div className="flex items-center gap-2.5 pb-2 border-b" style={{ borderColor: 'var(--border-color)' }}>
-                      <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-500 font-extrabold text-xs flex items-center justify-center border border-emerald-500/30">
+                      <div
+                        className="w-8 h-8 rounded-full font-extrabold text-xs flex items-center justify-center shadow-xs transition-colors duration-300 flex-shrink-0"
+                        style={{
+                          background: 'var(--user-avatar-bg)',
+                          color: 'var(--user-avatar-text)',
+                        }}
+                      >
                         {(currentUser.first_name?.[0] || currentUser.email?.[0] || 'U').toUpperCase()}
                       </div>
                       <div className="flex flex-col min-w-0">
                         <span className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>
                           {currentUser.first_name ? `${currentUser.first_name} ${currentUser.last_name || ''}` : (currentUser.username || 'ThreatLens User')}
                         </span>
-                        <span className="text-[0.72rem] text-emerald-500 font-medium truncate">
+                        <span className="text-[0.72rem] font-medium truncate" style={{ color: 'var(--text-secondary)' }}>
                           {currentUser.email || 'authenticated@innovaturelabs.com'}
                         </span>
                       </div>
                     </div>
-
-                    <div className="flex items-center justify-between text-[0.72rem] font-medium text-emerald-400 bg-emerald-500/10 px-2.5 py-1.5 rounded-md">
-                      <span>Domain Guardrail</span>
-                      <span className="font-semibold">@innovaturelabs.com</span>
-                    </div>
-
                     <button
                       type="button"
                       onClick={() => {
                         setShowUserMenu(false);
-                        onUserLogout();
+                        setShowUserLogoutConfirm(true);
                       }}
-                      className="w-full py-1.5 rounded-[7px] text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1.5 border border-red-500/30 text-red-400 hover:bg-red-500/15"
+                      className="w-full py-1.5 rounded-[8px] text-xs font-bold cursor-pointer transition-all duration-200 flex items-center justify-center gap-1.5 border border-red-500/30 text-red-500 dark:text-red-400 hover:bg-red-600 hover:text-white hover:border-red-600 hover:shadow-md hover:shadow-red-500/20 active:scale-[0.98]"
                     >
                       <LogOutIcon />
                       <span>Sign Out</span>
@@ -329,6 +354,7 @@ export default function Header({
             ) : (
               /* Google Sign-In Button */
               <GoogleLoginButton
+                theme={theme}
                 onSuccess={onGoogleLoginSuccess}
                 onError={onGoogleLoginError}
                 isLoading={isLoggingIn}
@@ -354,6 +380,60 @@ export default function Header({
           </button>
         </div>
       </div>
+
+      {/* Centered User Logout Confirmation Modal */}
+      {showUserLogoutConfirm && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fade-in transition-opacity duration-150"
+          style={{
+            background: theme === 'dark' ? 'rgba(0, 0, 0, 0.68)' : 'rgba(0, 0, 0, 0.45)',
+          }}
+        >
+          <div
+            className="w-full max-w-[380px] rounded-[16px] border p-6 shadow-2xl animate-fade-slide-in flex flex-col items-center text-center gap-4 my-auto select-none"
+            style={{
+              background: 'var(--bg-card)',
+              borderColor: 'var(--border-card)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+            }}
+          >
+            <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center border border-red-500/20 shadow-xs">
+              <LogOutIcon />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <h3 className="text-lg font-bold tracking-tight" style={{ color: 'var(--text-heading)' }}>
+                Sign Out of ThreatLens?
+              </h3>
+              <p className="text-xs sm:text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                Are you sure you want to end your current session? You will need to authenticate again to view vulnerabilities.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full pt-1">
+              <button
+                type="button"
+                onClick={() => setShowUserLogoutConfirm(false)}
+                className="flex-1 py-2 rounded-[8px] border text-xs font-semibold cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 hover:border-slate-400 dark:hover:border-slate-600 active:scale-[0.98]"
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUserLogoutConfirm(false);
+                  onUserLogout();
+                }}
+                className="flex-1 py-2 rounded-[8px] bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md transition-all duration-150 cursor-pointer active:scale-[0.98]"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </header>
   );
 }

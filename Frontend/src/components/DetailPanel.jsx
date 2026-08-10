@@ -238,6 +238,7 @@ function FixThread({
   const [editText, setEditText] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   useEffect(() => {
     if (defaultAuthorName) {
@@ -398,28 +399,62 @@ function FixThread({
                         )}
                         {/* Author / Admin Edit & Delete Actions (Right near author name) */}
                         {canManage && !isEditingThis && (
-                          <div className="flex items-center gap-0.5 ml-0.5 flex-shrink-0">
-                            <button
-                              onClick={() => startEdit(fix)}
-                              title="Edit note"
-                              className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent flex-shrink-0"
-                              style={{ color: 'var(--text-muted)' }}
-                              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-badge)'; e.currentTarget.style.color = 'var(--accent-blue)'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                            >
-                              <EditIcon />
-                            </button>
-                            <button
-                              onClick={() => onDeleteFix(fix.id)}
-                              title="Delete note"
-                              className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent flex-shrink-0"
-                              style={{ color: 'var(--text-muted)' }}
-                              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#ef4444'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                            >
-                              <TrashIcon />
-                            </button>
-                          </div>
+                          confirmDeleteId === fix.id ? (
+                            <div className="flex items-center gap-1.5 ml-1 px-2.5 py-0.5 rounded-full text-xs flex-shrink-0 animate-fade-in" style={{ background: 'var(--bg-badge)' }}>
+                              <span className="text-[0.68rem] font-medium" style={{ color: 'var(--text-secondary)' }}>
+                                Delete note?
+                              </span>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await onDeleteFix(fix.id);
+                                  } catch (err) {
+                                    setError(err.message || 'Failed to delete note.');
+                                  } finally {
+                                    setConfirmDeleteId(null);
+                                  }
+                                }}
+                                className="px-2 py-0.5 rounded-full text-[0.65rem] font-bold cursor-pointer border-0 text-white transition-opacity hover:opacity-90 flex-shrink-0"
+                                style={{ background: '#ef4444' }}
+                              >
+                                Yes
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteId(null)}
+                                className="px-1.5 py-0.5 rounded-full text-[0.65rem] font-medium cursor-pointer border-0 bg-transparent transition-colors flex-shrink-0"
+                                style={{ color: 'var(--text-muted)' }}
+                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-0.5 ml-0.5 flex-shrink-0">
+                              <button
+                                onClick={() => startEdit(fix)}
+                                title="Edit note"
+                                className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent flex-shrink-0"
+                                style={{ color: 'var(--text-muted)' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-badge)'; e.currentTarget.style.color = 'var(--accent-blue)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                              >
+                                <EditIcon />
+                              </button>
+                              <button
+                                onClick={() => setConfirmDeleteId(fix.id)}
+                                title="Delete note"
+                                className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent flex-shrink-0"
+                                style={{ color: 'var(--text-muted)' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#ef4444'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                              >
+                                <TrashIcon />
+                              </button>
+                            </div>
+                          )
                         )}
                       </div>
                       <span className="text-[0.72rem] mt-[2px] truncate" style={{ color: 'var(--text-muted)' }}>

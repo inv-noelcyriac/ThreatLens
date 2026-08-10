@@ -40,6 +40,7 @@ AUTH_IMPLEMENTATION_PLAN.md
 frontend_api.txt
 manualguidanceapi.txt
 response.txt
+ThreatLens_Remediation_Voting_API_Spec.pdf
 
 # Secrets
 client_secret_*.json

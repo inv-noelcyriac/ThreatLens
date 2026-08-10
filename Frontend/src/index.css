@@ -596,3 +596,24 @@
     to   { transform: translate3d(0, 0, 0); }
   }
 }
+
+/* Sleek Mini Scrollbar for Remediation Comments */
+.remediation-comments-scroll {
+  max-height: 380px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-input) transparent;
+}
+.remediation-comments-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.remediation-comments-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.remediation-comments-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-input);
+  border-radius: 9999px;
+}
+.remediation-comments-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-blue);
+}

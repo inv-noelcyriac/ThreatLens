@@ -390,21 +390,27 @@ export async function fetchVulnerabilityById(displayId) {
 }
 
 /**
- * API 3: View manual guidance (comments) for a vulnerability
- * GET /api/v1/vulnerabilities/{display_id}/remediations/
+ * API 3: View manual guidance (comments) for a vulnerability with pagination
+ * GET /api/v1/vulnerabilities/{display_id}/remediations/?sort=newest|top&page=1
+ * Fallback: GET /api/remediations/{display_id}/?sort=newest|top&page=1
  */
-export async function fetchManualGuidance(displayId) {
-  if (!displayId) return [];
+export async function fetchManualGuidance(displayId, sort = 'newest', page = 1) {
+  if (!displayId) return { items: [], hasNext: false, total: 0, page: 1 };
 
-  const url = `${API_BASE_URL}/vulnerabilities/${encodeURIComponent(displayId)}/remediations/`;
+  const sortParam = sort === 'top' ? 'top' : 'newest';
+  let url = `${API_BASE_URL}/vulnerabilities/${encodeURIComponent(displayId)}/remediations/?sort=${sortParam}&page=${page}`;
 
   try {
-    const response = await fetch(url, {
-      headers: { 'Accept': 'application/json' },
-    });
+    let response = await authenticatedFetch(url);
+
+    // Fallback if primary endpoint path 404s
+    if (response.status === 404) {
+      const fallbackUrl = `${API_BASE_URL}/remediations/${encodeURIComponent(displayId)}/?sort=${sortParam}&page=${page}`;
+      response = await authenticatedFetch(fallbackUrl);
+    }
 
     if (response.status === 404) {
-      return [];
+      return { items: [], hasNext: false, total: 0, page };
     }
 
     if (!response.ok) {
@@ -412,17 +418,43 @@ export async function fetchManualGuidance(displayId) {
     }
 
     const data = await response.json();
-    if (!Array.isArray(data)) return [];
+    let rawItems = [];
+    let hasNext = false;
+    let total = 0;
 
-    return data.map((item) => ({
+    if (Array.isArray(data)) {
+      rawItems = data;
+      hasNext = false;
+      total = data.length;
+    } else if (data && Array.isArray(data.results)) {
+      rawItems = data.results;
+      hasNext = Boolean(data.next) || (data.results.length === 10);
+      total = data.count || rawItems.length;
+    } else if (data && Array.isArray(data.items)) {
+      rawItems = data.items;
+      hasNext = Boolean(data.has_next || data.next);
+      total = data.total || rawItems.length;
+    }
+
+    const items = rawItems.map((item) => ({
       id: item.id,
+      master_vuln: item.master_vuln,
       author: item.author_name || item.author || 'Anonymous',
+      author_email: item.author_email || '',
       description: item.guidance_text || item.description || '',
+      score: item.score ?? ((item.upvotes || 0) - (item.downvotes || 0)),
+      upvotes: item.upvotes || 0,
+      downvotes: item.downvotes || 0,
+      user_vote: item.user_vote ?? 0,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
       timestamp: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
     }));
+
+    return { items, hasNext, total, page };
   } catch (err) {
     console.error(`[Manual Guidance Fetch Error] Failed to fetch remediations for '${displayId}' from ${url}:`, err);
-    return [];
+    return { items: [], hasNext: false, total: 0, page };
   }
 }
 
@@ -430,43 +462,50 @@ export async function fetchManualGuidance(displayId) {
  * API 4: Create manual guidance (comment) for a vulnerability
  * POST /api/v1/vulnerabilities/{display_id}/remediations/
  */
-export async function createManualGuidance(displayId, { author, description }) {
+export async function createManualGuidance(displayId, { description }) {
   if (!displayId) return null;
 
   const url = `${API_BASE_URL}/vulnerabilities/${encodeURIComponent(displayId)}/remediations/`;
 
   try {
-    const response = await fetch(url, {
+    const response = await authenticatedFetch(url, {
       method: 'POST',
       headers: {
-        'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        author_name: author,
         guidance_text: description,
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+      let errText = `HTTP error ${response.status}: ${response.statusText}`;
+      try {
+        const errJson = await response.json();
+        if (errJson.error) errText = errJson.error;
+        else if (errJson.detail) errText = errJson.detail;
+      } catch (e) {}
+      throw new Error(errText);
     }
 
     const item = await response.json();
     return {
       id: item.id || `local-${Date.now()}`,
-      author: item.author_name || author,
+      master_vuln: item.master_vuln,
+      author: item.author_name || 'You',
+      author_email: item.author_email || '',
       description: item.guidance_text || description,
+      score: item.score ?? 0,
+      upvotes: item.upvotes ?? 0,
+      downvotes: item.downvotes ?? 0,
+      user_vote: item.user_vote ?? 0,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
       timestamp: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
     };
   } catch (err) {
     console.error(`[Manual Guidance Create Error] Failed to post remediation for '${displayId}':`, err);
-    return {
-      id: `local-${Date.now()}`,
-      author,
-      description,
-      timestamp: Date.now(),
-    };
+    throw err;
   }
 }
 
@@ -480,10 +519,9 @@ export async function updateManualGuidance(id, guidanceText) {
   const url = `${API_BASE_URL}/remediations/${encodeURIComponent(id)}/`;
 
   try {
-    const response = await fetch(url, {
+    const response = await authenticatedFetch(url, {
       method: 'PATCH',
       headers: {
-        'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -492,19 +530,33 @@ export async function updateManualGuidance(id, guidanceText) {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+      let errText = `HTTP error ${response.status}: ${response.statusText}`;
+      try {
+        const errJson = await response.json();
+        if (errJson.error) errText = errJson.error;
+        else if (errJson.detail) errText = errJson.detail;
+      } catch (e) {}
+      throw new Error(errText);
     }
 
     const item = await response.json();
     return {
       id: item.id || id,
+      master_vuln: item.master_vuln,
       author: item.author_name,
+      author_email: item.author_email || '',
       description: item.guidance_text || guidanceText,
+      score: item.score ?? 0,
+      upvotes: item.upvotes ?? 0,
+      downvotes: item.downvotes ?? 0,
+      user_vote: item.user_vote ?? 0,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
       timestamp: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
     };
   } catch (err) {
     console.error(`[Manual Guidance Edit Error] Failed to patch remediation '${id}':`, err);
-    return null;
+    throw err;
   }
 }
 
@@ -518,17 +570,68 @@ export async function deleteManualGuidance(id) {
   const url = `${API_BASE_URL}/remediations/${encodeURIComponent(id)}/`;
 
   try {
-    const response = await fetch(url, {
+    const response = await authenticatedFetch(url, {
       method: 'DELETE',
     });
 
     if (!response.ok && response.status !== 204) {
-      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+      let errText = `HTTP error ${response.status}: ${response.statusText}`;
+      try {
+        const errJson = await response.json();
+        if (errJson.error) errText = errJson.error;
+        else if (errJson.detail) errText = errJson.detail;
+      } catch (e) {}
+      throw new Error(errText);
     }
     return true;
   } catch (err) {
     console.error(`[Manual Guidance Delete Error] Failed to delete remediation '${id}':`, err);
-    return false;
+    throw err;
+  }
+}
+
+/**
+ * API 7: Upvote (+1) or Downvote (-1) a remediation note
+ * POST /api/v1/remediations/{id}/vote/
+ */
+export async function voteRemediation(id, voteType) {
+  if (!id) return null;
+
+  const url = `${API_BASE_URL}/remediations/${encodeURIComponent(id)}/vote/`;
+
+  try {
+    const response = await authenticatedFetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        vote_type: voteType,
+      }),
+    });
+
+    if (!response.ok) {
+      let errText = `HTTP error ${response.status}: ${response.statusText}`;
+      try {
+        const errJson = await response.json();
+        if (errJson.error) errText = errJson.error;
+        else if (errJson.detail) errText = errJson.detail;
+      } catch (e) {}
+      throw new Error(errText);
+    }
+
+    const data = await response.json();
+    return {
+      action: data.action,
+      remediation_id: data.remediation_id,
+      score: data.score,
+      upvotes: data.upvotes,
+      downvotes: data.downvotes,
+      user_vote: data.user_vote,
+    };
+  } catch (err) {
+    console.error(`[Remediation Vote Error] Failed to submit vote for remediation '${id}':`, err);
+    throw err;
   }
 }
 

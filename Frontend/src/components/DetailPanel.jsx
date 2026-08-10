@@ -288,32 +288,32 @@ function FixThread({
           <WrenchIcon /> USER SUGGESTIONS ({fixes.length})
         </h3>
 
-        {/* Premium Sliding Segmented Control for Sorting */}
+        {/* Compact Segmented Control for Sorting */}
         <div
-          className="relative flex items-center p-1 rounded-full border select-none min-w-[210px]"
+          className="relative flex items-center rounded-[6px] border select-none min-w-[175px] overflow-hidden"
           style={{
             background: 'var(--bg-input)',
             borderColor: 'var(--border-color)',
-            boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.06)',
+            boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.04)',
           }}
         >
-          {/* Animated Sliding Pill */}
+          {/* Animated GPU-accelerated Sliding Blue Border Box */}
           <div
-            className="absolute top-1 bottom-1 rounded-full transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+            className="absolute top-0 bottom-0 left-0 w-1/2 rounded-[5px] border-[1.5px] pointer-events-none transition-transform duration-350 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
             style={{
-              left: sortOrder === 'top' ? '4px' : 'calc(50% + 2px)',
-              width: 'calc(50% - 6px)',
-              background: 'var(--accent-blue)',
-              boxShadow: '0 2px 8px rgba(37, 99, 235, 0.35)',
+              borderColor: 'var(--accent-blue)',
+              background: 'rgba(37, 99, 235, 0.08)',
+              transform: sortOrder === 'top' ? 'translateX(0%)' : 'translateX(100%)',
+              willChange: 'transform',
             }}
           />
 
           <button
             type="button"
             onClick={() => onSortChange('top')}
-            className="relative z-10 flex-1 flex items-center justify-center gap-1.5 px-3 py-1 text-[0.72rem] font-bold cursor-pointer transition-colors duration-200 border-0 bg-transparent whitespace-nowrap"
+            className="relative z-10 flex-1 flex items-center justify-center gap-1 px-2.5 py-1 text-[0.66rem] font-bold cursor-pointer transition-colors duration-300 border-0 bg-transparent whitespace-nowrap"
             style={{
-              color: sortOrder === 'top' ? '#ffffff' : 'var(--text-muted)',
+              color: sortOrder === 'top' ? 'var(--accent-blue)' : 'var(--text-muted)',
             }}
           >
             <TrendingUpIcon />
@@ -322,9 +322,9 @@ function FixThread({
           <button
             type="button"
             onClick={() => onSortChange('newest')}
-            className="relative z-10 flex-1 flex items-center justify-center gap-1.5 px-3 py-1 text-[0.72rem] font-bold cursor-pointer transition-colors duration-200 border-0 bg-transparent whitespace-nowrap"
+            className="relative z-10 flex-1 flex items-center justify-center gap-1 px-2.5 py-1 text-[0.66rem] font-bold cursor-pointer transition-colors duration-300 border-0 bg-transparent whitespace-nowrap"
             style={{
-              color: sortOrder === 'newest' ? '#ffffff' : 'var(--text-muted)',
+              color: sortOrder === 'newest' ? 'var(--accent-blue)' : 'var(--text-muted)',
             }}
           >
             <ClockIcon />
@@ -385,16 +385,41 @@ function FixThread({
                 {/* Content */}
                 <div className={`flex-1 min-w-0 ${isLastItem ? 'pb-2' : 'pb-5'}`}>
                   {/* Header: name + email badge + timestamp stacked */}
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex flex-col min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[0.875rem] font-bold leading-tight truncate max-w-[220px]" style={{ color: 'var(--text-primary)' }} title={fix.author}>
+                  <div className="flex items-center justify-between gap-2 mb-2 flex-nowrap">
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[0.875rem] font-bold leading-tight truncate max-w-[140px] sm:max-w-[180px]" style={{ color: 'var(--text-primary)' }} title={fix.author}>
                           {fix.author}
                         </span>
                         {isOwner && (
-                          <span className="text-[0.65rem] font-bold px-1.5 py-0.2 rounded border" style={{ background: 'var(--accent-blue-light)', color: 'var(--accent-blue)', borderColor: 'rgba(37,99,235,0.25)' }}>
+                          <span className="text-[0.65rem] font-bold px-1.5 py-0.2 rounded border flex-shrink-0" style={{ background: 'var(--accent-blue-light)', color: 'var(--accent-blue)', borderColor: 'rgba(37,99,235,0.25)' }}>
                             Author
                           </span>
+                        )}
+                        {/* Author / Admin Edit & Delete Actions (Right near author name) */}
+                        {canManage && !isEditingThis && (
+                          <div className="flex items-center gap-0.5 ml-0.5 flex-shrink-0">
+                            <button
+                              onClick={() => startEdit(fix)}
+                              title="Edit note"
+                              className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent flex-shrink-0"
+                              style={{ color: 'var(--text-muted)' }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-badge)'; e.currentTarget.style.color = 'var(--accent-blue)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                            >
+                              <EditIcon />
+                            </button>
+                            <button
+                              onClick={() => onDeleteFix(fix.id)}
+                              title="Delete note"
+                              className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent flex-shrink-0"
+                              style={{ color: 'var(--text-muted)' }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#ef4444'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                            >
+                              <TrashIcon />
+                            </button>
+                          </div>
                         )}
                       </div>
                       <span className="text-[0.72rem] mt-[2px] truncate" style={{ color: 'var(--text-muted)' }}>
@@ -402,77 +427,39 @@ function FixThread({
                       </span>
                     </div>
 
-                    {/* Voting Controls & Author Manage Actions */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {/* Upvote / Downvote & Score Badge Subsystem */}
-                      <div className="flex items-center gap-1 p-0.5 rounded-[8px] border" style={{ background: 'var(--bg-badge)', borderColor: 'var(--border-card)' }}>
-                        {/* Upvote Button */}
-                        <button
-                          type="button"
-                          onClick={() => onVoteFix(fix.id, 1)}
-                          title={userVote === 1 ? 'Remove Upvote' : 'Upvote (+1)'}
-                          className="flex items-center gap-1 px-2 py-0.5 rounded-[6px] text-xs font-semibold border-0 cursor-pointer transition-all duration-150"
-                          style={
-                            userVote === 1
-                              ? { background: 'rgba(16, 185, 129, 0.18)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.35)' }
-                              : { background: 'transparent', color: 'var(--text-muted)' }
-                          }
-                        >
-                          <ThumbsUpIcon />
-                          <span>{fix.upvotes || 0}</span>
-                        </button>
+                    {/* Upvote / Downvote Controls Subsystem (Pinned on far right for clean vertical alignment across all comments) */}
+                    <div className="flex items-center gap-0.5 flex-shrink-0 flex-nowrap">
+                      {/* Upvote Button */}
+                      <button
+                        type="button"
+                        onClick={() => onVoteFix(fix.id, 1)}
+                        title={userVote === 1 ? 'Remove Upvote' : 'Upvote'}
+                        className="flex items-center gap-1 px-1.5 py-1 text-xs font-semibold border-0 bg-transparent cursor-pointer transition-colors duration-150 whitespace-nowrap"
+                        style={{
+                          color: userVote === 1 ? '#10b981' : 'var(--text-muted)',
+                        }}
+                        onMouseEnter={e => { if (userVote !== 1) e.currentTarget.style.color = '#10b981'; }}
+                        onMouseLeave={e => { if (userVote !== 1) e.currentTarget.style.color = 'var(--text-muted)'; }}
+                      >
+                        <ThumbsUpIcon />
+                        <span>{fix.upvotes || 0}</span>
+                      </button>
 
-                        {/* Net Score Badge */}
-                        <span
-                          className="text-[0.75rem] font-bold px-1.5 text-center min-w-[20px]"
-                          style={{ color: netScore > 0 ? '#10b981' : netScore < 0 ? '#ef4444' : 'var(--text-muted)' }}
-                          title={`Net score: ${netScore}`}
-                        >
-                          {netScore > 0 ? `+${netScore}` : netScore}
-                        </span>
-
-                        {/* Downvote Button */}
-                        <button
-                          type="button"
-                          onClick={() => onVoteFix(fix.id, -1)}
-                          title={userVote === -1 ? 'Remove Downvote' : 'Downvote (-1)'}
-                          className="flex items-center gap-1 px-2 py-0.5 rounded-[6px] text-xs font-semibold border-0 cursor-pointer transition-all duration-150"
-                          style={
-                            userVote === -1
-                              ? { background: 'rgba(239, 68, 68, 0.18)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.35)' }
-                              : { background: 'transparent', color: 'var(--text-muted)' }
-                          }
-                        >
-                          <ThumbsDownIcon />
-                          <span>{fix.downvotes || 0}</span>
-                        </button>
-                      </div>
-
-                      {/* Author / Admin Edit & Delete Actions */}
-                      {canManage && !isEditingThis && (
-                        <div className="flex items-center gap-1 border-l pl-1.5" style={{ borderColor: 'var(--border-color)' }}>
-                          <button
-                            onClick={() => startEdit(fix)}
-                            title="Edit note"
-                            className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent"
-                            style={{ color: 'var(--text-muted)' }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-badge)'; e.currentTarget.style.color = 'var(--accent-blue)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                          >
-                            <EditIcon />
-                          </button>
-                          <button
-                            onClick={() => onDeleteFix(fix.id)}
-                            title="Delete note"
-                            className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent"
-                            style={{ color: 'var(--text-muted)' }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#ef4444'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                          >
-                            <TrashIcon />
-                          </button>
-                        </div>
-                      )}
+                      {/* Downvote Button */}
+                      <button
+                        type="button"
+                        onClick={() => onVoteFix(fix.id, -1)}
+                        title={userVote === -1 ? 'Remove Downvote' : 'Downvote'}
+                        className="flex items-center gap-1 px-1.5 py-1 text-xs font-semibold border-0 bg-transparent cursor-pointer transition-colors duration-150 whitespace-nowrap"
+                        style={{
+                          color: userVote === -1 ? '#ef4444' : 'var(--text-muted)',
+                        }}
+                        onMouseEnter={e => { if (userVote !== -1) e.currentTarget.style.color = '#ef4444'; }}
+                        onMouseLeave={e => { if (userVote !== -1) e.currentTarget.style.color = 'var(--text-muted)'; }}
+                      >
+                        <ThumbsDownIcon />
+                        <span>{fix.downvotes || 0}</span>
+                      </button>
                     </div>
                   </div>
 

@@ -9,7 +9,7 @@
   --bg-card: #fafaf8;
   --bg-header: rgba(255, 255, 255, 0.92);
   --bg-input: #ffffff;
-  --bg-badge: #f0efec;
+  --bg-badge: #e2e0dc;
   --bg-panel: #fafaf8;
   --bg-overlay: rgba(0, 0, 0, 0.32);
   --bg-table-head: #f0efec;
@@ -616,4 +616,27 @@
 }
 .remediation-comments-scroll::-webkit-scrollbar-thumb:hover {
   background: var(--accent-blue);
+}
+
+/* Comment Deletion & Move Up Layout Animation */
+.comment-item-wrapper {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 320ms cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 260ms ease,
+              transform 320ms cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.comment-item-wrapper.comment-item-deleting {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translateY(-8px) scale(0.97);
+  pointer-events: none;
+}
+
+.comment-item-inner {
+  min-height: 0;
+  overflow: hidden;
 }

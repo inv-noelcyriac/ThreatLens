@@ -239,12 +239,33 @@ function FixThread({
   const [expandedId, setExpandedId] = useState(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [deletingIds, setDeletingIds] = useState([]);
 
   useEffect(() => {
     if (defaultAuthorName) {
       setAuthor(defaultAuthorName);
     }
   }, [defaultAuthorName]);
+
+  // Click outside to dismiss delete confirmation
+  useEffect(() => {
+    if (confirmDeleteId === null) return;
+
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('[data-delete-confirm]')) {
+        setConfirmDeleteId(null);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      document.addEventListener('pointerdown', handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('pointerdown', handleClickOutside);
+    };
+  }, [confirmDeleteId]);
 
   const TRUNCATE_LINES = 4;
   const inputStyle = { borderColor: 'var(--border-input)', background: 'var(--bg-input)', color: 'var(--text-primary)' };
@@ -270,10 +291,14 @@ function FixThread({
 
   const startEdit = (fix) => { setEditingId(fix.id); setEditText(fix.description); };
   const cancelEdit = () => { setEditingId(null); setEditText(''); };
-  const saveEdit = async (fixId) => {
-    if (!editText.trim()) return;
+  const saveEdit = async (fixId, currentDescription) => {
+    const trimmed = editText.trim();
+    if (!trimmed || trimmed === (currentDescription || '').trim()) {
+      cancelEdit();
+      return;
+    }
     try {
-      await onEditFix(fixId, editText.trim());
+      await onEditFix(fixId, trimmed);
       setEditingId(null);
       setEditText('');
     } catch (err) {
@@ -281,12 +306,28 @@ function FixThread({
     }
   };
 
+  const handleDeleteFix = async (fixId) => {
+    if (deletingIds.includes(fixId)) return;
+    setDeletingIds((prev) => [...prev, fixId]);
+    setConfirmDeleteId(null);
+
+    setTimeout(async () => {
+      try {
+        await onDeleteFix(fixId);
+      } catch (err) {
+        setError(err.message || 'Failed to delete note.');
+      } finally {
+        setDeletingIds((prev) => prev.filter((id) => id !== fixId));
+      }
+    }, 320);
+  };
+
   return (
     <section className="mb-[22px]">
       {/* ── Section Header with Title & Sorting Controls ── */}
       <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
         <h3 className="flex items-center gap-1.5 text-[0.72rem] font-bold tracking-[0.08em] uppercase" style={{ color: 'var(--text-muted)' }}>
-          <WrenchIcon /> USER SUGGESTIONS ({fixes.length})
+          <WrenchIcon /> USER SUGGESTIONS ({Math.max(0, fixes.length - deletingIds.length)})
         </h3>
 
         {/* Compact Segmented Control for Sorting */}
@@ -352,6 +393,7 @@ function FixThread({
           {fixes.map((fix, index) => {
             const isExpanded = expandedId === fix.id;
             const isEditingThis = editingId === fix.id;
+            const isDeleting = deletingIds.includes(fix.id);
             const descWords = (fix.description || '').split('\n');
             const needsTruncate = fix.description.length > 300 || descWords.length > TRUNCATE_LINES;
             const isLastItem = index === fixes.length - 1;
@@ -368,195 +410,204 @@ function FixThread({
             const netScore = fix.score ?? ((fix.upvotes || 0) - (fix.downvotes || 0));
 
             return (
-              <div key={fix.id} className="flex gap-3" style={{ animation: 'var(--animate-fade-slide-in)' }}>
-                {/* Avatar + connector line */}
-                <div className="flex flex-col items-center flex-shrink-0" style={{ width: '36px' }}>
-                  <div
-                    className="w-9 h-9 rounded-full text-[0.875rem] font-bold flex items-center justify-center select-none flex-shrink-0 transition-colors duration-300"
-                    style={{ background: 'var(--avatar-bg)', color: 'var(--avatar-text)' }}
-                  >
-                    {(fix.author || 'A').charAt(0).toUpperCase()}
-                  </div>
-                  {/* Thread connector line — omitted for last comment */}
-                  {!isLastItem && (
-                    <div className="w-[2px] flex-1 mt-2" style={{ background: 'var(--border-color)', minHeight: '24px' }} />
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className={`flex-1 min-w-0 ${isLastItem ? 'pb-2' : 'pb-5'}`}>
-                  {/* Header: name + email badge + timestamp stacked */}
-                  <div className="flex items-center justify-between gap-2 mb-2 flex-nowrap">
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[0.875rem] font-bold leading-tight truncate max-w-[140px] sm:max-w-[180px]" style={{ color: 'var(--text-primary)' }} title={fix.author}>
-                          {fix.author}
-                        </span>
-                        {isOwner && (
-                          <span className="text-[0.65rem] font-bold px-1.5 py-0.2 rounded border flex-shrink-0" style={{ background: 'var(--accent-blue-light)', color: 'var(--accent-blue)', borderColor: 'rgba(37,99,235,0.25)' }}>
-                            Author
-                          </span>
-                        )}
-                        {/* Author / Admin Edit & Delete Actions (Right near author name) */}
-                        {canManage && !isEditingThis && (
-                          confirmDeleteId === fix.id ? (
-                            <div className="flex items-center gap-1.5 ml-1 px-2.5 py-0.5 rounded-full text-xs flex-shrink-0 animate-fade-in" style={{ background: 'var(--bg-badge)' }}>
-                              <span className="text-[0.68rem] font-medium" style={{ color: 'var(--text-secondary)' }}>
-                                Delete note?
-                              </span>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  try {
-                                    await onDeleteFix(fix.id);
-                                  } catch (err) {
-                                    setError(err.message || 'Failed to delete note.');
-                                  } finally {
-                                    setConfirmDeleteId(null);
-                                  }
-                                }}
-                                className="px-2 py-0.5 rounded-full text-[0.65rem] font-bold cursor-pointer border-0 text-white transition-opacity hover:opacity-90 flex-shrink-0"
-                                style={{ background: '#ef4444' }}
-                              >
-                                Yes
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setConfirmDeleteId(null)}
-                                className="px-1.5 py-0.5 rounded-full text-[0.65rem] font-medium cursor-pointer border-0 bg-transparent transition-colors flex-shrink-0"
-                                style={{ color: 'var(--text-muted)' }}
-                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-                              >
-                                No
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-0.5 ml-0.5 flex-shrink-0">
-                              <button
-                                onClick={() => startEdit(fix)}
-                                title="Edit note"
-                                className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent flex-shrink-0"
-                                style={{ color: 'var(--text-muted)' }}
-                                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-badge)'; e.currentTarget.style.color = 'var(--accent-blue)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                              >
-                                <EditIcon />
-                              </button>
-                              <button
-                                onClick={() => setConfirmDeleteId(fix.id)}
-                                title="Delete note"
-                                className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent flex-shrink-0"
-                                style={{ color: 'var(--text-muted)' }}
-                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#ef4444'; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                              >
-                                <TrashIcon />
-                              </button>
-                            </div>
-                          )
-                        )}
+              <div
+                key={fix.id}
+                className={`comment-item-wrapper ${isDeleting ? 'comment-item-deleting' : ''}`}
+                style={isDeleting ? { animation: 'none' } : { animation: 'var(--animate-fade-slide-in)' }}
+              >
+                <div className="comment-item-inner">
+                  <div className="flex gap-3">
+                    {/* Avatar + connector line */}
+                    <div className="flex flex-col items-center flex-shrink-0" style={{ width: '36px' }}>
+                      <div
+                        className="w-9 h-9 rounded-full text-[0.875rem] font-bold flex items-center justify-center select-none flex-shrink-0 transition-colors duration-300"
+                        style={{ background: 'var(--avatar-bg)', color: 'var(--avatar-text)' }}
+                      >
+                        {(fix.author || 'A').charAt(0).toUpperCase()}
                       </div>
-                      <span className="text-[0.72rem] mt-[2px] truncate" style={{ color: 'var(--text-muted)' }}>
-                        {formatTimestamp(fix.timestamp || fix.created_at)}
-                      </span>
-                    </div>
-
-                    {/* Upvote / Downvote Controls Subsystem (Pinned on far right for clean vertical alignment across all comments) */}
-                    <div className="flex items-center gap-0.5 flex-shrink-0 flex-nowrap">
-                      {/* Upvote Button */}
-                      <button
-                        type="button"
-                        onClick={() => onVoteFix(fix.id, 1)}
-                        title={userVote === 1 ? 'Remove Upvote' : 'Upvote'}
-                        className="flex items-center gap-1 px-1.5 py-1 text-xs font-semibold border-0 bg-transparent cursor-pointer transition-colors duration-150 whitespace-nowrap"
-                        style={{
-                          color: userVote === 1 ? '#10b981' : 'var(--text-muted)',
-                        }}
-                        onMouseEnter={e => { if (userVote !== 1) e.currentTarget.style.color = '#10b981'; }}
-                        onMouseLeave={e => { if (userVote !== 1) e.currentTarget.style.color = 'var(--text-muted)'; }}
-                      >
-                        <ThumbsUpIcon />
-                        <span>{fix.upvotes || 0}</span>
-                      </button>
-
-                      {/* Downvote Button */}
-                      <button
-                        type="button"
-                        onClick={() => onVoteFix(fix.id, -1)}
-                        title={userVote === -1 ? 'Remove Downvote' : 'Downvote'}
-                        className="flex items-center gap-1 px-1.5 py-1 text-xs font-semibold border-0 bg-transparent cursor-pointer transition-colors duration-150 whitespace-nowrap"
-                        style={{
-                          color: userVote === -1 ? '#ef4444' : 'var(--text-muted)',
-                        }}
-                        onMouseEnter={e => { if (userVote !== -1) e.currentTarget.style.color = '#ef4444'; }}
-                        onMouseLeave={e => { if (userVote !== -1) e.currentTarget.style.color = 'var(--text-muted)'; }}
-                      >
-                        <ThumbsDownIcon />
-                        <span>{fix.downvotes || 0}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Description — with inline edit mode or expand/collapse */}
-                  {isEditingThis ? (
-                    <div className="flex flex-col gap-2">
-                      <textarea
-                        value={editText}
-                        onChange={e => setEditText(e.target.value)}
-                        rows={4}
-                        className="px-3.5 py-2.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-[inherit] outline-none resize-y min-h-[72px] leading-[1.5] transition-all duration-200 w-full"
-                        style={inputStyle}
-                        onFocus={focusStyle}
-                        onBlur={blurStyle}
-                        autoFocus
-                      />
-                      <div className="flex gap-2 justify-end">
-                        <button
-                          onClick={cancelEdit}
-                          className="h-8 px-3.5 rounded-[8px] border-[1.5px] text-[0.8rem] font-semibold font-[inherit] cursor-pointer transition-all duration-150"
-                          style={{ borderColor: 'var(--border-input)', background: 'transparent', color: 'var(--text-secondary)' }}
-                          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-badge)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => saveEdit(fix.id)}
-                          className="h-8 px-3.5 rounded-[8px] border-0 text-white text-[0.8rem] font-semibold font-[inherit] cursor-pointer transition-all duration-150"
-                          style={{ background: 'var(--accent-blue)' }}
-                          onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent-blue)'; }}
-                        >
-                          Save
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <p
-                        className="text-[0.9rem] leading-[1.65] break-words whitespace-pre-wrap"
-                        style={{
-                          color: 'var(--text-secondary)',
-                          display: '-webkit-box',
-                          WebkitBoxOrient: 'vertical',
-                          WebkitLineClamp: isExpanded ? 'unset' : (needsTruncate ? TRUNCATE_LINES : 'unset'),
-                          overflow: isExpanded ? 'visible' : (needsTruncate ? 'hidden' : 'visible'),
-                        }}
-                      >
-                        {fix.description}
-                      </p>
-                      {needsTruncate && (
-                        <button
-                          onClick={() => setExpandedId(isExpanded ? null : fix.id)}
-                          className="mt-1 text-[0.8rem] font-semibold bg-transparent border-0 cursor-pointer px-0 py-0 transition-opacity duration-150 hover:opacity-70"
-                          style={{ color: 'var(--accent-blue)' }}
-                        >
-                          {isExpanded ? 'Show less' : 'Show more'}
-                        </button>
+                      {/* Thread connector line — omitted for last comment */}
+                      {!isLastItem && (
+                        <div className="w-[2px] flex-1 mt-2" style={{ background: 'var(--border-color)', minHeight: '24px' }} />
                       )}
                     </div>
-                  )}
+
+                    {/* Content */}
+                    <div className={`flex-1 min-w-0 ${isLastItem ? 'pb-2' : 'pb-5'}`}>
+                      {/* Header: Top row (name + author badge + edit/delete controls on left, like/dislike on right) */}
+                      <div className="flex items-center justify-between gap-2 mb-0.5 flex-nowrap">
+                        <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
+                          <span className="text-[0.875rem] font-bold leading-tight truncate max-w-[140px] sm:max-w-[180px]" style={{ color: 'var(--text-primary)' }} title={fix.author}>
+                            {fix.author}
+                          </span>
+                          {isOwner && (
+                            <span className="text-[0.65rem] font-bold px-1.5 py-0.2 rounded border flex-shrink-0" style={{ background: 'var(--accent-blue-light)', color: 'var(--accent-blue)', borderColor: 'rgba(37,99,235,0.25)' }}>
+                              Author
+                            </span>
+                          )}
+                          {/* Author / Admin Edit & Delete Actions (Right near author name) */}
+                          {canManage && !isEditingThis && (
+                            confirmDeleteId === fix.id ? (
+                              <div data-delete-confirm="true" className="flex items-center gap-1.5 ml-1 px-2.5 py-0.5 rounded-full text-xs flex-shrink-0 animate-fade-in" style={{ background: 'var(--bg-badge)' }}>
+                                <span className="text-[0.68rem] font-medium" style={{ color: 'var(--text-secondary)' }}>
+                                  Delete note?
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteFix(fix.id)}
+                                  className="px-2 py-0.5 rounded-full text-[0.65rem] font-bold cursor-pointer border-0 text-white transition-opacity hover:opacity-90 flex-shrink-0"
+                                  style={{ background: '#ef4444' }}
+                                >
+                                  Yes
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmDeleteId(null)}
+                                  className="px-1.5 py-0.5 rounded-full text-[0.65rem] font-medium cursor-pointer border-0 bg-transparent transition-colors flex-shrink-0"
+                                  style={{ color: 'var(--text-muted)' }}
+                                  onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                                >
+                                  No
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-0.5 ml-0.5 flex-shrink-0">
+                                <button
+                                  onClick={() => startEdit(fix)}
+                                  title="Edit note"
+                                  className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent flex-shrink-0"
+                                  style={{ color: 'var(--text-muted)' }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-badge)'; e.currentTarget.style.color = 'var(--accent-blue)'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                                >
+                                  <EditIcon />
+                                </button>
+                                <button
+                                  data-delete-confirm="true"
+                                  onClick={() => setConfirmDeleteId(fix.id)}
+                                  title="Delete note"
+                                  className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent flex-shrink-0"
+                                  style={{ color: 'var(--text-muted)' }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#ef4444'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                                >
+                                  <TrashIcon />
+                                </button>
+                              </div>
+                            )
+                          )}
+                        </div>
+
+                        {/* Upvote / Downvote Controls Subsystem (Vertically aligned on single line with Author Name) */}
+                        <div className="flex items-center gap-0.5 flex-shrink-0 flex-nowrap">
+                          {/* Upvote Button */}
+                          <button
+                            type="button"
+                            onClick={() => onVoteFix(fix.id, 1)}
+                            title={userVote === 1 ? 'Remove Upvote' : 'Upvote'}
+                            className="flex items-center justify-center gap-1 min-w-[36px] px-1.5 py-0.5 text-xs font-semibold border-0 bg-transparent cursor-pointer transition-all duration-150 whitespace-nowrap active:scale-90 active:translate-y-[1px] select-none"
+                            style={{
+                              color: userVote === 1 ? '#10b981' : 'var(--text-muted)',
+                            }}
+                            onMouseEnter={e => { if (userVote !== 1) e.currentTarget.style.color = '#10b981'; }}
+                            onMouseLeave={e => { if (userVote !== 1) e.currentTarget.style.color = 'var(--text-muted)'; }}
+                          >
+                            <ThumbsUpIcon />
+                            <span className="tabular-nums min-w-[12px] text-center inline-block">{fix.upvotes || 0}</span>
+                          </button>
+
+                          {/* Downvote Button */}
+                          <button
+                            type="button"
+                            onClick={() => onVoteFix(fix.id, -1)}
+                            title={userVote === -1 ? 'Remove Downvote' : 'Downvote'}
+                            className="flex items-center justify-center gap-1 min-w-[36px] px-1.5 py-0.5 text-xs font-semibold border-0 bg-transparent cursor-pointer transition-all duration-150 whitespace-nowrap active:scale-90 active:translate-y-[1px] select-none"
+                            style={{
+                              color: userVote === -1 ? '#ef4444' : 'var(--text-muted)',
+                            }}
+                            onMouseEnter={e => { if (userVote !== -1) e.currentTarget.style.color = '#ef4444'; }}
+                            onMouseLeave={e => { if (userVote !== -1) e.currentTarget.style.color = 'var(--text-muted)'; }}
+                          >
+                            <ThumbsDownIcon />
+                            <span className="tabular-nums min-w-[12px] text-center inline-block">{fix.downvotes || 0}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Timestamp row */}
+                      <span className="text-[0.72rem] mb-2 block truncate" style={{ color: 'var(--text-muted)' }}>
+                        {formatTimestamp(fix.is_edited ? (fix.updated_at || fix.created_at || fix.timestamp) : (fix.created_at || fix.timestamp))}
+                        {fix.is_edited && <span className="ml-1 font-medium opacity-80">(edited)</span>}
+                      </span>
+
+                      {/* Description — with inline edit mode or expand/collapse */}
+                      {isEditingThis ? (
+                        <div className="flex flex-col gap-2">
+                          <textarea
+                            value={editText}
+                            onChange={e => setEditText(e.target.value)}
+                            rows={4}
+                            className="px-3.5 py-2.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-[inherit] outline-none resize-y min-h-[72px] leading-[1.5] transition-all duration-200 w-full"
+                            style={inputStyle}
+                            onFocus={focusStyle}
+                            onBlur={blurStyle}
+                            autoFocus
+                          />
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={cancelEdit}
+                              className="h-8 px-3.5 rounded-[8px] border-[1.5px] text-[0.8rem] font-semibold font-[inherit] cursor-pointer transition-all duration-150"
+                              style={{ borderColor: 'var(--border-input)', background: 'transparent', color: 'var(--text-secondary)' }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-badge)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                            >
+                              Cancel
+                            </button>
+                            {(() => {
+                              const hasChanged = editText.trim() !== (fix.description || '').trim() && editText.trim().length > 0;
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => saveEdit(fix.id, fix.description)}
+                                  disabled={!hasChanged}
+                                  className="h-8 px-3.5 rounded-[8px] border-0 text-white text-[0.8rem] font-semibold font-[inherit] cursor-pointer transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  style={{ background: 'var(--accent-blue)' }}
+                                  onMouseEnter={e => { if (hasChanged) e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
+                                  onMouseLeave={e => { if (hasChanged) e.currentTarget.style.background = 'var(--accent-blue)'; }}
+                                >
+                                  Save
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <p
+                            className="text-[0.9rem] leading-[1.65] break-words whitespace-pre-wrap"
+                            style={{
+                              color: 'var(--text-secondary)',
+                              display: '-webkit-box',
+                              WebkitBoxOrient: 'vertical',
+                              WebkitLineClamp: isExpanded ? 'unset' : (needsTruncate ? TRUNCATE_LINES : 'unset'),
+                              overflow: isExpanded ? 'visible' : (needsTruncate ? 'hidden' : 'visible'),
+                            }}
+                          >
+                            {fix.description}
+                          </p>
+                          {needsTruncate && (
+                            <button
+                              onClick={() => setExpandedId(isExpanded ? null : fix.id)}
+                              className="mt-1 text-[0.8rem] font-semibold bg-transparent border-0 cursor-pointer px-0 py-0 transition-opacity duration-150 hover:opacity-70"
+                              style={{ color: 'var(--accent-blue)' }}
+                            >
+                              {isExpanded ? 'Show less' : 'Show more'}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             );
@@ -1035,12 +1086,25 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUse
   };
 
   const handleEditFix = async (fixId, newDescription) => {
+    const existing = fixes.find((f) => f.id === fixId);
+    if (existing && (existing.description || '').trim() === (newDescription || '').trim()) {
+      return;
+    }
     if (fixId && !String(fixId).startsWith('local-')) {
       try {
         const updated = await updateManualGuidance(fixId, newDescription);
         if (updated) {
           setFixes((prev) =>
-            prev.map((f) => (f.id === fixId ? { ...f, description: updated.description, updated_at: updated.updated_at } : f))
+            prev.map((f) =>
+              f.id === fixId
+                ? {
+                  ...f,
+                  description: updated.description,
+                  is_edited: true,
+                  updated_at: updated.updated_at || new Date().toISOString(),
+                }
+                : f
+            )
           );
           return;
         }
@@ -1113,12 +1177,12 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUse
           prev.map((f) =>
             f.id === fixId
               ? {
-                  ...f,
-                  user_vote: res.user_vote,
-                  score: res.score,
-                  upvotes: res.upvotes,
-                  downvotes: res.downvotes,
-                }
+                ...f,
+                user_vote: res.user_vote,
+                score: res.score,
+                upvotes: res.upvotes,
+                downvotes: res.downvotes,
+              }
               : f
           )
         );
@@ -1773,7 +1837,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUse
           <section className="mb-[22px] min-w-0">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-[0.72rem] font-bold tracking-[0.08em] uppercase" style={{ color: 'var(--text-muted)' }}>
-                OFFICIAL FIX / REMEDIATION
+                OFFICIAL FIX
               </h3>
               {isEditing && (
                 <span className="text-[0.68rem] font-semibold" style={{ color: editRemediation.length >= 1000 ? '#ef4444' : 'var(--text-muted)' }}>

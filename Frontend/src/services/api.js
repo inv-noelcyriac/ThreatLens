@@ -223,17 +223,14 @@ export function normalizeVulnerability(raw) {
   }
 
   const severityText = extractString(raw.severity, 'MEDIUM').toUpperCase();
-  let cvssVal = 7.5;
-  if (typeof raw.cvss === 'number') {
-    cvssVal = raw.cvss;
-  } else if (typeof raw.cvss === 'string' && !isNaN(parseFloat(raw.cvss))) {
-    cvssVal = parseFloat(raw.cvss);
-  } else {
-    if (severityText === 'CRITICAL') cvssVal = 9.5;
-    else if (severityText === 'HIGH') cvssVal = 8.0;
-    else if (severityText === 'MEDIUM') cvssVal = 6.0;
-    else if (severityText === 'LOW') cvssVal = 3.5;
-    else if (severityText === 'UNKNOWN') cvssVal = 'N/A';
+  const rawCvss = raw.cvss ?? raw.cvss_score;
+  let cvssVal = 'N/A';
+  if (typeof rawCvss === 'number') {
+    cvssVal = rawCvss;
+  } else if (typeof rawCvss === 'string' && rawCvss.trim() !== '' && !isNaN(parseFloat(rawCvss))) {
+    cvssVal = parseFloat(rawCvss);
+  } else if (rawCvss !== null && rawCvss !== undefined && String(rawCvss).trim() !== '') {
+    cvssVal = extractString(rawCvss, 'N/A');
   }
 
   return {
@@ -446,6 +443,7 @@ export async function fetchManualGuidance(displayId, sort = 'newest', page = 1) 
       upvotes: item.upvotes || 0,
       downvotes: item.downvotes || 0,
       user_vote: item.user_vote ?? 0,
+      is_edited: item.is_edited !== undefined ? Boolean(item.is_edited) : false,
       created_at: item.created_at,
       updated_at: item.updated_at,
       timestamp: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
@@ -499,6 +497,7 @@ export async function createManualGuidance(displayId, { description }) {
       upvotes: item.upvotes ?? 0,
       downvotes: item.downvotes ?? 0,
       user_vote: item.user_vote ?? 0,
+      is_edited: item.is_edited !== undefined ? Boolean(item.is_edited) : false,
       created_at: item.created_at,
       updated_at: item.updated_at,
       timestamp: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
@@ -550,8 +549,9 @@ export async function updateManualGuidance(id, guidanceText) {
       upvotes: item.upvotes ?? 0,
       downvotes: item.downvotes ?? 0,
       user_vote: item.user_vote ?? 0,
+      is_edited: item.is_edited !== undefined ? Boolean(item.is_edited) : true,
       created_at: item.created_at,
-      updated_at: item.updated_at,
+      updated_at: item.updated_at || new Date().toISOString(),
       timestamp: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
     };
   } catch (err) {

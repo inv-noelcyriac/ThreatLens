@@ -65,6 +65,19 @@ export default function App() {
     }
   }, []);
 
+  // Global auth expiration listener: redirect to login if token refresh fails
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      setCurrentUser(null);
+      setSelectedVuln(null);
+      window.history.replaceState({}, '', '/login');
+      setCurrentPath('/login');
+      showToast('Session expired. Please sign in again.', 'error');
+    };
+    window.addEventListener('threatlens-auth-expired', handleAuthExpired);
+    return () => window.removeEventListener('threatlens-auth-expired', handleAuthExpired);
+  }, []);
+
 
   // Dropdown Options State
   const ecosystemOptions = DEFAULT_ECOSYSTEM_OPTIONS;

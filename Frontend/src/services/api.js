@@ -158,25 +158,18 @@ export function normalizeVulnerability(raw) {
     titleText = primaryTechName ? `${primaryTechName} Security Advisory` : `${displayId} Security Advisory`;
   }
 
-  // Normalize remediation text
+  // Normalize remediation text (strictly from vendor_remediations or remediation backend fields)
   let remediationText = '';
   if (Array.isArray(raw.vendor_remediations) && raw.vendor_remediations.length > 0) {
-    remediationText = raw.vendor_remediations.map(r => extractString(r)).join('; ');
+    remediationText = raw.vendor_remediations.map(r => extractString(r)).filter(Boolean).join('; ');
+  } else if (Array.isArray(raw.vendor_remediation) && raw.vendor_remediation.length > 0) {
+    remediationText = raw.vendor_remediation.map(r => extractString(r)).filter(Boolean).join('; ');
+  } else if (raw.vendor_remediations) {
+    remediationText = extractString(raw.vendor_remediations);
+  } else if (raw.vendor_remediation) {
+    remediationText = extractString(raw.vendor_remediation);
   } else if (raw.remediation) {
     remediationText = extractString(raw.remediation);
-  }
-  if (!remediationText && raw.affected_components && Array.isArray(raw.affected_components) && raw.affected_components.length > 0) {
-    const firstComp = raw.affected_components[0];
-    if (typeof firstComp === 'object' && firstComp) {
-      if (firstComp.fixed_version) {
-        remediationText = `Upgrade ${firstComp.tech_name || 'package'} to ${firstComp.fixed_version}`;
-      } else if (firstComp.raw_version_expression) {
-        remediationText = `Affected version: ${firstComp.raw_version_expression}`;
-      }
-    }
-  }
-  if (!remediationText) {
-    remediationText = normalizedRefs.length > 0 ? `See official reference: ${normalizedRefs[0].name}` : 'Review vendor security bulletin';
   }
 
   // Parse affected components array
@@ -738,6 +731,9 @@ export async function refreshAccessToken() {
   const refreshToken = getRefreshToken();
   if (!refreshToken) {
     clearAuthTokens();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('threatlens-auth-expired'));
+    }
     return null;
   }
 
@@ -754,7 +750,13 @@ export async function refreshAccessToken() {
     });
 
     if (!response.ok) {
-      clearAuthTokens();
+      // ONLY clear tokens and redirect to login if server explicitly rejects authentication (HTTP 401 or 400)
+      if (response.status === 401 || response.status === 400) {
+        clearAuthTokens();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('threatlens-auth-expired'));
+        }
+      }
       return null;
     }
 
@@ -767,11 +769,10 @@ export async function refreshAccessToken() {
       return data.access;
     }
 
-    clearAuthTokens();
     return null;
   } catch (err) {
-    console.error('[Token Refresh Error]:', err);
-    clearAuthTokens();
+    // Network failure / server unreachable / offline: DO NOT clear tokens, DO NOT redirect to login
+    console.error('[Token Refresh Network Error]:', err);
     return null;
   }
 }
@@ -812,6 +813,9 @@ export async function fetchCurrentUser() {
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
         clearAuthTokens();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('threatlens-auth-expired'));
+        }
         return null;
       }
       throw new Error(`HTTP error ${response.status}`);
@@ -849,8 +853,6 @@ export async function authenticatedFetch(url, options = {}) {
     if (newAccessToken) {
       headers['Authorization'] = `Bearer ${newAccessToken}`;
       response = await fetch(url, { ...options, headers });
-    } else {
-      clearAuthTokens();
     }
   }
 

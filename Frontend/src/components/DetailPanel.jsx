@@ -332,7 +332,7 @@ function FixThread({
 
         {/* Compact Segmented Control for Sorting */}
         <div
-          className="relative flex items-center rounded-[6px] border select-none min-w-[175px] overflow-hidden"
+          className="relative flex items-center rounded-[6px] border select-none min-w-[175px] p-[1.5px]"
           style={{
             background: 'var(--bg-input)',
             borderColor: 'var(--border-color)',
@@ -341,7 +341,7 @@ function FixThread({
         >
           {/* Animated GPU-accelerated Sliding Blue Border Box */}
           <div
-            className="absolute top-0 bottom-0 left-0 w-1/2 rounded-[5px] border-[1.5px] pointer-events-none transition-transform duration-350 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+            className="absolute top-[1.5px] bottom-[1.5px] left-[1.5px] w-[calc(50%-1.5px)] rounded-[4.5px] border-[1.5px] pointer-events-none transition-transform duration-350 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-0"
             style={{
               borderColor: 'var(--accent-blue)',
               background: 'rgba(37, 99, 235, 0.08)',
@@ -1807,18 +1807,20 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUse
               </div>
             ) : (
               <div>
-                <p
-                  className="text-[0.9375rem] leading-[1.7] transition-colors duration-300 break-words whitespace-pre-wrap"
-                  style={{
-                    color: 'var(--text-secondary)',
-                    display: '-webkit-box',
-                    WebkitBoxOrient: 'vertical',
-                    WebkitLineClamp: isDescExpanded ? 'unset' : ((current.description && current.description.length > 220) ? 3 : 'unset'),
-                    overflow: isDescExpanded ? 'visible' : ((current.description && current.description.length > 220) ? 'hidden' : 'visible'),
-                  }}
-                >
-                  {current.description}
-                </p>
+                <div className={isDescExpanded ? "max-h-[260px] overflow-y-auto pr-1.5 custom-inner-scrollbar" : ""}>
+                  <p
+                    className="text-[0.9375rem] leading-[1.7] transition-colors duration-300 break-words whitespace-pre-wrap"
+                    style={{
+                      color: 'var(--text-secondary)',
+                      display: isDescExpanded ? 'block' : '-webkit-box',
+                      WebkitBoxOrient: 'vertical',
+                      WebkitLineClamp: isDescExpanded ? 'unset' : ((current.description && current.description.length > 220) ? 3 : 'unset'),
+                      overflow: isDescExpanded ? 'visible' : ((current.description && current.description.length > 220) ? 'hidden' : 'visible'),
+                    }}
+                  >
+                    {current.description}
+                  </p>
+                </div>
                 {current.description && current.description.length > 220 && (
                   <button
                     onClick={() => setIsDescExpanded((v) => !v)}
@@ -1883,20 +1885,22 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUse
                         {current.remediation}
                       </p>
                     ) : (
-                      <div className="flex flex-col gap-2">
-                        {current.remediation.includes(';') ? (
-                          <ul className="list-disc list-inside flex flex-col gap-1.5 text-[0.88rem] font-semibold leading-[1.6]" style={{ color: 'var(--fix-text-color)' }}>
-                            {current.remediation.split(';').map((item, idx) => {
-                              const trimmed = item.trim();
-                              if (!trimmed) return null;
-                              return <li key={idx} className="break-words">{trimmed}</li>;
-                            })}
-                          </ul>
-                        ) : (
-                          <p className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300 break-words" style={{ color: 'var(--fix-text-color)' }}>
-                            {current.remediation}
-                          </p>
-                        )}
+                      <div className="max-h-[240px] overflow-y-auto pr-1.5 custom-inner-scrollbar">
+                        <div className="flex flex-col gap-2">
+                          {current.remediation.includes(';') ? (
+                            <ul className="list-disc list-inside flex flex-col gap-1.5 text-[0.88rem] font-semibold leading-[1.6]" style={{ color: 'var(--fix-text-color)' }}>
+                              {current.remediation.split(';').map((item, idx) => {
+                                const trimmed = item.trim();
+                                if (!trimmed) return null;
+                                return <li key={idx} className="break-words">{trimmed}</li>;
+                              })}
+                            </ul>
+                          ) : (
+                            <p className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300 break-words" style={{ color: 'var(--fix-text-color)' }}>
+                              {current.remediation}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     )}
                     {current.remediation && (current.remediation.length > 180 || current.remediation.includes(';')) && (
@@ -1945,7 +1949,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUse
                     No affected components added yet. Click "+ Add Component" above.
                   </p>
                 ) : (
-                  <div className="border rounded-[10px] overflow-x-auto p-2 max-h-[360px]" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
+                  <div className="border rounded-[10px] overflow-x-auto p-2 max-h-[360px] custom-inner-scrollbar" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
                     <table className="w-full min-w-[520px] border-collapse text-[0.84rem]">
                       <thead style={{ background: 'var(--bg-table-head)', position: 'sticky', top: 0, zIndex: 1 }}>
                         <tr>
@@ -2023,7 +2027,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUse
             ) : current.affectedComponents && current.affectedComponents.length > 0 ? (
               <div>
                 <div
-                  className={`border rounded-[10px] overflow-x-auto ${isComponentsExpanded && current.affectedComponents.length > 8 ? 'max-h-[380px] overflow-y-auto' : ''}`}
+                  className={`border rounded-[10px] overflow-x-auto custom-inner-scrollbar ${isComponentsExpanded && current.affectedComponents.length > 8 ? 'max-h-[380px] overflow-y-auto' : ''}`}
                   style={{ borderColor: 'var(--border-color)' }}
                 >
                   <table className="w-full min-w-[480px] border-collapse text-[0.875rem]">
@@ -2099,7 +2103,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUse
             </div>
 
             {isEditing ? (
-              <div className="flex flex-col gap-2.5 max-h-[300px] overflow-y-auto pr-1">
+              <div className="flex flex-col gap-2.5 max-h-[300px] overflow-y-auto pr-1.5 custom-inner-scrollbar">
                 {editReferences.length === 0 ? (
                   <p className="text-xs italic text-center py-3 border rounded-[8px]" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-color)' }}>
                     No reference links added yet. Click "+ Add Reference" above.
@@ -2140,7 +2144,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUse
             ) : current.references && current.references.length > 0 ? (
               <div>
                 <div
-                  className={`flex flex-col gap-2.5 ${isReferencesExpanded && current.references.length > 8 ? 'max-h-[350px] overflow-y-auto pr-1' : ''}`}
+                  className={`flex flex-col gap-2.5 custom-inner-scrollbar py-1 px-0.5 ${isReferencesExpanded && current.references.length > 5 ? 'max-h-[320px] overflow-y-auto pr-1.5' : ''}`}
                 >
                   {(isReferencesExpanded ? current.references : current.references.slice(0, 3)).map((ref, i) => {
                     const targetUrl = ref.url.startsWith('http') ? ref.url : `https://${ref.url}`;

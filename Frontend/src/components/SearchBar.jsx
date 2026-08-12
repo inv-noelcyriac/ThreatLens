@@ -392,7 +392,7 @@ export default function SearchBar({
             {/* Tech Name input with custom dropdown */}
             <div className="flex flex-col gap-1.5 relative">
               <label htmlFor="tech-name-filter-input" className="text-[0.75rem] font-semibold uppercase tracking-[0.05em]" style={{ color: 'var(--text-muted)' }}>
-                Technology Name (tech_name)
+                Technology Name
               </label>
               <div className="relative w-full flex items-center">
                 <input

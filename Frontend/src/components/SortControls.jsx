@@ -1,52 +1,79 @@
-const SwapIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="7" y1="16" x2="7" y2="4"/>
-    <polyline points="1 10 7 4 13 10"/>
-    <line x1="17" y1="8" x2="17" y2="20"/>
-    <polyline points="11 14 17 20 23 14"/>
+const SortDescendingIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="3" y1="6" x2="11" y2="6"/>
+    <line x1="3" y1="12" x2="9" y2="12"/>
+    <line x1="3" y1="18" x2="7" y2="18"/>
+    <line x1="17" y1="5" x2="17" y2="19"/>
+    <polyline points="13 15 17 19 21 15"/>
+  </svg>
+);
+
+const SortAscendingIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="3" y1="6" x2="11" y2="6"/>
+    <line x1="3" y1="12" x2="9" y2="12"/>
+    <line x1="3" y1="18" x2="7" y2="18"/>
+    <line x1="17" y1="19" x2="17" y2="5"/>
+    <polyline points="13 9 17 5 21 9"/>
   </svg>
 );
 
 export default function SortControls({ sortDir, onSortDirChange }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      {/* Fixed Date sort indicator */}
-      <div
-        className="flex items-center gap-2 h-[38px] px-3.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-medium font-[inherit]"
-        style={{
-          borderColor: 'var(--border-input)',
-          background: 'var(--bg-input)',
-          color: 'var(--text-primary)',
-        }}
-      >
-        <span style={{ color: 'var(--text-muted)' }}>Sort by:</span>
-        <span className="font-semibold" style={{ color: 'var(--text-heading)' }}>Date</span>
-      </div>
+  const isDescending = sortDir === 'Descending';
 
-      {/* Sort direction toggle button */}
+  return (
+    <div
+      className="inline-flex items-center rounded-[10px] border-[1.5px] overflow-hidden select-none font-[inherit] h-[38px]"
+      style={{
+        borderColor: 'var(--border-input)',
+        background: 'var(--bg-input)',
+      }}
+    >
+      {/* Newest Segment */}
       <button
-        id="sort-dir-btn"
-        className="flex items-center gap-1.5 h-[38px] px-4 rounded-[10px] border-[1.5px] text-[0.875rem] font-medium font-[inherit] cursor-pointer transition-all duration-200"
+        id="sort-newest-btn"
+        type="button"
+        className="flex items-center gap-1.5 px-3.5 h-full text-[0.875rem] font-semibold border-0 border-r cursor-pointer transition-all duration-150"
         style={{
           borderColor: 'var(--border-input)',
-          background: 'var(--bg-input)',
-          color: 'var(--text-primary)',
+          background: isDescending ? 'var(--bg-card)' : 'transparent',
+          color: isDescending ? 'var(--text-heading)' : 'var(--text-muted)',
         }}
-        onMouseEnter={e => {
-          e.currentTarget.style.borderColor = 'var(--accent-blue)';
-          e.currentTarget.style.color = 'var(--accent-blue)';
-          e.currentTarget.style.background = 'var(--accent-blue-light)';
+        onMouseEnter={(e) => {
+          if (!isDescending) e.currentTarget.style.color = 'var(--text-secondary)';
         }}
-        onMouseLeave={e => {
-          e.currentTarget.style.borderColor = 'var(--border-input)';
-          e.currentTarget.style.color = 'var(--text-primary)';
-          e.currentTarget.style.background = 'var(--bg-input)';
+        onMouseLeave={(e) => {
+          if (!isDescending) e.currentTarget.style.color = 'var(--text-muted)';
         }}
-        onClick={() => onSortDirChange(sortDir === 'Descending' ? 'Ascending' : 'Descending')}
-        aria-label={`Sort direction: ${sortDir}`}
+        onClick={() => onSortDirChange('Descending')}
+        aria-pressed={isDescending}
+        aria-label="Sort by Newest"
       >
-        <SwapIcon />
-        <span>{sortDir}</span>
+        <SortDescendingIcon />
+        <span>Newest</span>
+      </button>
+
+      {/* Oldest Segment */}
+      <button
+        id="sort-oldest-btn"
+        type="button"
+        className="flex items-center gap-1.5 px-3.5 h-full text-[0.875rem] font-semibold border-0 cursor-pointer transition-all duration-150"
+        style={{
+          background: !isDescending ? 'var(--bg-card)' : 'transparent',
+          color: !isDescending ? 'var(--text-heading)' : 'var(--text-muted)',
+        }}
+        onMouseEnter={(e) => {
+          if (isDescending) e.currentTarget.style.color = 'var(--text-secondary)';
+        }}
+        onMouseLeave={(e) => {
+          if (isDescending) e.currentTarget.style.color = 'var(--text-muted)';
+        }}
+        onClick={() => onSortDirChange('Ascending')}
+        aria-pressed={!isDescending}
+        aria-label="Sort by Oldest"
+      >
+        <SortAscendingIcon />
+        <span>Oldest</span>
       </button>
     </div>
   );

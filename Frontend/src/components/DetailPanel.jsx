@@ -868,6 +868,7 @@ function MinimalEcosystemList({ ecosystems }) {
 export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUser = null, onSave }) {
 
   const [detailData, setDetailData] = useState(vuln);
+  const displayId = vuln?.display_id || vuln?.id;
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [fixes, setFixes] = useState([]);
   const [sortOrder, setSortOrder] = useState('newest');
@@ -880,6 +881,58 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUse
   const [isFixExpanded, setIsFixExpanded] = useState(false);
   const [isComponentsExpanded, setIsComponentsExpanded] = useState(false);
   const [isReferencesExpanded, setIsReferencesExpanded] = useState(false);
+  const descRef = useRef(null);
+  const fixRef = useRef(null);
+  const [hasDescOverflow, setHasDescOverflow] = useState(false);
+  const [hasFixOverflow, setHasFixOverflow] = useState(false);
+
+  useEffect(() => {
+    setIsDescExpanded(false);
+    setHasDescOverflow(false);
+  }, [displayId, detailData?.description, vuln?.description]);
+
+  useEffect(() => {
+    const el = descRef.current;
+    if (!el) return;
+
+    const checkDesc = () => {
+      if (!isDescExpanded) {
+        setHasDescOverflow(el.scrollHeight > el.clientHeight + 2);
+      }
+    };
+
+    checkDesc();
+    const observer = new ResizeObserver(checkDesc);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [detailData?.description, vuln?.description, displayId, isDescExpanded]);
+
+  useEffect(() => {
+    setIsFixExpanded(false);
+    setHasFixOverflow(false);
+  }, [displayId, detailData?.remediation, vuln?.remediation]);
+
+  useEffect(() => {
+    const el = fixRef.current;
+    const currentRem = (detailData || vuln)?.remediation;
+    const hasSemi = typeof currentRem === 'string' && currentRem.includes(';');
+    if (hasSemi) {
+      setHasFixOverflow(true);
+      return;
+    }
+    if (!el) return;
+
+    const checkFix = () => {
+      if (!isFixExpanded) {
+        setHasFixOverflow(el.scrollHeight > el.clientHeight + 2);
+      }
+    };
+
+    checkFix();
+    const observer = new ResizeObserver(checkFix);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [detailData?.remediation, vuln?.remediation, displayId, isFixExpanded]);
 
   // Inline Edit Mode State
   const [isEditing, setIsEditing] = useState(false);
@@ -897,8 +950,6 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUse
   const [editAffectedComponents, setEditAffectedComponents] = useState([]);
   const [editReferences, setEditReferences] = useState([]);
   const [formErrors, setFormErrors] = useState({});
-
-  const displayId = vuln?.display_id || vuln?.id;
 
   // Validation method
   const validateForm = () => {
@@ -1809,19 +1860,20 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUse
               <div>
                 <div className={isDescExpanded ? "max-h-[260px] overflow-y-auto pr-1.5 custom-inner-scrollbar" : ""}>
                   <p
+                    ref={descRef}
                     className="text-[0.9375rem] leading-[1.7] transition-colors duration-300 break-words whitespace-pre-wrap"
                     style={{
                       color: 'var(--text-secondary)',
                       display: isDescExpanded ? 'block' : '-webkit-box',
                       WebkitBoxOrient: 'vertical',
-                      WebkitLineClamp: isDescExpanded ? 'unset' : ((current.description && current.description.length > 220) ? 3 : 'unset'),
-                      overflow: isDescExpanded ? 'visible' : ((current.description && current.description.length > 220) ? 'hidden' : 'visible'),
+                      WebkitLineClamp: isDescExpanded ? 'unset' : 3,
+                      overflow: isDescExpanded ? 'visible' : 'hidden',
                     }}
                   >
                     {current.description}
                   </p>
                 </div>
-                {current.description && current.description.length > 220 && (
+                {(hasDescOverflow || isDescExpanded) && (
                   <button
                     onClick={() => setIsDescExpanded((v) => !v)}
                     className="mt-1 text-[0.8rem] font-semibold bg-transparent border-0 cursor-pointer px-0 py-0 transition-opacity duration-150 hover:opacity-80 flex items-center gap-1"
@@ -1861,7 +1913,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUse
                 onMouseEnter={handleEditableMouseEnter}
                 onMouseLeave={handleEditableMouseLeave}
               />
-            ) : current.remediation ? (
+            ) : (
               <div
                 className="flex flex-col gap-2.5 px-4 py-3.5 rounded-[12px] border-[1.5px] transition-colors duration-300 min-w-0"
                 style={{
@@ -1877,47 +1929,57 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUse
                     <ShieldCheckIcon />
                   </span>
                   <div className="flex-1 min-w-0">
-                    {!isFixExpanded ? (
+                    {current.remediation ? (
+                      <>
+                        {!isFixExpanded ? (
+                          <p
+                            ref={fixRef}
+                            className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300 break-words line-clamp-3"
+                            style={{ color: 'var(--fix-text-color)' }}
+                          >
+                            {current.remediation}
+                          </p>
+                        ) : (
+                          <div className="max-h-[240px] overflow-y-auto pr-1.5 custom-inner-scrollbar">
+                            <div className="flex flex-col gap-2">
+                              {current.remediation.includes(';') ? (
+                                <ul className="list-disc list-inside flex flex-col gap-1.5 text-[0.88rem] font-semibold leading-[1.6]" style={{ color: 'var(--fix-text-color)' }}>
+                                  {current.remediation.split(';').map((item, idx) => {
+                                    const trimmed = item.trim();
+                                    if (!trimmed) return null;
+                                    return <li key={idx} className="break-words">{trimmed}</li>;
+                                  })}
+                                </ul>
+                              ) : (
+                                <p className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300 break-words" style={{ color: 'var(--fix-text-color)' }}>
+                                  {current.remediation}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {(hasFixOverflow || isFixExpanded) && (
+                          <button
+                            onClick={() => setIsFixExpanded((v) => !v)}
+                            className="mt-2 text-[0.8rem] font-bold bg-transparent border-0 cursor-pointer px-0 py-0 transition-opacity duration-150 hover:opacity-80 flex items-center gap-1"
+                            style={{ color: 'var(--fix-icon-color)' }}
+                          >
+                            <span>{isFixExpanded ? 'Show less' : 'Read more'}</span>
+                            <span className="text-[0.75rem]">{isFixExpanded ? '▲' : '▼'}</span>
+                          </button>
+                        )}
+                      </>
+                    ) : (
                       <p
-                        className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300 break-words line-clamp-3"
+                        className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300 break-words"
                         style={{ color: 'var(--fix-text-color)' }}
                       >
-                        {current.remediation}
+                        No official fix recorded yet. Please check references.
                       </p>
-                    ) : (
-                      <div className="max-h-[240px] overflow-y-auto pr-1.5 custom-inner-scrollbar">
-                        <div className="flex flex-col gap-2">
-                          {current.remediation.includes(';') ? (
-                            <ul className="list-disc list-inside flex flex-col gap-1.5 text-[0.88rem] font-semibold leading-[1.6]" style={{ color: 'var(--fix-text-color)' }}>
-                              {current.remediation.split(';').map((item, idx) => {
-                                const trimmed = item.trim();
-                                if (!trimmed) return null;
-                                return <li key={idx} className="break-words">{trimmed}</li>;
-                              })}
-                            </ul>
-                          ) : (
-                            <p className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300 break-words" style={{ color: 'var(--fix-text-color)' }}>
-                              {current.remediation}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {current.remediation && (current.remediation.length > 180 || current.remediation.includes(';')) && (
-                      <button
-                        onClick={() => setIsFixExpanded((v) => !v)}
-                        className="mt-2 text-[0.8rem] font-bold bg-transparent border-0 cursor-pointer px-0 py-0 transition-opacity duration-150 hover:opacity-80 flex items-center gap-1"
-                        style={{ color: 'var(--fix-icon-color)' }}
-                      >
-                        <span>{isFixExpanded ? 'Show less' : 'Read more'}</span>
-                        <span className="text-[0.75rem]">{isFixExpanded ? '▲' : '▼'}</span>
-                      </button>
                     )}
                   </div>
                 </div>
               </div>
-            ) : (
-              <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>No official fix recorded yet.</p>
             )}
           </section>
 

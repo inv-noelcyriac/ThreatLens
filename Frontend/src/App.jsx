@@ -355,10 +355,15 @@ export default function App() {
   };
 
   const handleToggleTheme = () => {
-    const html = document.documentElement;
-    html.classList.add('theme-transitioning');
-    setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
-    setTimeout(() => html.classList.remove('theme-transitioning'), 400);
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    if (!document.startViewTransition) {
+      // Fallback: instant switch for browsers without View Transitions API
+      setTheme(nextTheme);
+      return;
+    }
+    document.startViewTransition(() => {
+      setTheme(nextTheme);
+    });
   };
 
   const hasRedirectedRef = useRef(false);

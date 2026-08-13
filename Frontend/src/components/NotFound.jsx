@@ -22,9 +22,11 @@ export default function NotFound({
   onToggleTheme,
   isAdmin = false,
   adminUser = null,
+  currentUser = null,
   onOpenAddModal,
   onAdminLoginClick,
   onLogout,
+  onUserLogout,
   onNavigateHome,
 }) {
   return (
@@ -39,9 +41,12 @@ export default function NotFound({
           onToggleTheme={onToggleTheme}
           isAdmin={isAdmin}
           adminUser={adminUser}
+          currentUser={currentUser}
+          hideGoogleLogin={true}
           onOpenAddModal={onOpenAddModal}
           onAdminLoginClick={onAdminLoginClick}
           onLogout={onLogout}
+          onUserLogout={onUserLogout}
         />
       </div>
 

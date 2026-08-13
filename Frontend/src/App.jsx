@@ -437,7 +437,7 @@ export default function App() {
         isLoggingIn={isUserAuthLoading}
       />
 
-      <main className="flex-1 pb-12" style={{ background: 'var(--main-bg, transparent)' }}>
+      <main className="flex-1 pb-2" style={{ background: 'var(--main-bg, transparent)' }}>
         <Hero totalCount={globalTotalCount} />
 
         <div className="max-w-[1200px] mx-auto pt-4 flex flex-col gap-3.5">

@@ -272,7 +272,6 @@ function BackgroundVulnCards({ theme }) {
           background: isDark
             ? 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)'
             : 'radial-gradient(circle, rgba(37,99,235,0.06) 0%, transparent 70%)',
-          filter: 'blur(60px)',
         }}
       />
       <div className="absolute w-[400px] h-[400px] rounded-full"
@@ -281,7 +280,6 @@ function BackgroundVulnCards({ theme }) {
           background: isDark
             ? 'radial-gradient(circle, rgba(239,68,68,0.06) 0%, transparent 70%)'
             : 'radial-gradient(circle, rgba(220,38,38,0.04) 0%, transparent 70%)',
-          filter: 'blur(50px)',
         }}
       />
 
@@ -349,7 +347,7 @@ export default function UserLogin({
       {/* Main Login Card — always centred by grid on the outer wrapper */}
       <main className="relative z-10 w-full flex items-center justify-center px-4">
         <div
-          className="w-full max-w-[420px] rounded-[16px] border p-8 sm:p-9 shadow-2xl backdrop-blur-xl transition-all duration-300 animate-fade-in flex flex-col items-center text-center gap-5"
+          className="w-full max-w-[420px] rounded-[16px] border p-8 sm:p-9 shadow-2xl transition-all duration-300 animate-fade-in flex flex-col items-center text-center gap-5"
           style={{
             background: 'var(--bg-card)',
             borderColor: 'var(--border-card)',

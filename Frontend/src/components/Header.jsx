@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import GoogleLoginButton from './GoogleLoginButton';
 
 const SunIcon = () => (
@@ -21,8 +22,8 @@ const MoonIcon = () => (
   </svg>
 );
 
-const LogOutIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+const LogOutIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
     <polyline points="16 17 21 12 16 7" />
     <line x1="21" y1="12" x2="9" y2="12" />
@@ -49,7 +50,6 @@ export default function Header({
     const handleClickOutside = (e) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
         setShowUserMenu(false);
-        setShowUserLogoutConfirm(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -70,7 +70,7 @@ export default function Header({
 
   return (
     <header
-      className="sticky top-0 z-[100] backdrop-blur-[16px] border-b transition-all duration-300"
+      className="sticky top-0 z-[100] border-b transition-all duration-300"
       style={{ background: 'var(--bg-header)', borderColor: 'var(--border-color)' }}
     >
       <div className="max-w-[1200px] mx-auto px-6 h-[46px] flex items-center justify-between gap-3">
@@ -210,36 +210,36 @@ export default function Header({
         </div>
       </div>
 
-      {/* User Logout Confirmation Modal Overlay */}
-      {showUserLogoutConfirm && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
+      {/* User Logout Confirmation Modal Overlay rendered via Portal directly to body */}
+      {showUserLogoutConfirm && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 animate-fade-in">
           <div
-            className="w-full max-w-[360px] rounded-[16px] border p-6 shadow-2xl animate-fade-slide-in flex flex-col gap-4"
+            className="w-full max-w-[365px] rounded-[14px] border p-5 shadow-2xl animate-fade-slide-in flex flex-col gap-3.5"
             style={{
               background: 'var(--bg-card)',
               borderColor: 'var(--border-card)',
-              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
             }}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-red-500/10 text-red-500 flex-shrink-0">
-                <LogOutIcon />
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center bg-red-500/10 text-red-500 flex-shrink-0 mt-0.5">
+                <LogOutIcon size={18} />
               </div>
               <div className="flex flex-col">
-                <h3 className="text-sm font-bold tracking-tight" style={{ color: 'var(--text-heading)' }}>
+                <h3 className="text-base font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
                   Sign Out of ThreatLens?
                 </h3>
-                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                <p className="text-[0.8125rem] mt-0.5 leading-snug" style={{ color: 'var(--text-secondary)' }}>
                   You will need to sign in again to access vulnerability advisories.
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t" style={{ borderColor: 'var(--border-color)' }}>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
               <button
                 type="button"
                 onClick={() => setShowUserLogoutConfirm(false)}
-                className="px-4 py-2 rounded-[8px] text-xs font-semibold border cursor-pointer transition-all"
+                className="px-3.5 py-1.5 rounded-[8px] text-xs font-semibold border cursor-pointer transition-all hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.98]"
                 style={{
                   borderColor: 'var(--border-color)',
                   background: 'var(--bg-badge)',
@@ -254,13 +254,14 @@ export default function Header({
                   setShowUserLogoutConfirm(false);
                   onUserLogout();
                 }}
-                className="px-4 py-2 rounded-[8px] text-xs font-bold text-white bg-red-600 hover:bg-red-700 cursor-pointer transition-all border-0 shadow-sm"
+                className="px-3.5 py-1.5 rounded-[8px] text-xs font-bold text-white bg-red-600 hover:bg-red-700 cursor-pointer transition-all border-0 shadow-sm active:scale-[0.98]"
               >
                 Sign Out
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </header>
   );

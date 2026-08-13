@@ -7,7 +7,7 @@
   --bg-primary: #eef0f6;
   --bg-secondary: #fafaf8;
   --bg-card: #fafaf8;
-  --bg-header: rgba(255, 255, 255, 0.92);
+  --bg-header: #ffffff;
   --bg-input: #ffffff;
   --bg-badge: #e2e0dc;
   --bg-panel: #fafaf8;
@@ -81,7 +81,7 @@
   --bg-primary: #0d0e11;
   --bg-secondary: #141519;
   --bg-card: #18191e;
-  --bg-header: rgba(13, 14, 17, 0.85);
+  --bg-header: #0d0e11;
   --bg-input: #1d1e24;
   --bg-badge: rgba(255, 255, 255, 0.05);
   --bg-panel: #141519;

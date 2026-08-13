@@ -194,7 +194,7 @@ function ListViewEcosystemBadges({ vuln }) {
 }
 
 /* ── Card view (grid) — matches design spec ── */
-function CardView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
+function CardView({ vuln, onClick, activeQuery }) {
   if (!vuln) return null;
   const severityKey = (vuln.severity || 'MEDIUM').toUpperCase();
   const accent = SEVERITY_ACCENT[severityKey] || '#9e9e9e';
@@ -334,7 +334,7 @@ function CardView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
 }
 
 /* ── List view (row) ── */
-function ListView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
+function ListView({ vuln, onClick, activeQuery }) {
   if (!vuln) return null;
   const severityKey = (vuln.severity || 'MEDIUM').toUpperCase();
   const accent = SEVERITY_ACCENT[severityKey] || '#9e9e9e';
@@ -387,10 +387,10 @@ function ListView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
 }
 
 /* ── Export ── */
-export default function VulnCard({ vuln, onClick, activeQuery, viewMode, isAdmin = false, onEdit }) {
+export default function VulnCard({ vuln, onClick, activeQuery, viewMode }) {
   if (!vuln) return null;
   if (viewMode === 'list') {
-    return <ListView vuln={vuln} onClick={onClick} activeQuery={activeQuery} isAdmin={isAdmin} onEdit={onEdit} />;
+    return <ListView vuln={vuln} onClick={onClick} activeQuery={activeQuery} />;
   }
-  return <CardView vuln={vuln} onClick={onClick} activeQuery={activeQuery} isAdmin={isAdmin} onEdit={onEdit} />;
+  return <CardView vuln={vuln} onClick={onClick} activeQuery={activeQuery} />;
 }

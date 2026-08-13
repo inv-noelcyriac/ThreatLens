@@ -20,12 +20,7 @@ const ArrowLeftIcon = () => (
 export default function NotFound({
   theme,
   onToggleTheme,
-  isAdmin = false,
-  adminUser = null,
   currentUser = null,
-  onOpenAddModal,
-  onAdminLoginClick,
-  onLogout,
   onUserLogout,
   onNavigateHome,
 }) {
@@ -39,13 +34,8 @@ export default function NotFound({
         <Header
           theme={theme}
           onToggleTheme={onToggleTheme}
-          isAdmin={isAdmin}
-          adminUser={adminUser}
           currentUser={currentUser}
           hideGoogleLogin={true}
-          onOpenAddModal={onOpenAddModal}
-          onAdminLoginClick={onAdminLoginClick}
-          onLogout={onLogout}
           onUserLogout={onUserLogout}
         />
       </div>

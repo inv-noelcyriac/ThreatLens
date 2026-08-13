@@ -201,7 +201,6 @@ function FixThread({
   sortOrder,
   onSortChange,
   currentUser = null,
-  isAdmin = false,
   hasMore = false,
   loadingMore = false,
   onLoadMore = null,
@@ -404,7 +403,7 @@ function FixThread({
               (fix.author_email && currentUser.email && fix.author_email.toLowerCase() === currentUser.email.toLowerCase()) ||
               (fix.author && currentUser.first_name && fix.author.toLowerCase().includes(currentUser.first_name.toLowerCase()))
             );
-            const canManage = isAdmin || isOwner;
+            const canManage = isOwner;
 
             const userVote = fix.user_vote || 0;
             const netScore = fix.score ?? ((fix.upvotes || 0) - (fix.downvotes || 0));
@@ -865,7 +864,7 @@ function MinimalEcosystemList({ ecosystems }) {
 }
 
 /* ─── Main export ─── */
-export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUser = null, onSave }) {
+export default function DetailPanel({ vuln, onClose, currentUser = null, onSave }) {
 
   const [detailData, setDetailData] = useState(vuln);
   const displayId = vuln?.display_id || vuln?.id;
@@ -1469,83 +1468,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUse
             )}
           </nav>
 
-          {/* Admin Controls: Toggle between View and Inline Edit mode */}
-          {isAdmin && (
-            <div className="flex items-center gap-2">
-              {isEditing ? (
-                <>
-                  <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.68rem] font-bold tracking-wider uppercase mr-1" style={{ background: vuln?.isNew ? 'rgba(16, 185, 129, 0.15)' : 'var(--accent-blue-light)', color: vuln?.isNew ? '#10b981' : 'var(--accent-blue)', border: vuln?.isNew ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(37,99,235,0.2)' }}>
-                    <EditIcon /> {vuln?.isNew ? 'NEW ADVISORY' : 'EDITING'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={cancelEditing}
-                    className="px-3 py-1 rounded-[6px] text-xs font-semibold border cursor-pointer transition-all duration-150"
-                    style={{
-                      borderColor: 'var(--border-card)',
-                      background: 'var(--bg-badge)',
-                      color: 'var(--text-secondary)',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--border-card)';
-                      e.currentTarget.style.color = 'var(--text-primary)';
-                      e.currentTarget.style.borderColor = 'var(--border-input)';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'var(--bg-badge)';
-                      e.currentTarget.style.color = 'var(--text-secondary)';
-                      e.currentTarget.style.borderColor = 'var(--border-card)';
-                      e.currentTarget.style.transform = 'translateY(0px)';
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveInline}
-                    className="px-3.5 py-1 rounded-[6px] text-xs font-bold text-white cursor-pointer transition-all duration-150 border-0 shadow-sm"
-                    style={{ background: vuln?.isNew ? '#10b981' : 'var(--accent-blue)' }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = vuln?.isNew ? '#059669' : '#1d4ed8';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                      e.currentTarget.style.boxShadow = vuln?.isNew ? '0 4px 12px rgba(16, 185, 129, 0.35)' : '0 4px 12px rgba(37, 99, 235, 0.35)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = vuln?.isNew ? '#10b981' : 'var(--accent-blue)';
-                      e.currentTarget.style.transform = 'translateY(0px)';
-                      e.currentTarget.style.boxShadow = 'none';
-                    }}
-                  >
-                    {vuln?.isNew ? 'Create Vulnerability' : 'Save Changes'}
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={startEditing}
-                  className="px-3 py-1 rounded-[6px] text-xs font-bold border cursor-pointer transition-all flex items-center gap-1.5 shadow-sm"
-                  style={{
-                    borderColor: 'var(--accent-blue)',
-                    background: 'var(--accent-blue-light)',
-                    color: 'var(--accent-blue)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--accent-blue)';
-                    e.currentTarget.style.color = '#ffffff';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'var(--accent-blue-light)';
-                    e.currentTarget.style.color = 'var(--accent-blue)';
-                  }}
-                  title="Enable inline editing for this vulnerability"
-                >
-                  <EditIcon />
-                  <span>Edit Advisory</span>
-                </button>
-              )}
-            </div>
-          )}
+
         </div>
 
         {/* Close button */}
@@ -2267,7 +2190,6 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, currentUse
                 sortOrder={sortOrder}
                 onSortChange={setSortOrder}
                 currentUser={currentUser}
-                isAdmin={isAdmin}
                 hasMore={hasMoreFixes}
                 loadingMore={loadingMoreFixes}
                 onLoadMore={handleLoadMoreFixes}

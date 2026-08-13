@@ -6,11 +6,9 @@ import SortControls from './components/SortControls';
 import VulnCard from './components/VulnCard';
 import Pagination from './components/Pagination';
 import DetailPanel from './components/DetailPanel';
-import AdminLogin from './components/AdminLogin';
 import UserLogin from './components/UserLogin';
 import NotFound from './components/NotFound';
 import { fetchVulnerabilities, googleAuthLogin, fetchCurrentUser, clearAuthTokens, getStoredUser, getAccessToken } from './services/api';
-
 
 export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('threatlens-theme') || 'light');
@@ -37,15 +35,10 @@ export default function App() {
   const [isUserAuthLoading, setIsUserAuthLoading] = useState(false);
   const [isSessionChecking, setIsSessionChecking] = useState(() => !!getAccessToken() && !getStoredUser());
 
-  // Admin & Routing State
-  const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('threatlens-is-admin') === 'true');
-  const [adminUser, setAdminUser] = useState(() => {
-    const saved = localStorage.getItem('threatlens-admin-user');
-    return saved ? JSON.parse(saved) : null;
-  });
+  // Routing State
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
 
-  // Step 4: Session Restore (GET /api/v1/auth/me/) on app load
+  // Session Restore (GET /api/v1/auth/me/) on app load
   useEffect(() => {
     if (getAccessToken()) {
       fetchCurrentUser()
@@ -78,14 +71,9 @@ export default function App() {
     return () => window.removeEventListener('threatlens-auth-expired', handleAuthExpired);
   }, []);
 
-
   // Dropdown Options State
   const ecosystemOptions = DEFAULT_ECOSYSTEM_OPTIONS;
   const techNameOptions = DEFAULT_TECH_NAME_OPTIONS;
-
-  // Vuln Form Modal State (Add / Edit)
-  const [vulnModalOpen, setVulnModalOpen] = useState(false);
-  const [editingVuln, setEditingVuln] = useState(null);
 
   // API Data State
   const [vulnerabilities, setVulnerabilities] = useState([]);
@@ -111,15 +99,13 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Lock body scroll when detail panel or modal is open
+  // Lock body scroll when detail panel is open
   useEffect(() => {
-    document.body.style.overflow = selectedVuln || vulnModalOpen ? 'hidden' : '';
+    document.body.style.overflow = selectedVuln ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [selectedVuln, vulnModalOpen]);
+  }, [selectedVuln]);
 
-
-
-  // API 1: Fetch list with query parameters
+  // Fetch list with query parameters
   useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
@@ -208,27 +194,7 @@ export default function App() {
     );
   };
 
-  const handleAdminLoginSuccess = (userData) => {
-    setIsAdmin(true);
-    setAdminUser(userData);
-    localStorage.setItem('threatlens-is-admin', 'true');
-    localStorage.setItem('threatlens-admin-user', JSON.stringify(userData));
-    showToast('Authenticated as Administrator. Switched to Admin Mode.', 'success');
-    window.history.replaceState({}, '', '/');
-    setCurrentPath('/');
-  };
-
-  const handleAdminLogout = () => {
-    setIsAdmin(false);
-    setAdminUser(null);
-    localStorage.removeItem('threatlens-is-admin');
-    localStorage.removeItem('threatlens-admin-user');
-    showToast('Logged out of Admin Mode. Switched to User Mode.', 'info');
-    window.history.replaceState({}, '', '/');
-    setCurrentPath('/');
-  };
-
-  // Steps 1 & 2: Google Authentication Callback (POST /api/v1/auth/google/)
+  // Google Authentication Callback
   const handleGoogleLoginSuccess = async (credential) => {
     setIsUserAuthLoading(true);
     try {
@@ -259,7 +225,6 @@ export default function App() {
       showToast('Logout failed. Could not terminate session.', 'error');
     }
   };
-
 
   const handleSearch = () => {
     const qTrim = query.trim();
@@ -338,7 +303,6 @@ export default function App() {
         next = [...prev, sev];
       }
 
-      // If a search was performed with severity filters, removing/changing severity reloads API data immediately
       if (activeSelectedSeverities.length > 0) {
         setActiveSelectedSeverities(next);
         setCurrentPage(1);
@@ -349,14 +313,12 @@ export default function App() {
   };
 
   const handleClearFilters = () => {
-    // Reset pending UI form inputs
     setSelectedSeverities([]);
     setEcosystem('');
     setTechName('');
     setStartDate('');
     setEndDate('');
 
-    // Check if any active filter was actually applied to the active query results on screen
     const hasActiveFilters =
       activeEcosystem !== '' ||
       activeTechName !== '' ||
@@ -364,7 +326,6 @@ export default function App() {
       activeEndDate !== '' ||
       activeSelectedSeverities.length > 0;
 
-    // Only reset active state (which triggers an API fetch) if active filters were applied
     if (hasActiveFilters) {
       setActiveEcosystem('');
       setActiveTechName('');
@@ -372,61 +333,6 @@ export default function App() {
       setActiveEndDate('');
       setActiveSelectedSeverities([]);
       setCurrentPage(1);
-    }
-  };
-
-
-
-  // Add / Edit handlers
-  const handleOpenAddModal = () => {
-    const draftVuln = {
-      isNew: true,
-      display_id: '',
-      id: '',
-      title: '',
-      severity: '',
-      cvss: '',
-      ecosystem: '',
-      tech_name: '',
-      published: '',
-      status: '',
-      description: '',
-      remediation: '',
-      affectedComponents: [],
-      references: [],
-    };
-    setSelectedVuln(draftVuln);
-  };
-
-  const handleOpenEditModal = (vulnToEdit) => {
-    setSelectedVuln(vulnToEdit);
-  };
-
-  const handleSaveVuln = (formData) => {
-    const targetId = formData?.id;
-    const targetUuid = formData?.uuid;
-
-    if (!formData.isNew && (targetId || targetUuid)) {
-      // Update existing record in local state feed
-      setVulnerabilities((prev) =>
-        prev.map((v) => ((targetId && (v.id === targetId || v.display_id === targetId)) || (targetUuid && v.uuid === targetUuid) ? { ...v, ...formData } : v))
-      );
-      if (selectedVuln && ((targetId && (selectedVuln.id === targetId || selectedVuln.display_id === targetId)) || (targetUuid && selectedVuln.uuid === targetUuid))) {
-        setSelectedVuln((prev) => ({ ...prev, ...formData }));
-      }
-      setToast({ message: 'Vulnerability advisory updated successfully!', type: 'success' });
-    } else {
-      // Add new record to top of list
-      const newRecord = {
-        uuid: `custom-${Date.now()}`,
-        id: formData.display_id || formData.id || `CVE-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-        display_id: formData.display_id || formData.id || `CVE-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-        ...formData,
-        isNew: false,
-      };
-      setVulnerabilities((prev) => [newRecord, ...prev]);
-      setTotalCount((count) => count + 1);
-      setToast({ message: `New vulnerability advisory ${newRecord.display_id} created successfully!`, type: 'success' });
     }
   };
 
@@ -462,15 +368,10 @@ export default function App() {
     return 'http://10.10.13.44:8000/admin/';
   };
 
-  const handleOpenDjangoAdminInNewTab = () => {
-    const win = window.open(getDjangoAdminUrl(), '_blank');
-    if (win) win.focus();
-  };
-
-  // Direct URL navigation (STRICTLY /admin/login) uses window.location.href to bypass popup blockers completely
+  // Direct URL navigation (/admin or /admin/login) redirects to Django Admin backend portal
   useEffect(() => {
     const path = currentPath.toLowerCase().replace(/\/$/, '');
-    if (path === '/admin/login') {
+    if (path === '/admin' || path === '/admin/login') {
       if (!hasRedirectedRef.current) {
         hasRedirectedRef.current = true;
         window.location.href = getDjangoAdminUrl();
@@ -480,30 +381,7 @@ export default function App() {
     }
   }, [currentPath]);
 
-  // Route 1: Test UI Frontend Admin Login (/test_ui/admin/login)
   const normalizedPath = currentPath.toLowerCase().replace(/\/$/, '');
-  if (normalizedPath === '/test_ui/admin/login') {
-    if (isAdmin) {
-      window.history.replaceState({}, '', '/');
-      setCurrentPath('/');
-      return null;
-    }
-
-    return (
-      <>
-        <AdminLogin
-          theme={theme}
-          onToggleTheme={handleToggleTheme}
-          onLoginSuccess={handleAdminLoginSuccess}
-          onCancel={() => {
-            window.history.replaceState({}, '', '/');
-            setCurrentPath('/');
-          }}
-        />
-        {renderToast()}
-      </>
-    );
-  }
 
   // Session Loading Screen while validating stored token
   if (isSessionChecking) {
@@ -515,9 +393,8 @@ export default function App() {
     );
   }
 
-  // Gate 1: Require Google Auth / Admin authentication before entering search dashboard
-  if (!currentUser && !isAdmin) {
-    // If navigating to non-admin path or root without auth, show dedicated User Login screen
+  // Gate 1: Require User authentication before entering search dashboard
+  if (!currentUser) {
     if (normalizedPath === '' || normalizedPath === '/' || normalizedPath === '/login') {
       return (
         <>
@@ -540,36 +417,25 @@ export default function App() {
       <NotFound
         theme={theme}
         onToggleTheme={handleToggleTheme}
-        isAdmin={isAdmin}
-        adminUser={adminUser}
         currentUser={currentUser}
-        onOpenAddModal={handleOpenAddModal}
-        onAdminLoginClick={handleOpenDjangoAdminInNewTab}
-        onLogout={handleAdminLogout}
         onUserLogout={handleUserLogout}
         onNavigateHome={() => navigateTo('/')}
       />
     );
   }
 
-  // Route 3: Main Vulnerability Search Dashboard (Authenticated Users & Admins)
+  // Route 3: Main Vulnerability Search Dashboard
   return (
     <div className="min-h-screen flex flex-col">
       <Header
         theme={theme}
         onToggleTheme={handleToggleTheme}
-        isAdmin={isAdmin}
-        adminUser={adminUser}
         currentUser={currentUser}
-        onOpenAddModal={handleOpenAddModal}
-        onAdminLoginClick={handleOpenDjangoAdminInNewTab}
-        onLogout={handleAdminLogout}
         onGoogleLoginSuccess={handleGoogleLoginSuccess}
         onGoogleLoginError={handleGoogleLoginError}
         onUserLogout={handleUserLogout}
         isLoggingIn={isUserAuthLoading}
       />
-
 
       <main className="flex-1 pb-12" style={{ background: 'var(--main-bg, transparent)' }}>
         <Hero totalCount={globalTotalCount} />
@@ -682,8 +548,6 @@ export default function App() {
                     vuln={vuln}
                     onClick={setSelectedVuln}
                     activeQuery={activeQuery}
-                    isAdmin={isAdmin}
-                    onEdit={handleOpenEditModal}
                   />
                 ))}
               </div>
@@ -704,20 +568,16 @@ export default function App() {
         style={{ color: 'var(--text-muted)', borderColor: 'var(--border-color)' }}
       >
         <span>ThreatLens · Security Intelligence Platform</span>
-        {isAdmin && <span className="text-amber-400 font-semibold">(Admin Access Active)</span>}
       </footer>
 
-      {/* Detail Slide-out Panel (Handles View, Edit, and Create modes) */}
+      {/* Detail Slide-out Panel */}
       {selectedVuln && (
         <DetailPanel
           vuln={selectedVuln}
           onClose={() => setSelectedVuln(null)}
-          isAdmin={isAdmin}
           currentUser={currentUser}
-          onSave={handleSaveVuln}
         />
       )}
-
 
       {/* High-Contrast Toast Notification */}
       {renderToast()}

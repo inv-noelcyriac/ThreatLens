@@ -1,6 +1,7 @@
 import uuid
 
 from django.contrib.postgres.fields import ArrayField
+from django.conf import settings
 from django.db import models
 
 
@@ -172,17 +173,65 @@ class VulnerabilityReference(models.Model):
 
 class ManualRemediation(models.Model):
     master_vuln = models.ForeignKey(
-        'ingestion.MasterVulnerability',  # Adjust path if in another app
+        'MasterVulnerability',
         on_delete=models.CASCADE,
         related_name='remediations'
     )
-    author_name = models.CharField(max_length=100)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='manual_remediations'
+    )
     guidance_text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'manual_remediations'
         ordering = ['-created_at']
 
+    @property
+    def author_full_name(self):
+        full_name = f"{self.user.first_name} {self.user.last_name}".strip()
+        return full_name if full_name else self.user.username
+
     def __str__(self):
-        return f"Note by {self.author_name} on {self.master_vuln.display_id}"
+        return f"Note by {self.author_full_name} on {self.master_vuln.display_id}"
+
+
+#------ TABLE 7 Remediation Vote -------------
+
+class RemediationVote(models.Model):
+    class VoteChoices(models.IntegerChoices):
+        UPVOTE = 1, 'Upvote'
+        DOWNVOTE = -1, 'Downvote'
+
+    id = models.BigAutoField(primary_key=True)
+    remediation = models.ForeignKey(
+        ManualRemediation,
+        on_delete=models.CASCADE,
+        related_name='votes'
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='remediation_votes'
+    )
+    vote_type = models.SmallIntegerField(choices=VoteChoices.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'remediation_votes'
+        constraints = [
+            # Enforces EXACTLY 1 vote per user PER COMMENT
+            models.UniqueConstraint(
+                fields=['remediation', 'user'],
+                name='uq_one_vote_per_user_per_remediation'
+            )
+        ]
+        indexes = [
+            models.Index(fields=['remediation', 'vote_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} ({self.get_vote_type_display()}) on Comment #{self.remediation.id}"

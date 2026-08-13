@@ -124,6 +124,9 @@ class OSVZipIngestionTask(BaseIngestionTask):
 
                             # Direct high-speed bulk create for initial baseline run
                             if len(batch_buffer) >= BATCH_SIZE:
+                                now = timezone.now()
+                                for item in batch_buffer:
+                                    item.fetched_at = now
                                 SourceAdvisory.objects.bulk_create(
                                     batch_buffer,
                                     ignore_conflicts=True,
@@ -143,6 +146,9 @@ class OSVZipIngestionTask(BaseIngestionTask):
 
                     # Flush final baseline batch
                     if batch_buffer:
+                        now = timezone.now()
+                        for item in batch_buffer:
+                            item.fetched_at = now
                         SourceAdvisory.objects.bulk_create(
                             batch_buffer,
                             ignore_conflicts=True,

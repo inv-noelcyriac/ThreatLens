@@ -7,6 +7,8 @@ import requests
 from django.core.management import call_command
 from django.db import transaction, DatabaseError
 
+from django.utils import timezone
+
 from .models import SourceAdvisory, SyncState
 from .services import (
     get_last_successful_sync,
@@ -237,14 +239,16 @@ class BaseIngestionTask:
             )
             return
 
+        now = timezone.now()
         try:
             with transaction.atomic():
                 advisory, created = SourceAdvisory.objects.update_or_create(
                     source=source_name,
                     external_id=external_id,
-                    defaults={"raw_payload": raw_payload,
-                    "normalized_at": None,  # Reset normalized_at on update
-                    "fetched_at": now,      # Refresh fetch timestamp
+                    defaults={
+                        "raw_payload": raw_payload,
+                        "normalized_at": None,  # Reset normalized_at on update
+                        "fetched_at": now,      # Refresh fetch timestamp
                     }
                 )
                 if created:

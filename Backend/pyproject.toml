@@ -6,3 +6,29 @@ search-path = ["Backend"]
 venvPath = "Backend"
 venv = "venv"
 extraPaths = ["Backend"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "core.settings"
+python_files = ["test_*.py", "*_test.py"]
+testpaths = ["ingestion/tests","search/tests"]  # Add other test directories here if you have more (e.g. "core/tests")
+norecursedirs = ["venv", ".venv", ".git", "node_modules", "static", "media"]
+
+[tool.coverage.run]
+source = ["ingestion", "core","search","authentication"]  # Explicitly list Django app directories instead of "."
+omit = [
+    "venv/*",
+    ".venv/*",
+    "*/migrations/*",
+    "*/tests/*",
+    "manage.py",
+    "core/wsgi.py",
+    "core/asgi.py",
+    "locustfile.py",
+    "purge_vault.py",
+    "test_osv.py",
+    "test_year.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

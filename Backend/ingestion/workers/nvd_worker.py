@@ -168,9 +168,11 @@ class NVDApiTask(BaseIngestionTask):
                 #     total_processed += len(advisories_to_create)
 
                 if advisories_to_create:
-                    # Ensure every advisory object in this batch has normalized_at set to None
+                    now = timezone.now()
+                    # Ensure every advisory object in this batch has normalized_at set to None and fetched_at set to current timestamp
                     for advisory in advisories_to_create:
                         advisory.normalized_at = None
+                        advisory.fetched_at = now
 
                     SourceAdvisory.objects.bulk_create(
                         advisories_to_create,

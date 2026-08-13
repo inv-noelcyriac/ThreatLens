@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -8,6 +9,8 @@ from meilisearch.errors import (
     MeilisearchCommunicationError,
     MeilisearchApiError,
 )
+
+from ingestion.models import MasterVulnerability
 from search.meilisearch_client import INDEX_NAME, get_meilisearch_client
 
 logger = logging.getLogger("ingestion_logger")
@@ -107,18 +110,12 @@ def escape_filter_val(value: str) -> str:
 
 
 def parse_multi_value_param(request, param_name: str, uppercase: bool = False) -> list[str]:
-    """Extracts query parameter values supporting both repeated keys and comma-separated strings.
-    
-    Examples:
-      - ?severity=high&severity=medium -> ['high', 'medium']
-      - ?severity=high,medium -> ['high', 'medium']
-    """
+    """Extracts query parameter values supporting both repeated keys and comma-separated strings."""
     raw_list = request.GET.getlist(param_name)
     extracted_values = []
     for item in raw_list:
         if not item:
             continue
-        # Split comma-separated inputs if present
         for val in item.split(","):
             cleaned = val.strip()
             if cleaned:
@@ -128,10 +125,12 @@ def parse_multi_value_param(request, param_name: str, uppercase: bool = False) -
 
 def parse_sort_params(sort_input: str) -> list[str]:
     """Returns sort array for Meilisearch.
-    
-    Defaults to Date DESC -> Severity Score DESC (Tie-breaker for same date).
+
+    When severity_score is the primary grouper, cvss_score:desc is appended
+    as a secondary tiebreaker so that within each severity bucket (e.g. all
+    MEDIUM items), records are ordered from highest to lowest CVSS score.
     """
-    default_sort = ["published_at:desc", "severity_score:desc"]
+    default_sort = ["published_at:desc", "severity_score:desc", "cvss_score:desc"]
 
     if not sort_input:
         return default_sort
@@ -147,13 +146,20 @@ def parse_sort_params(sort_input: str) -> list[str]:
             direction = "desc"
 
         if field == "published_at":
-            return [f"published_at:{direction}", "severity_score:desc"]
+            # Secondary: severity bucket, tertiary: CVSS score within bucket
+            return [f"published_at:{direction}", "severity_score:desc", "cvss_score:desc"]
+        elif field == "severity_score":
+            # Within each severity bucket, break ties by CVSS score
+            return [f"severity_score:{direction}", "cvss_score:desc"]
         elif field in ALLOWED_SORT_FIELDS:
+            # User explicitly chose cvss_score or another field as primary — respect it
             return [f"{field}:{direction}"]
     else:
         field = sort_input.strip()
         if field == "published_at":
-            return ["published_at:desc", "severity_score:desc"]
+            return ["published_at:desc", "severity_score:desc", "cvss_score:desc"]
+        elif field == "severity_score":
+            return ["severity_score:desc", "cvss_score:desc"]
         elif field in ALLOWED_SORT_FIELDS:
             return [f"{field}:desc"]
 
@@ -161,10 +167,7 @@ def parse_sort_params(sort_input: str) -> list[str]:
 
 
 class MasterVulnerabilityListView(APIView):
-    """GENERAL LIST API: GET /api/v1/vulnerabilities/
-
-    Fetches vulnerability records from Meilisearch with dynamic pagination and sorting.
-    """
+    """GENERAL LIST API: GET /api/v1/vulnerabilities/"""
 
     def get(self, request):
         limit, page, offset = get_pagination_params(request)
@@ -260,11 +263,7 @@ class MasterVulnerabilityListView(APIView):
 
 
 class VulnerabilitySearchView(APIView):
-    """SEARCH & FILTER API: GET /api/v1/vulnerabilities/search/
-
-    Queries Meilisearch with support for keyword search, multi-field/multi-value filtering,
-    date ranges, custom sorting, and dynamic pagination.
-    """
+    """SEARCH & FILTER API: GET /api/v1/vulnerabilities/search/"""
 
     def get(self, request):
         limit, page, offset = get_pagination_params(request)
@@ -273,7 +272,6 @@ class VulnerabilitySearchView(APIView):
 
         query = request.GET.get("q", "").strip()
         
-        # Extract potential multi-value query parameters
         ecosystems = parse_multi_value_param(request, "ecosystem")
         tech_names = parse_multi_value_param(request, "tech_name")
         severities = parse_multi_value_param(request, "severity", uppercase=True)
@@ -288,21 +286,16 @@ class VulnerabilitySearchView(APIView):
         raw_sort_param = request.GET.get("sort", "published_at:desc")
         sort_params = parse_sort_params(raw_sort_param)
 
-        # Base filter mandatory for public queries
         filters = ["is_hidden = false"]
         
         if ecosystems:
             escaped_eco = [f"'{escape_filter_val(v)}'" for v in ecosystems]
             filters.append(f"filter_ecosystems IN [{', '.join(escaped_eco)}]")
 
-        # ------------------------------------------------------------------
-        # Dynamic Tech Name Filtering (Option A: Exact + Sub-package Prefixes)
-        # ------------------------------------------------------------------
         if tech_names:
             tech_sub_clauses = []
             for t in tech_names:
                 escaped_t = escape_filter_val(t.lower())
-                # Matches exact 'react' OR sub-packages like 'react-dom', 'react-router', 'react-dropzone'
                 tech_sub_clauses.append(
                     f'(filter_tech_names = \'{escaped_t}\' OR filter_tech_names STARTS WITH \'{escaped_t}-\')'
                 )
@@ -327,6 +320,12 @@ class VulnerabilitySearchView(APIView):
 
         filter_expression = " AND ".join(filters)
 
+        formatted_query = query
+        if query:
+            if query.startswith(".") or any(char in query for char in ["-", "/", "@", "+", "#"]):
+                if not (query.startswith('"') and query.endswith('"')):
+                    formatted_query = f'"{query}"'
+
         try:
             client = get_meilisearch_client()
             index = client.index(INDEX_NAME)
@@ -338,30 +337,7 @@ class VulnerabilitySearchView(APIView):
                 "filter": filter_expression,
             }
 
-            # ------------------------------------------------------------------
-            # Restrict Search Scope for Text Queries
-            # Eliminates noisy description matches so strict date sorting returns
-            # accurate package/ID results without jumbled dates.
-            # ------------------------------------------------------------------
-            if query:
-
-            # ------------------------------------------------------------------
-            # Exact Phrase Matching for Terms with Special Characters
-            # Prevents '.net' from prefix-matching 'netty', 'network', etc.
-            # ------------------------------------------------------------------
-                formatted_query = query
-                if query.startswith(".") or any(char in query for char in ["-", "/", "@", "+", "#"]):
-                    # If user didn't explicitly add quotes, wrap query in quotes for exact match
-                    if not (query.startswith('"') and query.endswith('"')):
-                        formatted_query = f'"{query}"'
-
-                # search_params["attributesToSearchOn"] = [
-                #     "display_id",
-                #     "filter_tech_names",
-                #     "filter_ecosystems",
-                # ]
-
-            raw_results = index.search(query, search_params)
+            raw_results = index.search(formatted_query, search_params)
 
             total_hits = raw_results.get(
                 "totalHits", raw_results.get("estimatedTotalHits", 0)
@@ -434,3 +410,139 @@ class VulnerabilitySearchView(APIView):
                 {"error": "An error occurred while executing the search request."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class MasterVulnerabilityDetailView(APIView):
+    """DETAIL API: GET /api/v1/vulnerabilities/<display_id>/
+
+    Returns complete vulnerability data for the side-panel modal.
+    First searches Meilisearch for the exact hit, falls back to Postgres if needed.
+    """
+
+    def get(self, request, display_id):
+        display_id_clean = display_id.strip()
+
+        # 1. Fetch rich document directly from Meilisearch
+        try:
+            client = get_meilisearch_client()
+            index = client.index(INDEX_NAME)
+
+            # Perform standard search query on display_id (avoids unindexed filter errors)
+            raw_results = index.search(display_id_clean, {"limit": 10})
+            hits = raw_results.get("hits", [])
+
+            selected_hit = None
+            for hit in hits:
+                hit_display = str(hit.get("display_id", "")).strip().lower()
+                hit_cve = str(hit.get("cve_id", "")).strip().lower()
+                hit_id = str(hit.get("id", "")).strip().lower()
+
+                if display_id_clean.lower() in (hit_display, hit_cve, hit_id):
+                    selected_hit = hit
+                    break
+
+            if selected_hit:
+                hit_data = selected_hit.copy()
+
+                # Ensure ecosystem is populated (fallback to filter_ecosystems if empty)
+                if not hit_data.get("ecosystem"):
+                    ecosystems = hit_data.get("filter_ecosystems", [])
+                    if ecosystems and isinstance(ecosystems, list):
+                        hit_data["ecosystem"] = ecosystems[0]
+
+                # Normalise remediation fields for the frontend modal
+                remediation_val = (
+                    hit_data.get("official_remediation")
+                    or hit_data.get("remediation")
+                    or hit_data.get("remediation_guidance")
+                    or ""
+                )
+                hit_data["official_remediation"] = remediation_val
+                hit_data["remediation"] = remediation_val
+
+                # Format published_at timestamp if numeric UNIX timestamp
+                if isinstance(hit_data.get("published_at"), (int, float)):
+                    hit_data["published_at"] = format_timestamp(
+                        hit_data["published_at"], fmt="%d-%m-%Y"
+                    )
+
+                return Response(hit_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.warning(f"[MEILISEARCH DETAIL SEARCH ERROR] {e}")
+
+        # 2. Postgres DB Fallback
+        vuln = get_object_or_404(
+            MasterVulnerability.objects.prefetch_related("tags", "references"),
+            display_id=display_id_clean,
+            is_hidden=False,
+        )
+
+        tags_data = [
+            {
+                "tech_name": tag.tech_name,
+                "ecosystem": tag.ecosystem,
+                "introduced_version": getattr(tag, "introduced_version", ""),
+                "fixed_version": getattr(tag, "fixed_version", ""),
+                "raw_version_expression": getattr(tag, "raw_version_expression", ""),
+            }
+            for tag in vuln.tags.all()
+        ]
+
+        affected_components = [
+            {
+                "component": tag.tech_name,
+                "affected_versions": getattr(tag, "raw_version_expression", "") or f"<{getattr(tag, 'fixed_version', '')}",
+                "instance": tag.ecosystem,
+                "status": "VULNERABLE",
+            }
+            for tag in vuln.tags.all()
+        ]
+
+        references_list = []
+        for ref in vuln.references.all():
+            url = getattr(ref, "url", str(ref))
+            domain = url.split("//")[-1].split("/")[0] if "://" in url else url
+            references_list.append({
+                "url": url,
+                "name": getattr(ref, "name", domain) or domain
+            })
+
+        remediation_text = (
+            getattr(vuln, "official_remediation", "")
+            or getattr(vuln, "remediation", "")
+            or getattr(vuln, "remediation_guidance", "")
+            or ""
+        )
+
+        ecosystem_val = getattr(vuln, "ecosystem", "")
+        if not ecosystem_val and vuln.tags.exists():
+            ecosystem_val = vuln.tags.first().ecosystem
+
+        published_formatted = (
+            vuln.published_at.strftime("%d-%m-%Y")
+            if getattr(vuln, "published_at", None)
+            else None
+        )
+
+        full_data = {
+            "id": str(vuln.id),
+            "display_id": vuln.display_id,
+            "cve_id": getattr(vuln, "cve_id", vuln.display_id),
+            "title": getattr(vuln, "title", vuln.display_id),
+            "description": getattr(vuln, "description", ""),
+            "severity": getattr(vuln, "severity", "UNKNOWN"),
+            "severity_score": getattr(vuln, "severity_score", 0),
+            "cvss_score": getattr(vuln, "cvss_score", getattr(vuln, "severity_score", 0)),
+            "ecosystem": ecosystem_val,
+            "official_remediation": remediation_text,
+            "remediation": remediation_text,
+            "source": getattr(vuln, "source", "NVD"),
+            "published_at": published_formatted,
+            "tags": tags_data,
+            "affected_components": affected_components,
+            "references": references_list,
+            "is_hidden": vuln.is_hidden,
+        }
+
+        return Response(full_data, status=status.HTTP_200_OK)

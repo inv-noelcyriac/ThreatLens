@@ -17,31 +17,76 @@ SEVERITY_WEIGHTS = {
 }
 
 
-def resolve_source_name(display_id: str, provided_source: str | None) -> str:
-    """
-    Resolves and formats the source name cleanly.
-    Uses provided_source if available, otherwise infers from display_id prefix.
-    """
-    if provided_source and str(provided_source).strip():
-        src = str(provided_source).strip().lower()
-        if "github" in src or "ghsa" in src:
-            return "GitHub Advisory"
-        elif "nvd" in src or "cve" in src:
-            return "NVD"
-        elif "osv" in src:
-            return "OSV"
-        return src.upper()
+# Display-friendly label mapping (ordered by priority)
+_SOURCE_LABELS = [
+    ("nvd",                 "NVD"),
+    ("ghsa",                "GitHub Advisory"),
+    ("github",              "GitHub Advisory"),
+    ("osv",                 "OSV"),
+    ("aws",                 "AWS"),
+    ("docker_ecosystem",    "Docker"),
+    ("docker_hardened_osv", "Docker Hardened"),
+]
 
-    display_id_upper = str(display_id).strip().upper()
-    
-    if display_id_upper.startswith("GHSA"):
-        return "GitHub Advisory"
-    elif display_id_upper.startswith("CVE"):
-        return "NVD"
-    elif display_id_upper.startswith("OSV"):
-        return "OSV"
-    
-    return "UNKNOWN"
+# Source priority order for sorting the displayed labels
+_SOURCE_PRIORITY = {
+    "nvd": 6,
+    "ghsa": 5,
+    "github": 4,
+    "osv": 3,
+    "aws": 2,
+    "docker_ecosystem": 1,
+    "docker_hardened_osv": 1,
+}
+
+
+def _format_single_source(raw: str) -> str:
+    """Maps a raw source string to a human-readable label."""
+    raw_lower = raw.strip().lower()
+    for key, label in _SOURCE_LABELS:
+        if key in raw_lower:
+            return label
+    return raw.strip().upper()
+
+
+def resolve_source_name(display_id: str, sources: list[str] | str | None) -> str:
+    """
+    Resolves a human-readable, combined source label from one or more source strings.
+
+    - Single source  → e.g. "NVD"
+    - Multi source   → e.g. "NVD · OSV · Docker"  (sorted by priority, deduplicated)
+    - Fallback       → infer from display_id prefix if no sources provided
+    """
+    raw_list = []
+    if isinstance(sources, list):
+        raw_list = [s for s in sources if s and str(s).strip()]
+    elif sources and str(sources).strip():
+        raw_list = [str(sources).strip()]
+
+    if not raw_list:
+        # Infer from display_id prefix
+        display_id_upper = str(display_id).strip().upper()
+        if display_id_upper.startswith("GHSA"):
+            return "GitHub Advisory"
+        elif display_id_upper.startswith("CVE"):
+            return "NVD"
+        elif display_id_upper.startswith("OSV"):
+            return "OSV"
+        return "Unknown"
+
+    # Map each raw source → display label, deduplicate while preserving order
+    seen_labels = set()
+    labeled = []
+    for raw in raw_list:
+        label = _format_single_source(raw)
+        if label not in seen_labels:
+            seen_labels.add(label)
+            labeled.append((raw.strip().lower(), label))
+
+    # Sort by priority (highest first)
+    labeled.sort(key=lambda x: _SOURCE_PRIORITY.get(x[0], 0), reverse=True)
+
+    return " · ".join(label for _, label in labeled)
 
 
 def extract_cvss_score(master_vuln: MasterVulnerability, raw_payload: dict) -> float:
@@ -183,7 +228,13 @@ def build_meilisearch_document(master_vuln: MasterVulnerability, advisory_map: d
 
     advisory_data = advisory_map.get(master_vuln.display_id, {})
     raw_payload = advisory_data.get("raw_payload", {}) if isinstance(advisory_data, dict) else {}
-    raw_source = advisory_data.get("source") if isinstance(advisory_data, dict) else None
+    # Collect all sources (list) for combined label; fall back to legacy "source" key
+    raw_sources = (
+        advisory_data.get("sources")
+        or ([advisory_data["source"]] if advisory_data.get("source") else None)
+        if isinstance(advisory_data, dict)
+        else None
+    )
 
     # Fallback to raw_payload parsing if DB tags are missing
     if not tags and raw_payload:
@@ -232,7 +283,7 @@ def build_meilisearch_document(master_vuln: MasterVulnerability, advisory_map: d
             "status": "VULNERABLE"
         })
 
-    source_name = resolve_source_name(master_vuln.display_id, raw_source)
+    source_name = resolve_source_name(master_vuln.display_id, raw_sources)
     parsed_extra = parse_raw_payload(raw_payload)
 
     # --- DAY-LEVEL TIMESTAMP TRUNCATION ---
@@ -267,21 +318,37 @@ def build_meilisearch_document(master_vuln: MasterVulnerability, advisory_map: d
 
 
 def _get_advisory_map_for_batch(batch) -> dict:
-    """Helper to fetch raw advisories and source field for a given list/queryset of master records."""
+    """
+    Fetches raw advisories for a batch of master records.
+    Collects ALL sources per display_id to support multi-source labeling in the UI.
+    The raw_payload of the highest-priority source is used for description/CVSS extraction.
+    """
     display_ids = [v.display_id for v in batch]
-    advisories = SourceAdvisory.objects.filter(
-        external_id__in=display_ids
-    ).values("external_id", "raw_payload", "source")
-    
+    advisories = list(
+        SourceAdvisory.objects.filter(external_id__in=display_ids)
+        .values("external_id", "raw_payload", "source")
+    )
+
     advisory_map = {}
     for a in advisories:
         ext_id = a["external_id"]
-        if ext_id not in advisory_map or not advisory_map[ext_id].get("raw_payload"):
+        if ext_id not in advisory_map:
             advisory_map[ext_id] = {
                 "raw_payload": a["raw_payload"],
-                "source": a["source"],
+                "sources": [a["source"]],
             }
-            
+        else:
+            # Accumulate all sources for this display_id
+            advisory_map[ext_id]["sources"].append(a["source"])
+
+            # Keep the highest-priority source's raw_payload for description/CVSS parsing
+            existing_priority = _SOURCE_PRIORITY.get(
+                advisory_map[ext_id]["sources"][0].lower(), 0
+            )
+            new_priority = _SOURCE_PRIORITY.get(a["source"].lower(), 0)
+            if new_priority > existing_priority:
+                advisory_map[ext_id]["raw_payload"] = a["raw_payload"]
+
     return advisory_map
 
 

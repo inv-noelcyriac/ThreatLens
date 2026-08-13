@@ -82,7 +82,7 @@ class ManualRemediationInline(admin.StackedInline):
     model = ManualRemediation
     form = ManualRemediationForm
     extra = 0
-    fields = ("author_name", "guidance_text")
+    fields = ("user", "guidance_text")
 
 
 # -------------------------------------------------------------------

@@ -28,6 +28,7 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() in ('true', '1', 't')
@@ -110,11 +111,12 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    "ROTATE_REFRESH_TOKENS": True,
+    # Short access token window limits damage if intercepted
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    
+    # Refresh token allows smooth seamless sessions for active users
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
-
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases

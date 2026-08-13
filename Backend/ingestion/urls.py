@@ -1,7 +1,8 @@
 from django.urls import path
 from .views import (
     RemediationListCreateView,
-    RemediationDetailView
+    RemediationDetailView,
+    RemediationVoteView
 )
 
 urlpatterns = [
@@ -16,5 +17,11 @@ urlpatterns = [
         'remediations/<int:pk>/',
         RemediationDetailView.as_view(),
         name='remediation-detail'
+    ),
+    # Upvote / Downvote a specific note by ID
+    path(
+        'remediations/<int:pk>/vote/',
+        RemediationVoteView.as_view(),
+        name='remediation-vote'
     ),
 ]

@@ -1,7 +1,7 @@
 import logging
 from django.conf import settings
 from django.core.management.base import BaseCommand
-from django_apscheduler.jobstores import DjangoJobStore, register_events
+from django_apscheduler.jobstores import DjangoJobStore
 from django_apscheduler.models import DjangoJobExecution
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -52,7 +52,7 @@ class Command(BaseCommand):
             replace_existing=True,
         )
 
-        # GHSA Ingestion: Daily at 10:30 AM IST
+        # GHSA Ingestion: Daily at 10:05 AM IST
         scheduler.add_job(
             run_ghsa_ingestion,
             trigger=CronTrigger(hour=10, minute=5, timezone=IST),
@@ -60,7 +60,7 @@ class Command(BaseCommand):
             replace_existing=True,
         )
 
-        # OSV Ingestion: Daily at 11:00 AM IST
+        # OSV Ingestion: Daily at 10:10 AM IST
         scheduler.add_job(
             run_osv_ingestion,
             trigger=CronTrigger(hour=10, minute=10, timezone=IST),
@@ -68,7 +68,7 @@ class Command(BaseCommand):
             replace_existing=True,
         )
 
-        # AWS Ingestion: Daily at 11:30 AM IST
+        # AWS Ingestion: Daily at 10:15 AM IST
         scheduler.add_job(
             run_aws_ingestion,
             trigger=CronTrigger(hour=10, minute=15, timezone=IST),
@@ -76,7 +76,7 @@ class Command(BaseCommand):
             replace_existing=True,
         )
 
-        # Docker Ingestion: Daily at 12:00 PM IST
+        # Docker Ingestion: Daily at 10:20 AM IST
         scheduler.add_job(
             run_docker_ingestion,
             trigger=CronTrigger(hour=10, minute=20, timezone=IST),
@@ -88,7 +88,7 @@ class Command(BaseCommand):
         # 2. NORMALIZATION & PIPELINE SCHEDULES
         # -------------------------------------------------------------------------
 
-        # Normalization Pipeline: Runs daily at 12:30 PM IST (After all ingestions complete)
+        # Normalization Pipeline: Runs daily at 10:30 AM IST (After all ingestions complete)
         scheduler.add_job(
             run_normalization_pipeline,
             trigger=CronTrigger(hour=10, minute=30, timezone=IST),
@@ -104,7 +104,6 @@ class Command(BaseCommand):
             replace_existing=True,
         )
 
-        register_events(scheduler)
         self.stdout.write(self.style.SUCCESS("[APSCHEDULER] Successfully initialized schedule with IST timezone."))
 
         try:

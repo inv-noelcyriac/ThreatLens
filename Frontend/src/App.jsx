@@ -542,9 +542,11 @@ export default function App() {
         onToggleTheme={handleToggleTheme}
         isAdmin={isAdmin}
         adminUser={adminUser}
+        currentUser={currentUser}
         onOpenAddModal={handleOpenAddModal}
         onAdminLoginClick={handleOpenDjangoAdminInNewTab}
         onLogout={handleAdminLogout}
+        onUserLogout={handleUserLogout}
         onNavigateHome={() => navigateTo('/')}
       />
     );

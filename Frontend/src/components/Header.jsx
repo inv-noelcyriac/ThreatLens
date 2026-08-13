@@ -51,6 +51,7 @@ export default function Header({
   isAdmin = false,
   adminUser = null,
   currentUser = null,
+  hideGoogleLogin = false,
   onOpenAddModal = () => {},
   onAdminLoginClick = () => {},
   onLogout = () => {},
@@ -351,7 +352,7 @@ export default function Header({
                   </div>
                 )}
               </div>
-            ) : (
+            ) : !hideGoogleLogin ? (
               /* Google Sign-In Button */
               <GoogleLoginButton
                 theme={theme}
@@ -359,7 +360,7 @@ export default function Header({
                 onError={onGoogleLoginError}
                 isLoading={isLoggingIn}
               />
-            )
+            ) : null
           )}
 
           {/* Theme Toggle Button */}

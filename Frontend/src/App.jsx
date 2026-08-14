@@ -6,9 +6,9 @@ import SortControls from './components/SortControls';
 import VulnCard from './components/VulnCard';
 import Pagination from './components/Pagination';
 import DetailPanel from './components/DetailPanel';
-import AdminLogin from './components/AdminLogin';
+import UserLogin from './components/UserLogin';
 import NotFound from './components/NotFound';
-import { fetchVulnerabilities } from './services/api';
+import { fetchVulnerabilities, googleAuthLogin, fetchCurrentUser, clearAuthTokens, getStoredUser, getAccessToken } from './services/api';
 
 export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('threatlens-theme') || 'light');
@@ -30,21 +30,50 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedVuln, setSelectedVuln] = useState(null);
 
-  // Admin & Routing State
-  const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('threatlens-is-admin') === 'true');
-  const [adminUser, setAdminUser] = useState(() => {
-    const saved = localStorage.getItem('threatlens-admin-user');
-    return saved ? JSON.parse(saved) : null;
-  });
+  // Standard User Auth State
+  const [currentUser, setCurrentUser] = useState(() => getStoredUser());
+  const [isUserAuthLoading, setIsUserAuthLoading] = useState(false);
+  const [isSessionChecking, setIsSessionChecking] = useState(() => !!getAccessToken() && !getStoredUser());
+
+  // Routing State
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
+
+  // Session Restore (GET /api/v1/auth/me/) on app load
+  useEffect(() => {
+    if (getAccessToken()) {
+      fetchCurrentUser()
+        .then((user) => {
+          if (user) {
+            setCurrentUser(user);
+          }
+        })
+        .catch((err) => {
+          console.warn('[Session Restore Warning]:', err);
+        })
+        .finally(() => {
+          setIsSessionChecking(false);
+        });
+    } else {
+      setIsSessionChecking(false);
+    }
+  }, []);
+
+  // Global auth expiration listener: redirect to login if token refresh fails
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      setCurrentUser(null);
+      setSelectedVuln(null);
+      window.history.replaceState({}, '', '/login');
+      setCurrentPath('/login');
+      showToast('Session expired. Please sign in again.', 'error');
+    };
+    window.addEventListener('threatlens-auth-expired', handleAuthExpired);
+    return () => window.removeEventListener('threatlens-auth-expired', handleAuthExpired);
+  }, []);
 
   // Dropdown Options State
   const ecosystemOptions = DEFAULT_ECOSYSTEM_OPTIONS;
   const techNameOptions = DEFAULT_TECH_NAME_OPTIONS;
-
-  // Vuln Form Modal State (Add / Edit)
-  const [vulnModalOpen, setVulnModalOpen] = useState(false);
-  const [editingVuln, setEditingVuln] = useState(null);
 
   // API Data State
   const [vulnerabilities, setVulnerabilities] = useState([]);
@@ -70,15 +99,13 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Lock body scroll when detail panel or modal is open
+  // Lock body scroll when detail panel is open
   useEffect(() => {
-    document.body.style.overflow = selectedVuln || vulnModalOpen ? 'hidden' : '';
+    document.body.style.overflow = selectedVuln ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [selectedVuln, vulnModalOpen]);
+  }, [selectedVuln]);
 
-
-
-  // API 1: Fetch list with query parameters
+  // Fetch list with query parameters
   useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
@@ -134,24 +161,69 @@ export default function App() {
     setTimeout(() => setToast(null), 3800);
   };
 
-  const handleAdminLoginSuccess = (userData) => {
-    setIsAdmin(true);
-    setAdminUser(userData);
-    localStorage.setItem('threatlens-is-admin', 'true');
-    localStorage.setItem('threatlens-admin-user', JSON.stringify(userData));
-    showToast('Authenticated as Administrator. Switched to Admin Mode.', 'success');
-    window.history.replaceState({}, '', '/');
-    setCurrentPath('/');
+  const renderToast = () => {
+    if (!toast) return null;
+    return (
+      <div
+        className="fixed bottom-6 right-6 z-[9999] px-4 py-3 rounded-[12px] border flex items-center gap-3 text-xs sm:text-sm font-semibold tracking-tight transition-all duration-200 animate-fade-slide-in cursor-default select-none shadow-xl"
+        style={{
+          background: 'var(--bg-card)',
+          borderColor: 'var(--border-color)',
+          color: 'var(--text-primary)',
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.12)',
+        }}
+        role="status"
+      >
+        <span
+          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+          style={{
+            background: toast.type === 'error' ? '#ef4444' : (toast.type === 'success' ? '#10b981' : 'var(--accent-blue)'),
+          }}
+        />
+        <span className="truncate max-w-[340px] font-medium">{toast.message}</span>
+        <button
+          type="button"
+          onClick={() => setToast(null)}
+          className="ml-2 text-xs opacity-50 hover:opacity-100 cursor-pointer border-0 bg-transparent flex items-center justify-center p-1 rounded-md transition-opacity"
+          style={{ color: 'var(--text-secondary)' }}
+          aria-label="Dismiss notification"
+        >
+          ✕
+        </button>
+      </div>
+    );
   };
 
-  const handleAdminLogout = () => {
-    setIsAdmin(false);
-    setAdminUser(null);
-    localStorage.removeItem('threatlens-is-admin');
-    localStorage.removeItem('threatlens-admin-user');
-    showToast('Logged out of Admin Mode. Switched to User Mode.', 'info');
-    window.history.replaceState({}, '', '/');
-    setCurrentPath('/');
+  // Google Authentication Callback
+  const handleGoogleLoginSuccess = async (credential) => {
+    setIsUserAuthLoading(true);
+    try {
+      const data = await googleAuthLogin(credential);
+      const user = data.user || data;
+      setCurrentUser(user);
+      const email = user.email || 'corporate account';
+      showToast(`Signed in successfully as ${email}`, 'success');
+    } catch (err) {
+      console.error('[Google Auth Login Error]:', err);
+      showToast(err.message || 'Login failed. Could not authenticate corporate account.', 'error');
+    } finally {
+      setIsUserAuthLoading(false);
+    }
+  };
+
+  const handleGoogleLoginError = (errorMsg) => {
+    showToast(errorMsg || 'Login failed. Google Sign-In was cancelled or rejected.', 'error');
+  };
+
+  const handleUserLogout = () => {
+    try {
+      clearAuthTokens();
+      setCurrentUser(null);
+      showToast('Signed out of corporate account.', 'info');
+    } catch (err) {
+      console.error('[Logout Error]:', err);
+      showToast('Logout failed. Could not terminate session.', 'error');
+    }
   };
 
   const handleSearch = () => {
@@ -231,7 +303,6 @@ export default function App() {
         next = [...prev, sev];
       }
 
-      // If a search was performed with severity filters, removing/changing severity reloads API data immediately
       if (activeSelectedSeverities.length > 0) {
         setActiveSelectedSeverities(next);
         setCurrentPage(1);
@@ -242,14 +313,12 @@ export default function App() {
   };
 
   const handleClearFilters = () => {
-    // Reset pending UI form inputs
     setSelectedSeverities([]);
     setEcosystem('');
     setTechName('');
     setStartDate('');
     setEndDate('');
 
-    // Check if any active filter was actually applied to the active query results on screen
     const hasActiveFilters =
       activeEcosystem !== '' ||
       activeTechName !== '' ||
@@ -257,7 +326,6 @@ export default function App() {
       activeEndDate !== '' ||
       activeSelectedSeverities.length > 0;
 
-    // Only reset active state (which triggers an API fetch) if active filters were applied
     if (hasActiveFilters) {
       setActiveEcosystem('');
       setActiveTechName('');
@@ -265,61 +333,6 @@ export default function App() {
       setActiveEndDate('');
       setActiveSelectedSeverities([]);
       setCurrentPage(1);
-    }
-  };
-
-
-
-  // Add / Edit handlers
-  const handleOpenAddModal = () => {
-    const draftVuln = {
-      isNew: true,
-      display_id: '',
-      id: '',
-      title: '',
-      severity: '',
-      cvss: '',
-      ecosystem: '',
-      tech_name: '',
-      published: '',
-      status: '',
-      description: '',
-      remediation: '',
-      affectedComponents: [],
-      references: [],
-    };
-    setSelectedVuln(draftVuln);
-  };
-
-  const handleOpenEditModal = (vulnToEdit) => {
-    setSelectedVuln(vulnToEdit);
-  };
-
-  const handleSaveVuln = (formData) => {
-    const targetId = formData?.id;
-    const targetUuid = formData?.uuid;
-
-    if (!formData.isNew && (targetId || targetUuid)) {
-      // Update existing record in local state feed
-      setVulnerabilities((prev) =>
-        prev.map((v) => ((targetId && (v.id === targetId || v.display_id === targetId)) || (targetUuid && v.uuid === targetUuid) ? { ...v, ...formData } : v))
-      );
-      if (selectedVuln && ((targetId && (selectedVuln.id === targetId || selectedVuln.display_id === targetId)) || (targetUuid && selectedVuln.uuid === targetUuid))) {
-        setSelectedVuln((prev) => ({ ...prev, ...formData }));
-      }
-      setToast({ message: 'Vulnerability advisory updated successfully!', type: 'success' });
-    } else {
-      // Add new record to top of list
-      const newRecord = {
-        uuid: `custom-${Date.now()}`,
-        id: formData.display_id || formData.id || `CVE-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-        display_id: formData.display_id || formData.id || `CVE-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-        ...formData,
-        isNew: false,
-      };
-      setVulnerabilities((prev) => [newRecord, ...prev]);
-      setTotalCount((count) => count + 1);
-      setToast({ message: `New vulnerability advisory ${newRecord.display_id} created successfully!`, type: 'success' });
     }
   };
 
@@ -342,10 +355,15 @@ export default function App() {
   };
 
   const handleToggleTheme = () => {
-    const html = document.documentElement;
-    html.classList.add('theme-transitioning');
-    setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
-    setTimeout(() => html.classList.remove('theme-transitioning'), 400);
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    if (!document.startViewTransition) {
+      // Fallback: instant switch for browsers without View Transitions API
+      setTheme(nextTheme);
+      return;
+    }
+    document.startViewTransition(() => {
+      setTheme(nextTheme);
+    });
   };
 
   const hasRedirectedRef = useRef(false);
@@ -355,15 +373,10 @@ export default function App() {
     return 'http://10.10.13.44:8000/admin/';
   };
 
-  const handleOpenDjangoAdminInNewTab = () => {
-    const win = window.open(getDjangoAdminUrl(), '_blank');
-    if (win) win.focus();
-  };
-
-  // Direct URL navigation (STRICTLY /admin/login) uses window.location.href to bypass popup blockers completely
+  // Direct URL navigation (/admin or /admin/login) redirects to Django Admin backend portal
   useEffect(() => {
     const path = currentPath.toLowerCase().replace(/\/$/, '');
-    if (path === '/admin/login') {
+    if (path === '/admin' || path === '/admin/login') {
       if (!hasRedirectedRef.current) {
         hasRedirectedRef.current = true;
         window.location.href = getDjangoAdminUrl();
@@ -373,39 +386,44 @@ export default function App() {
     }
   }, [currentPath]);
 
-  // Route 1: Test UI Frontend Admin Login (/test_ui/admin/login)
   const normalizedPath = currentPath.toLowerCase().replace(/\/$/, '');
-  if (normalizedPath === '/test_ui/admin/login') {
-    if (isAdmin) {
-      window.history.replaceState({}, '', '/');
-      setCurrentPath('/');
-      return null;
-    }
 
+  // Session Loading Screen while validating stored token
+  if (isSessionChecking) {
     return (
-      <AdminLogin
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
-        onLoginSuccess={handleAdminLoginSuccess}
-        onCancel={() => {
-          window.history.replaceState({}, '', '/');
-          setCurrentPath('/');
-        }}
-      />
+      <div className="h-screen flex flex-col items-center justify-center gap-3" style={{ background: 'var(--main-bg, var(--bg-primary))' }}>
+        <div className="w-8 h-8 border-3 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--accent-blue)', borderTopColor: 'transparent' }} />
+        <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Validating corporate session...</p>
+      </div>
     );
   }
 
+  // Gate 1: Require User authentication before entering search dashboard
+  if (!currentUser) {
+    if (normalizedPath === '' || normalizedPath === '/' || normalizedPath === '/login') {
+      return (
+        <>
+          <UserLogin
+            theme={theme}
+            onToggleTheme={handleToggleTheme}
+            onGoogleLoginSuccess={handleGoogleLoginSuccess}
+            onGoogleLoginError={handleGoogleLoginError}
+            isLoggingIn={isUserAuthLoading}
+          />
+          {renderToast()}
+        </>
+      );
+    }
+  }
+
   // Route 2: 404 Error Page for non-existing paths
-  if (normalizedPath !== '' && normalizedPath !== '/') {
+  if (normalizedPath !== '' && normalizedPath !== '/' && normalizedPath !== '/login') {
     return (
       <NotFound
         theme={theme}
         onToggleTheme={handleToggleTheme}
-        isAdmin={isAdmin}
-        adminUser={adminUser}
-        onOpenAddModal={handleOpenAddModal}
-        onAdminLoginClick={handleOpenDjangoAdminInNewTab}
-        onLogout={handleAdminLogout}
+        currentUser={currentUser}
+        onUserLogout={handleUserLogout}
         onNavigateHome={() => navigateTo('/')}
       />
     );
@@ -417,14 +435,14 @@ export default function App() {
       <Header
         theme={theme}
         onToggleTheme={handleToggleTheme}
-        isAdmin={isAdmin}
-        adminUser={adminUser}
-        onOpenAddModal={handleOpenAddModal}
-        onAdminLoginClick={handleOpenDjangoAdminInNewTab}
-        onLogout={handleAdminLogout}
+        currentUser={currentUser}
+        onGoogleLoginSuccess={handleGoogleLoginSuccess}
+        onGoogleLoginError={handleGoogleLoginError}
+        onUserLogout={handleUserLogout}
+        isLoggingIn={isUserAuthLoading}
       />
 
-      <main className="flex-1 pb-12" style={{ background: 'var(--main-bg, transparent)' }}>
+      <main className="flex-1 pb-2" style={{ background: 'var(--main-bg, transparent)' }}>
         <Hero totalCount={globalTotalCount} />
 
         <div className="max-w-[1200px] mx-auto pt-4 flex flex-col gap-3.5">
@@ -535,8 +553,6 @@ export default function App() {
                     vuln={vuln}
                     onClick={setSelectedVuln}
                     activeQuery={activeQuery}
-                    isAdmin={isAdmin}
-                    onEdit={handleOpenEditModal}
                   />
                 ))}
               </div>
@@ -557,46 +573,19 @@ export default function App() {
         style={{ color: 'var(--text-muted)', borderColor: 'var(--border-color)' }}
       >
         <span>ThreatLens · Security Intelligence Platform</span>
-        {isAdmin && <span className="text-amber-400 font-semibold">(Admin Access Active)</span>}
       </footer>
 
-      {/* Detail Slide-out Panel (Handles View, Edit, and Create modes) */}
+      {/* Detail Slide-out Panel */}
       {selectedVuln && (
         <DetailPanel
           vuln={selectedVuln}
           onClose={() => setSelectedVuln(null)}
-          isAdmin={isAdmin}
-          onSave={handleSaveVuln}
+          currentUser={currentUser}
         />
       )}
 
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          className="fixed bottom-6 right-6 z-[300] px-4 py-3 rounded-xl border shadow-2xl flex items-center gap-3 text-sm font-medium transition-all animate-bounce-subtle cursor-default"
-          style={{
-            background: 'var(--bg-card)',
-            borderColor: toast.type === 'success' ? '#10b981' : 'var(--accent-blue)',
-            color: 'var(--text-primary)',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
-          }}
-          role="status"
-        >
-          <span
-            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-            style={{ background: toast.type === 'success' ? '#10b981' : 'var(--accent-blue)' }}
-          />
-          <span>{toast.message}</span>
-          <button
-            onClick={() => setToast(null)}
-            className="ml-2 text-xs opacity-60 hover:opacity-100 cursor-pointer font-bold border-0 bg-transparent"
-            style={{ color: 'var(--text-muted)' }}
-            aria-label="Close notification"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+      {/* High-Contrast Toast Notification */}
+      {renderToast()}
     </div>
   );
 }

@@ -158,25 +158,18 @@ export function normalizeVulnerability(raw) {
     titleText = primaryTechName ? `${primaryTechName} Security Advisory` : `${displayId} Security Advisory`;
   }
 
-  // Normalize remediation text
+  // Normalize remediation text (strictly from vendor_remediations or remediation backend fields)
   let remediationText = '';
   if (Array.isArray(raw.vendor_remediations) && raw.vendor_remediations.length > 0) {
-    remediationText = raw.vendor_remediations.map(r => extractString(r)).join('; ');
+    remediationText = raw.vendor_remediations.map(r => extractString(r)).filter(Boolean).join('; ');
+  } else if (Array.isArray(raw.vendor_remediation) && raw.vendor_remediation.length > 0) {
+    remediationText = raw.vendor_remediation.map(r => extractString(r)).filter(Boolean).join('; ');
+  } else if (raw.vendor_remediations) {
+    remediationText = extractString(raw.vendor_remediations);
+  } else if (raw.vendor_remediation) {
+    remediationText = extractString(raw.vendor_remediation);
   } else if (raw.remediation) {
     remediationText = extractString(raw.remediation);
-  }
-  if (!remediationText && raw.affected_components && Array.isArray(raw.affected_components) && raw.affected_components.length > 0) {
-    const firstComp = raw.affected_components[0];
-    if (typeof firstComp === 'object' && firstComp) {
-      if (firstComp.fixed_version) {
-        remediationText = `Upgrade ${firstComp.tech_name || 'package'} to ${firstComp.fixed_version}`;
-      } else if (firstComp.raw_version_expression) {
-        remediationText = `Affected version: ${firstComp.raw_version_expression}`;
-      }
-    }
-  }
-  if (!remediationText) {
-    remediationText = normalizedRefs.length > 0 ? `See official reference: ${normalizedRefs[0].name}` : 'Review vendor security bulletin';
   }
 
   // Parse affected components array
@@ -223,17 +216,14 @@ export function normalizeVulnerability(raw) {
   }
 
   const severityText = extractString(raw.severity, 'MEDIUM').toUpperCase();
-  let cvssVal = 7.5;
-  if (typeof raw.cvss === 'number') {
-    cvssVal = raw.cvss;
-  } else if (typeof raw.cvss === 'string' && !isNaN(parseFloat(raw.cvss))) {
-    cvssVal = parseFloat(raw.cvss);
-  } else {
-    if (severityText === 'CRITICAL') cvssVal = 9.5;
-    else if (severityText === 'HIGH') cvssVal = 8.0;
-    else if (severityText === 'MEDIUM') cvssVal = 6.0;
-    else if (severityText === 'LOW') cvssVal = 3.5;
-    else if (severityText === 'UNKNOWN') cvssVal = 'N/A';
+  const rawCvss = raw.cvss ?? raw.cvss_score;
+  let cvssVal = 'N/A';
+  if (typeof rawCvss === 'number') {
+    cvssVal = rawCvss;
+  } else if (typeof rawCvss === 'string' && rawCvss.trim() !== '' && !isNaN(parseFloat(rawCvss))) {
+    cvssVal = parseFloat(rawCvss);
+  } else if (rawCvss !== null && rawCvss !== undefined && String(rawCvss).trim() !== '') {
+    cvssVal = extractString(rawCvss, 'N/A');
   }
 
   return {
@@ -390,21 +380,27 @@ export async function fetchVulnerabilityById(displayId) {
 }
 
 /**
- * API 3: View manual guidance (comments) for a vulnerability
- * GET /api/v1/vulnerabilities/{display_id}/remediations/
+ * API 3: View manual guidance (comments) for a vulnerability with pagination
+ * GET /api/v1/vulnerabilities/{display_id}/remediations/?sort=newest|top&page=1
+ * Fallback: GET /api/remediations/{display_id}/?sort=newest|top&page=1
  */
-export async function fetchManualGuidance(displayId) {
-  if (!displayId) return [];
+export async function fetchManualGuidance(displayId, sort = 'newest', page = 1) {
+  if (!displayId) return { items: [], hasNext: false, total: 0, page: 1 };
 
-  const url = `${API_BASE_URL}/vulnerabilities/${encodeURIComponent(displayId)}/remediations/`;
+  const sortParam = sort === 'top' ? 'top' : 'newest';
+  let url = `${API_BASE_URL}/vulnerabilities/${encodeURIComponent(displayId)}/remediations/?sort=${sortParam}&page=${page}`;
 
   try {
-    const response = await fetch(url, {
-      headers: { 'Accept': 'application/json' },
-    });
+    let response = await authenticatedFetch(url);
+
+    // Fallback if primary endpoint path 404s
+    if (response.status === 404) {
+      const fallbackUrl = `${API_BASE_URL}/remediations/${encodeURIComponent(displayId)}/?sort=${sortParam}&page=${page}`;
+      response = await authenticatedFetch(fallbackUrl);
+    }
 
     if (response.status === 404) {
-      return [];
+      return { items: [], hasNext: false, total: 0, page };
     }
 
     if (!response.ok) {
@@ -412,17 +408,44 @@ export async function fetchManualGuidance(displayId) {
     }
 
     const data = await response.json();
-    if (!Array.isArray(data)) return [];
+    let rawItems = [];
+    let hasNext = false;
+    let total = 0;
 
-    return data.map((item) => ({
+    if (Array.isArray(data)) {
+      rawItems = data;
+      hasNext = false;
+      total = data.length;
+    } else if (data && Array.isArray(data.results)) {
+      rawItems = data.results;
+      hasNext = Boolean(data.next) || (data.results.length === 10);
+      total = data.count || rawItems.length;
+    } else if (data && Array.isArray(data.items)) {
+      rawItems = data.items;
+      hasNext = Boolean(data.has_next || data.next);
+      total = data.total || rawItems.length;
+    }
+
+    const items = rawItems.map((item) => ({
       id: item.id,
+      master_vuln: item.master_vuln,
       author: item.author_name || item.author || 'Anonymous',
+      author_email: item.author_email || '',
       description: item.guidance_text || item.description || '',
+      score: item.score ?? ((item.upvotes || 0) - (item.downvotes || 0)),
+      upvotes: item.upvotes || 0,
+      downvotes: item.downvotes || 0,
+      user_vote: item.user_vote ?? 0,
+      is_edited: item.is_edited !== undefined ? Boolean(item.is_edited) : false,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
       timestamp: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
     }));
+
+    return { items, hasNext, total, page };
   } catch (err) {
     console.error(`[Manual Guidance Fetch Error] Failed to fetch remediations for '${displayId}' from ${url}:`, err);
-    return [];
+    return { items: [], hasNext: false, total: 0, page };
   }
 }
 
@@ -430,43 +453,51 @@ export async function fetchManualGuidance(displayId) {
  * API 4: Create manual guidance (comment) for a vulnerability
  * POST /api/v1/vulnerabilities/{display_id}/remediations/
  */
-export async function createManualGuidance(displayId, { author, description }) {
+export async function createManualGuidance(displayId, { description }) {
   if (!displayId) return null;
 
   const url = `${API_BASE_URL}/vulnerabilities/${encodeURIComponent(displayId)}/remediations/`;
 
   try {
-    const response = await fetch(url, {
+    const response = await authenticatedFetch(url, {
       method: 'POST',
       headers: {
-        'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        author_name: author,
         guidance_text: description,
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+      let errText = `HTTP error ${response.status}: ${response.statusText}`;
+      try {
+        const errJson = await response.json();
+        if (errJson.error) errText = errJson.error;
+        else if (errJson.detail) errText = errJson.detail;
+      } catch (e) {}
+      throw new Error(errText);
     }
 
     const item = await response.json();
     return {
       id: item.id || `local-${Date.now()}`,
-      author: item.author_name || author,
+      master_vuln: item.master_vuln,
+      author: item.author_name || 'You',
+      author_email: item.author_email || '',
       description: item.guidance_text || description,
+      score: item.score ?? 0,
+      upvotes: item.upvotes ?? 0,
+      downvotes: item.downvotes ?? 0,
+      user_vote: item.user_vote ?? 0,
+      is_edited: item.is_edited !== undefined ? Boolean(item.is_edited) : false,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
       timestamp: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
     };
   } catch (err) {
     console.error(`[Manual Guidance Create Error] Failed to post remediation for '${displayId}':`, err);
-    return {
-      id: `local-${Date.now()}`,
-      author,
-      description,
-      timestamp: Date.now(),
-    };
+    throw err;
   }
 }
 
@@ -480,10 +511,9 @@ export async function updateManualGuidance(id, guidanceText) {
   const url = `${API_BASE_URL}/remediations/${encodeURIComponent(id)}/`;
 
   try {
-    const response = await fetch(url, {
+    const response = await authenticatedFetch(url, {
       method: 'PATCH',
       headers: {
-        'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -492,19 +522,34 @@ export async function updateManualGuidance(id, guidanceText) {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+      let errText = `HTTP error ${response.status}: ${response.statusText}`;
+      try {
+        const errJson = await response.json();
+        if (errJson.error) errText = errJson.error;
+        else if (errJson.detail) errText = errJson.detail;
+      } catch (e) {}
+      throw new Error(errText);
     }
 
     const item = await response.json();
     return {
       id: item.id || id,
+      master_vuln: item.master_vuln,
       author: item.author_name,
+      author_email: item.author_email || '',
       description: item.guidance_text || guidanceText,
+      score: item.score ?? 0,
+      upvotes: item.upvotes ?? 0,
+      downvotes: item.downvotes ?? 0,
+      user_vote: item.user_vote ?? 0,
+      is_edited: item.is_edited !== undefined ? Boolean(item.is_edited) : true,
+      created_at: item.created_at,
+      updated_at: item.updated_at || new Date().toISOString(),
       timestamp: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
     };
   } catch (err) {
     console.error(`[Manual Guidance Edit Error] Failed to patch remediation '${id}':`, err);
-    return null;
+    throw err;
   }
 }
 
@@ -518,17 +563,300 @@ export async function deleteManualGuidance(id) {
   const url = `${API_BASE_URL}/remediations/${encodeURIComponent(id)}/`;
 
   try {
-    const response = await fetch(url, {
+    const response = await authenticatedFetch(url, {
       method: 'DELETE',
     });
 
     if (!response.ok && response.status !== 204) {
-      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+      let errText = `HTTP error ${response.status}: ${response.statusText}`;
+      try {
+        const errJson = await response.json();
+        if (errJson.error) errText = errJson.error;
+        else if (errJson.detail) errText = errJson.detail;
+      } catch (e) {}
+      throw new Error(errText);
     }
     return true;
   } catch (err) {
     console.error(`[Manual Guidance Delete Error] Failed to delete remediation '${id}':`, err);
-    return false;
+    throw err;
   }
 }
+
+/**
+ * API 7: Upvote (+1) or Downvote (-1) a remediation note
+ * POST /api/v1/remediations/{id}/vote/
+ */
+export async function voteRemediation(id, voteType) {
+  if (!id) return null;
+
+  const url = `${API_BASE_URL}/remediations/${encodeURIComponent(id)}/vote/`;
+
+  try {
+    const response = await authenticatedFetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        vote_type: voteType,
+      }),
+    });
+
+    if (!response.ok) {
+      let errText = `HTTP error ${response.status}: ${response.statusText}`;
+      try {
+        const errJson = await response.json();
+        if (errJson.error) errText = errJson.error;
+        else if (errJson.detail) errText = errJson.detail;
+      } catch (e) {}
+      throw new Error(errText);
+    }
+
+    const data = await response.json();
+    return {
+      action: data.action,
+      remediation_id: data.remediation_id,
+      score: data.score,
+      upvotes: data.upvotes,
+      downvotes: data.downvotes,
+      user_vote: data.user_vote,
+    };
+  } catch (err) {
+    console.error(`[Remediation Vote Error] Failed to submit vote for remediation '${id}':`, err);
+    throw err;
+  }
+}
+
+/** Authentication & Storage Helpers */
+export function getAccessToken() {
+  return localStorage.getItem('threatlens_access_token') || localStorage.getItem('access_token') || null;
+}
+
+export function getRefreshToken() {
+  return localStorage.getItem('threatlens_refresh_token') || localStorage.getItem('refresh_token') || null;
+}
+
+export function setAuthTokens({ access, refresh, user }) {
+  if (access) {
+    localStorage.setItem('threatlens_access_token', access);
+  }
+  if (refresh) {
+    localStorage.setItem('threatlens_refresh_token', refresh);
+  }
+  if (user) {
+    localStorage.setItem('threatlens_user', JSON.stringify(user));
+  }
+}
+
+export function clearAuthTokens() {
+  localStorage.removeItem('threatlens_access_token');
+  localStorage.removeItem('threatlens_refresh_token');
+  localStorage.removeItem('threatlens_user');
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+}
+
+export function getStoredUser() {
+  try {
+    const raw = localStorage.getItem('threatlens_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Step 2: POST /api/v1/auth/google/
+ * Sends Google ID Token to backend for verification, domain check (@innovaturelabs.com), auto-provisioning & JWT minting
+ */
+export async function googleAuthLogin(credential) {
+  if (!credential) {
+    throw new Error('Google ID Token credential is required');
+  }
+
+  const url = `${API_BASE_URL}/auth/google/`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ credential }),
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Authentication failed (HTTP ${response.status})`;
+      try {
+        const errorData = await response.json();
+        console.error('[Backend Auth Error Data]:', errorData);
+        if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        } else if (Array.isArray(errorData.non_field_errors) && errorData.non_field_errors.length > 0) {
+          errorMessage = errorData.non_field_errors.join(', ');
+        } else if (typeof errorData === 'object') {
+          errorMessage = Object.entries(errorData)
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+            .join(' | ');
+        }
+      } catch (e) {
+        // Response was not JSON
+      }
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    setAuthTokens(data);
+    return data;
+  } catch (err) {
+    console.error('[Google Auth API Error]:', err);
+    throw err;
+  }
+}
+
+
+/**
+ * Step 5: POST /api/v1/auth/token/refresh/
+ * Silent Session Renewal using stored refresh token
+ */
+export async function refreshAccessToken() {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    clearAuthTokens();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('threatlens-auth-expired'));
+    }
+    return null;
+  }
+
+  const url = `${API_BASE_URL}/auth/token/refresh/`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refresh: refreshToken }),
+    });
+
+    if (!response.ok) {
+      // ONLY clear tokens and redirect to login if server explicitly rejects authentication (HTTP 401 or 400)
+      if (response.status === 401 || response.status === 400) {
+        clearAuthTokens();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('threatlens-auth-expired'));
+        }
+      }
+      return null;
+    }
+
+    const data = await response.json();
+    if (data.access) {
+      localStorage.setItem('threatlens_access_token', data.access);
+      if (data.refresh) {
+        localStorage.setItem('threatlens_refresh_token', data.refresh);
+      }
+      return data.access;
+    }
+
+    return null;
+  } catch (err) {
+    // Network failure / server unreachable / offline: DO NOT clear tokens, DO NOT redirect to login
+    console.error('[Token Refresh Network Error]:', err);
+    return null;
+  }
+}
+
+/**
+ * Step 4: GET /api/v1/auth/me/
+ * Session Restore & User State Fetching using Authorization: Bearer <access_token>
+ */
+export async function fetchCurrentUser() {
+  let token = getAccessToken();
+  if (!token) return null;
+
+  const url = `${API_BASE_URL}/auth/me/`;
+
+  try {
+    let response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    // Catch 401 Unauthorized for silent token renewal
+    if (response.status === 401) {
+      const newAccessToken = await refreshAccessToken();
+      if (newAccessToken) {
+        response = await fetch(url, {
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${newAccessToken}`,
+          },
+        });
+      } else {
+        return null;
+      }
+    }
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        clearAuthTokens();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('threatlens-auth-expired'));
+        }
+        return null;
+      }
+      throw new Error(`HTTP error ${response.status}`);
+    }
+
+    const userData = await response.json();
+    if (userData) {
+      localStorage.setItem('threatlens_user', JSON.stringify(userData));
+    }
+    return userData;
+  } catch (err) {
+    console.error('[Fetch Current User Error]:', err);
+    return null;
+  }
+}
+
+/**
+ * HTTP Interceptor Wrapper for authenticated requests
+ */
+export async function authenticatedFetch(url, options = {}) {
+  let token = getAccessToken();
+  const headers = {
+    'Accept': 'application/json',
+    ...(options.headers || {}),
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  let response = await fetch(url, { ...options, headers });
+
+  if (response.status === 401 && getRefreshToken()) {
+    const newAccessToken = await refreshAccessToken();
+    if (newAccessToken) {
+      headers['Authorization'] = `Bearer ${newAccessToken}`;
+      response = await fetch(url, { ...options, headers });
+    }
+  }
+
+  return response;
+}
+
 

@@ -5,6 +5,7 @@ import {
   createManualGuidance,
   updateManualGuidance,
   deleteManualGuidance,
+  voteRemediation,
 } from '../services/api';
 import CustomDatePicker from './CustomDatePicker';
 import { getEcosystemList, formatEcosystemName } from './VulnCard';
@@ -147,6 +148,28 @@ const TrashIcon = () => (
     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
   </svg>
 );
+const ThumbsUpIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+  </svg>
+);
+const ThumbsDownIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
+  </svg>
+);
+const TrendingUpIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+    <polyline points="17 6 23 6 23 12" />
+  </svg>
+);
+const ClockIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
 
 /* ─── Sub-components ─── */
 function SeverityBadge({ severity }) {
@@ -169,159 +192,455 @@ function formatTimestamp(ts) {
   });
 }
 
-function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
-  const [author, setAuthor] = useState('');
+function FixThread({
+  fixes,
+  onAddFix,
+  onEditFix,
+  onDeleteFix,
+  onVoteFix,
+  sortOrder,
+  onSortChange,
+  currentUser = null,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore = null,
+}) {
+  const sentinelRef = useRef(null);
+
+  useEffect(() => {
+    if (!hasMore || loadingMore || !onLoadMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          onLoadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (sentinelRef.current) {
+      observer.observe(sentinelRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, onLoadMore]);
+  const defaultAuthorName = currentUser
+    ? (currentUser.first_name ? `${currentUser.first_name} ${currentUser.last_name || ''}`.trim() : (currentUser.email || currentUser.username || ''))
+    : '';
+
+  const [author, setAuthor] = useState(() => defaultAuthorName);
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
-  const [editingIdx, setEditingIdx] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
-  const [expandedIdx, setExpandedIdx] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [deletingIds, setDeletingIds] = useState([]);
+
+  useEffect(() => {
+    if (defaultAuthorName) {
+      setAuthor(defaultAuthorName);
+    }
+  }, [defaultAuthorName]);
+
+  // Click outside to dismiss delete confirmation
+  useEffect(() => {
+    if (confirmDeleteId === null) return;
+
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('[data-delete-confirm]')) {
+        setConfirmDeleteId(null);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      document.addEventListener('pointerdown', handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('pointerdown', handleClickOutside);
+    };
+  }, [confirmDeleteId]);
 
   const TRUNCATE_LINES = 4;
   const inputStyle = { borderColor: 'var(--border-input)', background: 'var(--bg-input)', color: 'var(--text-primary)' };
   const focusStyle = (e) => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; };
   const blurStyle = (e) => { e.currentTarget.style.borderColor = 'var(--border-input)'; e.currentTarget.style.boxShadow = 'none'; };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!author.trim()) { setError('Author name is required.'); return; }
-    if (!description.trim()) { setError('Description is required.'); return; }
-    onAddFix({ author: author.trim(), description: description.trim(), timestamp: Date.now() });
-    setAuthor(''); setDescription(''); setError('');
+    if (!description.trim()) { setError('User suggestion text is required.'); return; }
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      await onAddFix({ author: author.trim() || 'Anonymous', description: description.trim() });
+      setDescription('');
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Failed to post user suggestion.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const startEdit = (i) => { setEditingIdx(i); setEditText(fixes[i].description); };
-  const cancelEdit = () => { setEditingIdx(null); setEditText(''); };
-  const saveEdit = (i) => {
-    if (!editText.trim()) return;
-    onEditFix(i, editText.trim());
-    setEditingIdx(null); setEditText('');
+  const startEdit = (fix) => { setEditingId(fix.id); setEditText(fix.description); };
+  const cancelEdit = () => { setEditingId(null); setEditText(''); };
+  const saveEdit = async (fixId, currentDescription) => {
+    const trimmed = editText.trim();
+    if (!trimmed || trimmed === (currentDescription || '').trim()) {
+      cancelEdit();
+      return;
+    }
+    try {
+      await onEditFix(fixId, trimmed);
+      setEditingId(null);
+      setEditText('');
+    } catch (err) {
+      setError(err.message || 'Failed to edit note.');
+    }
+  };
+
+  const handleDeleteFix = async (fixId) => {
+    if (deletingIds.includes(fixId)) return;
+    setDeletingIds((prev) => [...prev, fixId]);
+    setConfirmDeleteId(null);
+
+    setTimeout(async () => {
+      try {
+        await onDeleteFix(fixId);
+      } catch (err) {
+        setError(err.message || 'Failed to delete note.');
+      } finally {
+        setDeletingIds((prev) => prev.filter((id) => id !== fixId));
+      }
+    }, 320);
   };
 
   return (
     <section className="mb-[22px]">
-      <h3 className="flex items-center gap-1.5 text-[0.72rem] font-bold tracking-[0.08em] uppercase mb-4" style={{ color: 'var(--text-muted)' }}>
-        <WrenchIcon /> USER SUGGESTIONS
-      </h3>
+      {/* ── Section Header with Title & Sorting Controls ── */}
+      <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
+        <h3 className="flex items-center gap-1.5 text-[0.72rem] font-bold tracking-[0.08em] uppercase" style={{ color: 'var(--text-muted)' }}>
+          <WrenchIcon /> USER SUGGESTIONS ({Math.max(0, fixes.length - deletingIds.length)})
+        </h3>
+
+        {/* Compact Segmented Control for Sorting */}
+        <div
+          className="relative flex items-center rounded-[6px] border select-none min-w-[175px] p-[1.5px]"
+          style={{
+            background: 'var(--bg-input)',
+            borderColor: 'var(--border-color)',
+            boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.04)',
+          }}
+        >
+          {/* Animated GPU-accelerated Sliding Blue Border Box */}
+          <div
+            className="absolute top-[1.5px] bottom-[1.5px] left-[1.5px] w-[calc(50%-1.5px)] rounded-[4.5px] border-[1.5px] pointer-events-none transition-transform duration-350 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-0"
+            style={{
+              borderColor: 'var(--accent-blue)',
+              background: 'rgba(37, 99, 235, 0.08)',
+              transform: sortOrder === 'top' ? 'translateX(0%)' : 'translateX(100%)',
+              willChange: 'transform',
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={() => onSortChange('top')}
+            className="relative z-10 flex-1 flex items-center justify-center gap-1 px-2.5 py-1 text-[0.66rem] font-bold cursor-pointer transition-colors duration-300 border-0 bg-transparent whitespace-nowrap"
+            style={{
+              color: sortOrder === 'top' ? 'var(--accent-blue)' : 'var(--text-muted)',
+            }}
+          >
+            <TrendingUpIcon />
+            <span>Top Rated</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onSortChange('newest')}
+            className="relative z-10 flex-1 flex items-center justify-center gap-1 px-2.5 py-1 text-[0.66rem] font-bold cursor-pointer transition-colors duration-300 border-0 bg-transparent whitespace-nowrap"
+            style={{
+              color: sortOrder === 'newest' ? 'var(--accent-blue)' : 'var(--text-muted)',
+            }}
+          >
+            <ClockIcon />
+            <span>Most Recent</span>
+          </button>
+        </div>
+      </div>
 
       <div className="flex flex-col">
-        {/* ── Thread entries ── */}
-        {fixes.map((fix, i) => {
-          const isExpanded = expandedIdx === i;
-          const isEditing = editingIdx === i;
-          const descWords = fix.description.split('\n');
-          const needsTruncate = fix.description.length > 300 || descWords.length > TRUNCATE_LINES;
-          return (
-            <div key={i} className="flex gap-3" style={{ animation: 'var(--animate-fade-slide-in)' }}>
-              {/* Avatar + connector line */}
-              <div className="flex flex-col items-center flex-shrink-0" style={{ width: '36px' }}>
-                <div
-                  className="w-9 h-9 rounded-full text-[0.875rem] font-bold flex items-center justify-center select-none flex-shrink-0 transition-colors duration-300"
-                  style={{ background: 'var(--avatar-bg)', color: 'var(--avatar-text)' }}
-                >
-                  {fix.author.charAt(0).toUpperCase()}
+        {/* ── Dynamic Top Divider Line (Visible when comment list is scrolled down) ── */}
+        <div
+          className="transition-all duration-200 border-t mb-2"
+          style={{
+            borderColor: isScrolled ? 'var(--border-color)' : 'transparent',
+            opacity: isScrolled ? 1 : 0,
+          }}
+        />
+
+        {/* ── Scrollable Comment Thread Entries ── */}
+        <div
+          onScroll={(e) => setIsScrolled(e.currentTarget.scrollTop > 4)}
+          className="remediation-comments-scroll flex flex-col pr-1.5 mb-3"
+        >
+          {fixes.map((fix, index) => {
+            const isExpanded = expandedId === fix.id;
+            const isEditingThis = editingId === fix.id;
+            const isDeleting = deletingIds.includes(fix.id);
+            const descWords = (fix.description || '').split('\n');
+            const needsTruncate = fix.description.length > 300 || descWords.length > TRUNCATE_LINES;
+            const isLastItem = index === fixes.length - 1;
+
+            // Author / Staff Ownership Control Visibility:
+            // Display Edit and Delete buttons ONLY if current user matches note's author_email or is staff/admin
+            const isOwner = currentUser && (
+              (fix.author_email && currentUser.email && fix.author_email.toLowerCase() === currentUser.email.toLowerCase()) ||
+              (fix.author && currentUser.first_name && fix.author.toLowerCase().includes(currentUser.first_name.toLowerCase()))
+            );
+            const canManage = isOwner;
+
+            const userVote = fix.user_vote || 0;
+            const netScore = fix.score ?? ((fix.upvotes || 0) - (fix.downvotes || 0));
+
+            return (
+              <div
+                key={fix.id}
+                className={`comment-item-wrapper ${isDeleting ? 'comment-item-deleting' : ''}`}
+                style={isDeleting ? { animation: 'none' } : { animation: 'var(--animate-fade-slide-in)' }}
+              >
+                <div className="comment-item-inner">
+                  <div className="flex gap-3">
+                    {/* Avatar + connector line */}
+                    <div className="flex flex-col items-center flex-shrink-0" style={{ width: '36px' }}>
+                      <div
+                        className="w-9 h-9 rounded-full text-[0.875rem] font-bold flex items-center justify-center select-none flex-shrink-0 transition-colors duration-300"
+                        style={{ background: 'var(--avatar-bg)', color: 'var(--avatar-text)' }}
+                      >
+                        {(fix.author || 'A').charAt(0).toUpperCase()}
+                      </div>
+                      {/* Thread connector line — omitted for last comment */}
+                      {!isLastItem && (
+                        <div className="w-[2px] flex-1 mt-2" style={{ background: 'var(--border-color)', minHeight: '24px' }} />
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div className={`flex-1 min-w-0 ${isLastItem ? 'pb-2' : 'pb-5'}`}>
+                      {/* Header: Top row (name + author badge + edit/delete controls on left, like/dislike on right) */}
+                      <div className="flex items-center justify-between gap-2 mb-0.5 flex-nowrap">
+                        <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
+                          <span className="text-[0.875rem] font-bold leading-tight truncate max-w-[140px] sm:max-w-[180px]" style={{ color: 'var(--text-primary)' }} title={fix.author}>
+                            {fix.author}
+                          </span>
+                          {isOwner && (
+                            <span className="text-[0.65rem] font-bold px-1.5 py-0.2 rounded border flex-shrink-0" style={{ background: 'var(--accent-blue-light)', color: 'var(--accent-blue)', borderColor: 'rgba(37,99,235,0.25)' }}>
+                              Author
+                            </span>
+                          )}
+                          {/* Author / Admin Edit & Delete Actions (Right near author name) */}
+                          {canManage && !isEditingThis && (
+                            confirmDeleteId === fix.id ? (
+                              <div data-delete-confirm="true" className="flex items-center gap-1.5 ml-1 px-2.5 py-0.5 rounded-full text-xs flex-shrink-0 animate-fade-in" style={{ background: 'var(--bg-badge)' }}>
+                                <span className="text-[0.68rem] font-medium" style={{ color: 'var(--text-secondary)' }}>
+                                  Delete note?
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteFix(fix.id)}
+                                  className="px-2 py-0.5 rounded-full text-[0.65rem] font-bold cursor-pointer border-0 text-white transition-opacity hover:opacity-90 flex-shrink-0"
+                                  style={{ background: '#ef4444' }}
+                                >
+                                  Yes
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmDeleteId(null)}
+                                  className="px-1.5 py-0.5 rounded-full text-[0.65rem] font-medium cursor-pointer border-0 bg-transparent transition-colors flex-shrink-0"
+                                  style={{ color: 'var(--text-muted)' }}
+                                  onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                                >
+                                  No
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-0.5 ml-0.5 flex-shrink-0">
+                                <button
+                                  onClick={() => startEdit(fix)}
+                                  title="Edit note"
+                                  className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent flex-shrink-0"
+                                  style={{ color: 'var(--text-muted)' }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-badge)'; e.currentTarget.style.color = 'var(--accent-blue)'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                                >
+                                  <EditIcon />
+                                </button>
+                                <button
+                                  data-delete-confirm="true"
+                                  onClick={() => setConfirmDeleteId(fix.id)}
+                                  title="Delete note"
+                                  className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent flex-shrink-0"
+                                  style={{ color: 'var(--text-muted)' }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#ef4444'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                                >
+                                  <TrashIcon />
+                                </button>
+                              </div>
+                            )
+                          )}
+                        </div>
+
+                        {/* Upvote / Downvote Controls Subsystem (Vertically aligned on single line with Author Name) */}
+                        <div className="flex items-center gap-0.5 flex-shrink-0 flex-nowrap">
+                          {/* Upvote Button */}
+                          <button
+                            type="button"
+                            onClick={() => onVoteFix(fix.id, 1)}
+                            title={userVote === 1 ? 'Remove Upvote' : 'Upvote'}
+                            className="flex items-center justify-center gap-1 min-w-[36px] px-1.5 py-0.5 text-xs font-semibold border-0 bg-transparent cursor-pointer transition-all duration-150 whitespace-nowrap active:scale-90 active:translate-y-[1px] select-none"
+                            style={{
+                              color: userVote === 1 ? '#10b981' : 'var(--text-muted)',
+                            }}
+                            onMouseEnter={e => { if (userVote !== 1) e.currentTarget.style.color = '#10b981'; }}
+                            onMouseLeave={e => { if (userVote !== 1) e.currentTarget.style.color = 'var(--text-muted)'; }}
+                          >
+                            <ThumbsUpIcon />
+                            <span className="tabular-nums min-w-[12px] text-center inline-block">{fix.upvotes || 0}</span>
+                          </button>
+
+                          {/* Downvote Button */}
+                          <button
+                            type="button"
+                            onClick={() => onVoteFix(fix.id, -1)}
+                            title={userVote === -1 ? 'Remove Downvote' : 'Downvote'}
+                            className="flex items-center justify-center gap-1 min-w-[36px] px-1.5 py-0.5 text-xs font-semibold border-0 bg-transparent cursor-pointer transition-all duration-150 whitespace-nowrap active:scale-90 active:translate-y-[1px] select-none"
+                            style={{
+                              color: userVote === -1 ? '#ef4444' : 'var(--text-muted)',
+                            }}
+                            onMouseEnter={e => { if (userVote !== -1) e.currentTarget.style.color = '#ef4444'; }}
+                            onMouseLeave={e => { if (userVote !== -1) e.currentTarget.style.color = 'var(--text-muted)'; }}
+                          >
+                            <ThumbsDownIcon />
+                            <span className="tabular-nums min-w-[12px] text-center inline-block">{fix.downvotes || 0}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Timestamp row */}
+                      <span className="text-[0.72rem] mb-2 block truncate" style={{ color: 'var(--text-muted)' }}>
+                        {formatTimestamp(fix.is_edited ? (fix.updated_at || fix.created_at || fix.timestamp) : (fix.created_at || fix.timestamp))}
+                        {fix.is_edited && <span className="ml-1 font-medium opacity-80">(edited)</span>}
+                      </span>
+
+                      {/* Description — with inline edit mode or expand/collapse */}
+                      {isEditingThis ? (
+                        <div className="flex flex-col gap-2">
+                          <textarea
+                            value={editText}
+                            onChange={e => setEditText(e.target.value)}
+                            rows={4}
+                            className="px-3.5 py-2.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-[inherit] outline-none resize-y min-h-[72px] leading-[1.5] transition-all duration-200 w-full"
+                            style={inputStyle}
+                            onFocus={focusStyle}
+                            onBlur={blurStyle}
+                            autoFocus
+                          />
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={cancelEdit}
+                              className="h-8 px-3.5 rounded-[8px] border-[1.5px] text-[0.8rem] font-semibold font-[inherit] cursor-pointer transition-all duration-150"
+                              style={{ borderColor: 'var(--border-input)', background: 'transparent', color: 'var(--text-secondary)' }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-badge)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                            >
+                              Cancel
+                            </button>
+                            {(() => {
+                              const hasChanged = editText.trim() !== (fix.description || '').trim() && editText.trim().length > 0;
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => saveEdit(fix.id, fix.description)}
+                                  disabled={!hasChanged}
+                                  className="h-8 px-3.5 rounded-[8px] border-0 text-white text-[0.8rem] font-semibold font-[inherit] cursor-pointer transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  style={{ background: 'var(--accent-blue)' }}
+                                  onMouseEnter={e => { if (hasChanged) e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
+                                  onMouseLeave={e => { if (hasChanged) e.currentTarget.style.background = 'var(--accent-blue)'; }}
+                                >
+                                  Save
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <p
+                            className="text-[0.9rem] leading-[1.65] break-words whitespace-pre-wrap"
+                            style={{
+                              color: 'var(--text-secondary)',
+                              display: '-webkit-box',
+                              WebkitBoxOrient: 'vertical',
+                              WebkitLineClamp: isExpanded ? 'unset' : (needsTruncate ? TRUNCATE_LINES : 'unset'),
+                              overflow: isExpanded ? 'visible' : (needsTruncate ? 'hidden' : 'visible'),
+                            }}
+                          >
+                            {fix.description}
+                          </p>
+                          {needsTruncate && (
+                            <button
+                              onClick={() => setExpandedId(isExpanded ? null : fix.id)}
+                              className="mt-1 text-[0.8rem] font-semibold bg-transparent border-0 cursor-pointer px-0 py-0 transition-opacity duration-150 hover:opacity-70"
+                              style={{ color: 'var(--accent-blue)' }}
+                            >
+                              {isExpanded ? 'Show less' : 'Show more'}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                {/* Thread connector line */}
-                <div className="w-[2px] flex-1 mt-2" style={{ background: 'var(--border-color)', minHeight: '28px' }} />
               </div>
+            );
+          })}
 
-              {/* Content */}
-              <div className="flex-1 min-w-0 pb-6">
-                {/* Header: name + timestamp stacked */}
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-[0.875rem] font-bold leading-tight truncate max-w-[220px]" style={{ color: 'var(--text-primary)' }} title={fix.author}>{fix.author}</span>
-                    <span className="text-[0.72rem] mt-[2px] truncate" style={{ color: 'var(--text-muted)' }}>{formatTimestamp(fix.timestamp)}</span>
-                  </div>
-                  {/* Edit / Delete actions */}
-                  {!isEditing && (
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <button
-                        onClick={() => startEdit(i)}
-                        title="Edit note"
-                        className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent"
-                        style={{ color: 'var(--text-muted)' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-badge)'; e.currentTarget.style.color = 'var(--accent-blue)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => onDeleteFix(i)}
-                        title="Delete note"
-                        className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent"
-                        style={{ color: 'var(--text-muted)' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#ef4444'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                          <path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                        </svg>
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Description — with expand/collapse */}
-                {isEditing ? (
-                  <div className="flex flex-col gap-2">
-                    <textarea
-                      value={editText}
-                      onChange={e => setEditText(e.target.value)}
-                      rows={4}
-                      className="px-3.5 py-2.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-[inherit] outline-none resize-y min-h-[72px] leading-[1.5] transition-all duration-200 w-full"
-                      style={inputStyle}
-                      onFocus={focusStyle}
-                      onBlur={blurStyle}
-                      autoFocus
-                    />
-                    <div className="flex gap-2 justify-end">
-                      <button onClick={cancelEdit}
-                        className="h-8 px-3.5 rounded-[8px] border-[1.5px] text-[0.8rem] font-semibold font-[inherit] cursor-pointer transition-all duration-150"
-                        style={{ borderColor: 'var(--border-input)', background: 'transparent', color: 'var(--text-secondary)' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-badge)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-                      >Cancel</button>
-                      <button onClick={() => saveEdit(i)}
-                        className="h-8 px-3.5 rounded-[8px] border-0 text-white text-[0.8rem] font-semibold font-[inherit] cursor-pointer transition-all duration-150"
-                        style={{ background: 'var(--accent-blue)' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent-blue)'; }}
-                      >Save</button>
-                    </div>
-                  </div>
+          {/* ── Infinite Scroll Sentinel & Load More Control ── */}
+          {hasMore && (
+            <div ref={sentinelRef} className="flex justify-center my-3 py-1">
+              <button
+                type="button"
+                onClick={onLoadMore}
+                disabled={loadingMore}
+                className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold border transition-all duration-200 cursor-pointer shadow-sm hover:scale-[1.02] active:scale-100"
+                style={{
+                  background: 'var(--bg-badge)',
+                  borderColor: 'var(--border-card)',
+                  color: 'var(--accent-blue)',
+                }}
+              >
+                {loadingMore ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    <span>Loading more suggestions...</span>
+                  </>
                 ) : (
-                  <div>
-                    <p
-                      className="text-[0.9rem] leading-[1.65] break-words whitespace-pre-wrap"
-                      style={{
-                        color: 'var(--text-secondary)',
-                        display: '-webkit-box',
-                        WebkitBoxOrient: 'vertical',
-                        WebkitLineClamp: isExpanded ? 'unset' : (needsTruncate ? TRUNCATE_LINES : 'unset'),
-                        overflow: isExpanded ? 'visible' : (needsTruncate ? 'hidden' : 'visible'),
-                      }}
-                    >{fix.description}</p>
-                    {needsTruncate && (
-                      <button
-                        onClick={() => setExpandedIdx(isExpanded ? null : i)}
-                        className="mt-1 text-[0.8rem] font-semibold bg-transparent border-0 cursor-pointer px-0 py-0 transition-opacity duration-150 hover:opacity-70"
-                        style={{ color: 'var(--accent-blue)' }}
-                      >{isExpanded ? 'Show less' : 'Show more'}</button>
-                    )}
-                  </div>
+                  <span>Load More Suggestions</span>
                 )}
-              </div>
+              </button>
             </div>
-          );
-        })}
+          )}
+        </div>
 
-        {/* ── Compose / reply row ── */}
-        <div className="flex gap-3">
+        {/* ── Compose / Post Remediation Form Row (Fixed below comments) ── */}
+        <div className="flex gap-3 pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
           {/* Live avatar preview */}
           <div className="flex-shrink-0 pt-[3px]" style={{ width: '36px' }}>
             <div
@@ -340,25 +659,29 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
 
           {/* Form */}
           <form className="flex-1 min-w-0 flex flex-col gap-2.5 pt-[3px]" onSubmit={handleSubmit} noValidate>
-            {fixes.length === 0 && !author && !description && (
-              <p className="text-[0.875rem] italic mb-0.5" style={{ color: 'var(--text-muted)' }}>No suggestions yet. Be the first to add one.</p>
+            {fixes.length === 0 && !description && (
+              <p className="text-[0.875rem] italic mb-0.5" style={{ color: 'var(--text-muted)' }}>No user suggestions yet. Be the first to share guidance.</p>
             )}
-            <input
-              id="fix-author-input"
-              type="text"
-              placeholder="Your name"
-              value={author}
-              maxLength={40}
-              onChange={(e) => { setAuthor(e.target.value); setError(''); }}
-              aria-label="Author name"
-              className="h-10 px-3.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-[inherit] outline-none transition-all duration-200"
-              style={inputStyle}
-              onFocus={focusStyle}
-              onBlur={blurStyle}
-            />
+
+            {!currentUser && (
+              <input
+                id="fix-author-input"
+                type="text"
+                placeholder="Your name"
+                value={author}
+                maxLength={40}
+                onChange={(e) => { setAuthor(e.target.value); setError(''); }}
+                aria-label="Author name"
+                className="h-10 px-3.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-[inherit] outline-none transition-all duration-200"
+                style={inputStyle}
+                onFocus={focusStyle}
+                onBlur={blurStyle}
+              />
+            )}
+
             <textarea
               id="fix-desc-input"
-              placeholder="What's the suggestion?"
+              placeholder="Add user suggestion note or technical fix..."
               value={description}
               maxLength={1000}
               onChange={(e) => { setDescription(e.target.value); setError(''); }}
@@ -376,13 +699,14 @@ function FixThread({ fixes, onAddFix, onEditFix, onDeleteFix }) {
               <button
                 id="fix-submit-btn"
                 type="submit"
+                disabled={isSubmitting}
                 aria-label="Submit fix note"
-                className="flex items-center gap-[7px] h-9 px-4 rounded-[20px] border-0 text-white text-[0.85rem] font-semibold font-[inherit] cursor-pointer flex-shrink-0 whitespace-nowrap transition-all duration-200 hover:-translate-y-px active:translate-y-0"
+                className="flex items-center gap-[7px] h-9 px-4 rounded-[20px] border-0 text-white text-[0.85rem] font-semibold font-[inherit] cursor-pointer flex-shrink-0 whitespace-nowrap transition-all duration-200 hover:-translate-y-px active:translate-y-0 disabled:opacity-50"
                 style={{ background: 'var(--accent-blue)' }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent-blue)'; }}
+                onMouseEnter={e => { if (!isSubmitting) e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
+                onMouseLeave={e => { if (!isSubmitting) e.currentTarget.style.background = 'var(--accent-blue)'; }}
               >
-                <SendIcon /><span>Post Note</span>
+                <SendIcon /><span>{isSubmitting ? 'Posting...' : 'Post Note'}</span>
               </button>
             </div>
           </form>
@@ -540,16 +864,74 @@ function MinimalEcosystemList({ ecosystems }) {
 }
 
 /* ─── Main export ─── */
-export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) {
+export default function DetailPanel({ vuln, onClose, currentUser = null, onSave }) {
+
   const [detailData, setDetailData] = useState(vuln);
+  const displayId = vuln?.display_id || vuln?.id;
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [fixes, setFixes] = useState([]);
+  const [sortOrder, setSortOrder] = useState('newest');
+  const [remediationPage, setRemediationPage] = useState(1);
+  const [hasMoreFixes, setHasMoreFixes] = useState(false);
+  const [loadingMoreFixes, setLoadingMoreFixes] = useState(false);
   const [prevId, setPrevId] = useState(null);
   const [isClosing, setIsClosing] = useState(false);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
   const [isFixExpanded, setIsFixExpanded] = useState(false);
   const [isComponentsExpanded, setIsComponentsExpanded] = useState(false);
   const [isReferencesExpanded, setIsReferencesExpanded] = useState(false);
+  const descRef = useRef(null);
+  const fixRef = useRef(null);
+  const [hasDescOverflow, setHasDescOverflow] = useState(false);
+  const [hasFixOverflow, setHasFixOverflow] = useState(false);
+
+  useEffect(() => {
+    setIsDescExpanded(false);
+    setHasDescOverflow(false);
+  }, [displayId, detailData?.description, vuln?.description]);
+
+  useEffect(() => {
+    const el = descRef.current;
+    if (!el) return;
+
+    const checkDesc = () => {
+      if (!isDescExpanded) {
+        setHasDescOverflow(el.scrollHeight > el.clientHeight + 2);
+      }
+    };
+
+    checkDesc();
+    const observer = new ResizeObserver(checkDesc);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [detailData?.description, vuln?.description, displayId, isDescExpanded]);
+
+  useEffect(() => {
+    setIsFixExpanded(false);
+    setHasFixOverflow(false);
+  }, [displayId, detailData?.remediation, vuln?.remediation]);
+
+  useEffect(() => {
+    const el = fixRef.current;
+    const currentRem = (detailData || vuln)?.remediation;
+    const hasSemi = typeof currentRem === 'string' && currentRem.includes(';');
+    if (hasSemi) {
+      setHasFixOverflow(true);
+      return;
+    }
+    if (!el) return;
+
+    const checkFix = () => {
+      if (!isFixExpanded) {
+        setHasFixOverflow(el.scrollHeight > el.clientHeight + 2);
+      }
+    };
+
+    checkFix();
+    const observer = new ResizeObserver(checkFix);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [detailData?.remediation, vuln?.remediation, displayId, isFixExpanded]);
 
   // Inline Edit Mode State
   const [isEditing, setIsEditing] = useState(false);
@@ -567,8 +949,6 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
   const [editAffectedComponents, setEditAffectedComponents] = useState([]);
   const [editReferences, setEditReferences] = useState([]);
   const [formErrors, setFormErrors] = useState({});
-
-  const displayId = vuln?.display_id || vuln?.id;
 
   // Validation method
   const validateForm = () => {
@@ -693,11 +1073,24 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
         if (isMounted) setLoadingDetail(false);
       });
 
-    // Fetch manual guidance (comments) for this vulnerability
-    fetchManualGuidance(displayId)
-      .then((remediations) => {
-        if (isMounted && remediations) {
-          setFixes(remediations);
+    return () => { isMounted = false; };
+  }, [displayId, vuln?.isNew]);
+
+  // Fetch manual guidance (comments & voting) when displayId or sortOrder changes
+  useEffect(() => {
+    if (!displayId || vuln?.isNew) return;
+
+    let isMounted = true;
+    setRemediationPage(1);
+    setHasMoreFixes(false);
+
+    fetchManualGuidance(displayId, sortOrder, 1)
+      .then((res) => {
+        if (isMounted && res) {
+          const items = Array.isArray(res) ? res : (res.items || []);
+          const hasNext = res.hasNext ?? false;
+          setFixes(items);
+          setHasMoreFixes(hasNext);
         }
       })
       .catch((err) => {
@@ -705,36 +1098,152 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
       });
 
     return () => { isMounted = false; };
-  }, [displayId, vuln?.isNew]);
+  }, [displayId, sortOrder, vuln?.isNew]);
+
+  const handleLoadMoreFixes = async () => {
+    if (loadingMoreFixes || !hasMoreFixes) return;
+    setLoadingMoreFixes(true);
+    const nextPage = remediationPage + 1;
+
+    try {
+      const res = await fetchManualGuidance(displayId, sortOrder, nextPage);
+      if (res && res.items) {
+        setFixes((prev) => [...prev, ...res.items]);
+        setHasMoreFixes(res.hasNext ?? false);
+        setRemediationPage(nextPage);
+      }
+    } catch (err) {
+      console.error('Failed to load more remediations:', err);
+    } finally {
+      setLoadingMoreFixes(false);
+    }
+  };
 
   const handleAddFix = async (newFix) => {
     const targetDisplayId = (detailData || vuln)?.display_id || displayId;
     if (targetDisplayId && !vuln?.isNew) {
-      const created = await createManualGuidance(targetDisplayId, newFix);
-      if (created) {
-        setFixes((prev) => [created, ...prev]);
-        return;
+      try {
+        const created = await createManualGuidance(targetDisplayId, newFix);
+        if (created) {
+          setFixes((prev) => [created, ...prev]);
+          return;
+        }
+      } catch (err) {
+        console.error('Create manual guidance error:', err);
+        throw err;
       }
     }
-    setFixes((prev) => [{ ...newFix, id: `local-${Date.now()}` }, ...prev]);
   };
 
-  const handleEditFix = async (index, newDescription) => {
-    const targetFix = fixes[index];
-    if (targetFix && targetFix.id && !String(targetFix.id).startsWith('local-')) {
-      await updateManualGuidance(targetFix.id, newDescription);
+  const handleEditFix = async (fixId, newDescription) => {
+    const existing = fixes.find((f) => f.id === fixId);
+    if (existing && (existing.description || '').trim() === (newDescription || '').trim()) {
+      return;
     }
+    if (fixId && !String(fixId).startsWith('local-')) {
+      try {
+        const updated = await updateManualGuidance(fixId, newDescription);
+        if (updated) {
+          setFixes((prev) =>
+            prev.map((f) =>
+              f.id === fixId
+                ? {
+                  ...f,
+                  description: updated.description,
+                  is_edited: true,
+                  updated_at: updated.updated_at || new Date().toISOString(),
+                }
+                : f
+            )
+          );
+          return;
+        }
+      } catch (err) {
+        console.error('Update manual guidance error:', err);
+        throw err;
+      }
+    }
+  };
+
+  const handleDeleteFix = async (fixId) => {
+    if (fixId && !String(fixId).startsWith('local-')) {
+      try {
+        await deleteManualGuidance(fixId);
+        setFixes((prev) => prev.filter((f) => f.id !== fixId));
+      } catch (err) {
+        console.error('Delete manual guidance error:', err);
+        throw err;
+      }
+    }
+  };
+
+  const handleVoteFix = async (fixId, voteType) => {
+    if (!fixId || String(fixId).startsWith('local-')) return;
+
+    // Optimistic UI update
     setFixes((prev) =>
-      prev.map((f, i) => (i === index ? { ...f, description: newDescription } : f))
-    );
-  };
+      prev.map((f) => {
+        if (f.id !== fixId) return f;
+        const currentVote = f.user_vote || 0;
+        let newVote = voteType;
+        let upDiff = 0;
+        let downDiff = 0;
 
-  const handleDeleteFix = async (index) => {
-    const targetFix = fixes[index];
-    if (targetFix && targetFix.id && !String(targetFix.id).startsWith('local-')) {
-      await deleteManualGuidance(targetFix.id);
+        if (currentVote === voteType) {
+          newVote = 0;
+          if (voteType === 1) upDiff = -1;
+          else downDiff = -1;
+        } else if (currentVote === 0) {
+          if (voteType === 1) upDiff = 1;
+          else downDiff = 1;
+        } else {
+          if (voteType === 1) {
+            upDiff = 1;
+            downDiff = -1;
+          } else {
+            upDiff = -1;
+            downDiff = 1;
+          }
+        }
+
+        const newUp = Math.max(0, (f.upvotes || 0) + upDiff);
+        const newDown = Math.max(0, (f.downvotes || 0) + downDiff);
+        const newScore = newUp - newDown;
+
+        return {
+          ...f,
+          user_vote: newVote,
+          upvotes: newUp,
+          downvotes: newDown,
+          score: newScore,
+        };
+      })
+    );
+
+    try {
+      const res = await voteRemediation(fixId, voteType);
+      if (res) {
+        setFixes((prev) =>
+          prev.map((f) =>
+            f.id === fixId
+              ? {
+                ...f,
+                user_vote: res.user_vote,
+                score: res.score,
+                upvotes: res.upvotes,
+                downvotes: res.downvotes,
+              }
+              : f
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Failed to submit vote:', err);
+      // Rollback to server truth
+      fetchManualGuidance(displayId, sortOrder, 1).then((res) => {
+        if (res && res.items) setFixes(res.items);
+      });
     }
-    setFixes((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Sync edit form fields when entering edit mode or when data changes
@@ -959,83 +1468,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
             )}
           </nav>
 
-          {/* Admin Controls: Toggle between View and Inline Edit mode */}
-          {isAdmin && (
-            <div className="flex items-center gap-2">
-              {isEditing ? (
-                <>
-                  <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.68rem] font-bold tracking-wider uppercase mr-1" style={{ background: vuln?.isNew ? 'rgba(16, 185, 129, 0.15)' : 'var(--accent-blue-light)', color: vuln?.isNew ? '#10b981' : 'var(--accent-blue)', border: vuln?.isNew ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(37,99,235,0.2)' }}>
-                    <EditIcon /> {vuln?.isNew ? 'NEW ADVISORY' : 'EDITING'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={cancelEditing}
-                    className="px-3 py-1 rounded-[6px] text-xs font-semibold border cursor-pointer transition-all duration-150"
-                    style={{
-                      borderColor: 'var(--border-card)',
-                      background: 'var(--bg-badge)',
-                      color: 'var(--text-secondary)',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--border-card)';
-                      e.currentTarget.style.color = 'var(--text-primary)';
-                      e.currentTarget.style.borderColor = 'var(--border-input)';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'var(--bg-badge)';
-                      e.currentTarget.style.color = 'var(--text-secondary)';
-                      e.currentTarget.style.borderColor = 'var(--border-card)';
-                      e.currentTarget.style.transform = 'translateY(0px)';
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveInline}
-                    className="px-3.5 py-1 rounded-[6px] text-xs font-bold text-white cursor-pointer transition-all duration-150 border-0 shadow-sm"
-                    style={{ background: vuln?.isNew ? '#10b981' : 'var(--accent-blue)' }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = vuln?.isNew ? '#059669' : '#1d4ed8';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                      e.currentTarget.style.boxShadow = vuln?.isNew ? '0 4px 12px rgba(16, 185, 129, 0.35)' : '0 4px 12px rgba(37, 99, 235, 0.35)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = vuln?.isNew ? '#10b981' : 'var(--accent-blue)';
-                      e.currentTarget.style.transform = 'translateY(0px)';
-                      e.currentTarget.style.boxShadow = 'none';
-                    }}
-                  >
-                    {vuln?.isNew ? 'Create Vulnerability' : 'Save Changes'}
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={startEditing}
-                  className="px-3 py-1 rounded-[6px] text-xs font-bold border cursor-pointer transition-all flex items-center gap-1.5 shadow-sm"
-                  style={{
-                    borderColor: 'var(--accent-blue)',
-                    background: 'var(--accent-blue-light)',
-                    color: 'var(--accent-blue)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--accent-blue)';
-                    e.currentTarget.style.color = '#ffffff';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'var(--accent-blue-light)';
-                    e.currentTarget.style.color = 'var(--accent-blue)';
-                  }}
-                  title="Enable inline editing for this vulnerability"
-                >
-                  <EditIcon />
-                  <span>Edit Advisory</span>
-                </button>
-              )}
-            </div>
-          )}
+
         </div>
 
         {/* Close button */}
@@ -1348,19 +1781,22 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
               </div>
             ) : (
               <div>
-                <p
-                  className="text-[0.9375rem] leading-[1.7] transition-colors duration-300 break-words whitespace-pre-wrap"
-                  style={{
-                    color: 'var(--text-secondary)',
-                    display: '-webkit-box',
-                    WebkitBoxOrient: 'vertical',
-                    WebkitLineClamp: isDescExpanded ? 'unset' : ((current.description && current.description.length > 220) ? 3 : 'unset'),
-                    overflow: isDescExpanded ? 'visible' : ((current.description && current.description.length > 220) ? 'hidden' : 'visible'),
-                  }}
-                >
-                  {current.description}
-                </p>
-                {current.description && current.description.length > 220 && (
+                <div className={isDescExpanded ? "max-h-[260px] overflow-y-auto pr-1.5 custom-inner-scrollbar" : ""}>
+                  <p
+                    ref={descRef}
+                    className="text-[0.9375rem] leading-[1.7] transition-colors duration-300 break-words whitespace-pre-wrap"
+                    style={{
+                      color: 'var(--text-secondary)',
+                      display: isDescExpanded ? 'block' : '-webkit-box',
+                      WebkitBoxOrient: 'vertical',
+                      WebkitLineClamp: isDescExpanded ? 'unset' : 3,
+                      overflow: isDescExpanded ? 'visible' : 'hidden',
+                    }}
+                  >
+                    {current.description}
+                  </p>
+                </div>
+                {(hasDescOverflow || isDescExpanded) && (
                   <button
                     onClick={() => setIsDescExpanded((v) => !v)}
                     className="mt-1 text-[0.8rem] font-semibold bg-transparent border-0 cursor-pointer px-0 py-0 transition-opacity duration-150 hover:opacity-80 flex items-center gap-1"
@@ -1378,7 +1814,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
           <section className="mb-[22px] min-w-0">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-[0.72rem] font-bold tracking-[0.08em] uppercase" style={{ color: 'var(--text-muted)' }}>
-                OFFICIAL FIX / REMEDIATION
+                OFFICIAL FIX
               </h3>
               {isEditing && (
                 <span className="text-[0.68rem] font-semibold" style={{ color: editRemediation.length >= 1000 ? '#ef4444' : 'var(--text-muted)' }}>
@@ -1400,7 +1836,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
                 onMouseEnter={handleEditableMouseEnter}
                 onMouseLeave={handleEditableMouseLeave}
               />
-            ) : current.remediation ? (
+            ) : (
               <div
                 className="flex flex-col gap-2.5 px-4 py-3.5 rounded-[12px] border-[1.5px] transition-colors duration-300 min-w-0"
                 style={{
@@ -1416,45 +1852,57 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
                     <ShieldCheckIcon />
                   </span>
                   <div className="flex-1 min-w-0">
-                    {!isFixExpanded ? (
-                      <p
-                        className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300 break-words line-clamp-3"
-                        style={{ color: 'var(--fix-text-color)' }}
-                      >
-                        {current.remediation}
-                      </p>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        {current.remediation.includes(';') ? (
-                          <ul className="list-disc list-inside flex flex-col gap-1.5 text-[0.88rem] font-semibold leading-[1.6]" style={{ color: 'var(--fix-text-color)' }}>
-                            {current.remediation.split(';').map((item, idx) => {
-                              const trimmed = item.trim();
-                              if (!trimmed) return null;
-                              return <li key={idx} className="break-words">{trimmed}</li>;
-                            })}
-                          </ul>
-                        ) : (
-                          <p className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300 break-words" style={{ color: 'var(--fix-text-color)' }}>
+                    {current.remediation ? (
+                      <>
+                        {!isFixExpanded ? (
+                          <p
+                            ref={fixRef}
+                            className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300 break-words line-clamp-3"
+                            style={{ color: 'var(--fix-text-color)' }}
+                          >
                             {current.remediation}
                           </p>
+                        ) : (
+                          <div className="max-h-[240px] overflow-y-auto pr-1.5 custom-inner-scrollbar">
+                            <div className="flex flex-col gap-2">
+                              {current.remediation.includes(';') ? (
+                                <ul className="list-disc list-inside flex flex-col gap-1.5 text-[0.88rem] font-semibold leading-[1.6]" style={{ color: 'var(--fix-text-color)' }}>
+                                  {current.remediation.split(';').map((item, idx) => {
+                                    const trimmed = item.trim();
+                                    if (!trimmed) return null;
+                                    return <li key={idx} className="break-words">{trimmed}</li>;
+                                  })}
+                                </ul>
+                              ) : (
+                                <p className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300 break-words" style={{ color: 'var(--fix-text-color)' }}>
+                                  {current.remediation}
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         )}
-                      </div>
-                    )}
-                    {current.remediation && (current.remediation.length > 180 || current.remediation.includes(';')) && (
-                      <button
-                        onClick={() => setIsFixExpanded((v) => !v)}
-                        className="mt-2 text-[0.8rem] font-bold bg-transparent border-0 cursor-pointer px-0 py-0 transition-opacity duration-150 hover:opacity-80 flex items-center gap-1"
-                        style={{ color: 'var(--fix-icon-color)' }}
+                        {(hasFixOverflow || isFixExpanded) && (
+                          <button
+                            onClick={() => setIsFixExpanded((v) => !v)}
+                            className="mt-2 text-[0.8rem] font-bold bg-transparent border-0 cursor-pointer px-0 py-0 transition-opacity duration-150 hover:opacity-80 flex items-center gap-1"
+                            style={{ color: 'var(--fix-icon-color)' }}
+                          >
+                            <span>{isFixExpanded ? 'Show less' : 'Read more'}</span>
+                            <span className="text-[0.75rem]">{isFixExpanded ? '▲' : '▼'}</span>
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <p
+                        className="text-[0.9375rem] font-semibold leading-[1.6] transition-colors duration-300 break-words"
+                        style={{ color: 'var(--fix-text-color)' }}
                       >
-                        <span>{isFixExpanded ? 'Show less' : 'Read more'}</span>
-                        <span className="text-[0.75rem]">{isFixExpanded ? '▲' : '▼'}</span>
-                      </button>
+                        No official fix recorded yet. Please check references.
+                      </p>
                     )}
                   </div>
                 </div>
               </div>
-            ) : (
-              <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>No official fix recorded yet.</p>
             )}
           </section>
 
@@ -1486,7 +1934,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
                     No affected components added yet. Click "+ Add Component" above.
                   </p>
                 ) : (
-                  <div className="border rounded-[10px] overflow-x-auto p-2 max-h-[360px]" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
+                  <div className="border rounded-[10px] overflow-x-auto p-2 max-h-[360px] custom-inner-scrollbar" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
                     <table className="w-full min-w-[520px] border-collapse text-[0.84rem]">
                       <thead style={{ background: 'var(--bg-table-head)', position: 'sticky', top: 0, zIndex: 1 }}>
                         <tr>
@@ -1564,7 +2012,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
             ) : current.affectedComponents && current.affectedComponents.length > 0 ? (
               <div>
                 <div
-                  className={`border rounded-[10px] overflow-x-auto ${isComponentsExpanded && current.affectedComponents.length > 8 ? 'max-h-[380px] overflow-y-auto' : ''}`}
+                  className={`border rounded-[10px] overflow-x-auto custom-inner-scrollbar ${isComponentsExpanded && current.affectedComponents.length > 8 ? 'max-h-[380px] overflow-y-auto' : ''}`}
                   style={{ borderColor: 'var(--border-color)' }}
                 >
                   <table className="w-full min-w-[480px] border-collapse text-[0.875rem]">
@@ -1640,7 +2088,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
             </div>
 
             {isEditing ? (
-              <div className="flex flex-col gap-2.5 max-h-[300px] overflow-y-auto pr-1">
+              <div className="flex flex-col gap-2.5 max-h-[300px] overflow-y-auto pr-1.5 custom-inner-scrollbar">
                 {editReferences.length === 0 ? (
                   <p className="text-xs italic text-center py-3 border rounded-[8px]" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-color)' }}>
                     No reference links added yet. Click "+ Add Reference" above.
@@ -1681,7 +2129,7 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
             ) : current.references && current.references.length > 0 ? (
               <div>
                 <div
-                  className={`flex flex-col gap-2.5 ${isReferencesExpanded && current.references.length > 8 ? 'max-h-[350px] overflow-y-auto pr-1' : ''}`}
+                  className={`flex flex-col gap-2.5 custom-inner-scrollbar py-1 px-0.5 ${isReferencesExpanded && current.references.length > 5 ? 'max-h-[320px] overflow-y-auto pr-1.5' : ''}`}
                 >
                   {(isReferencesExpanded ? current.references : current.references.slice(0, 3)).map((ref, i) => {
                     const targetUrl = ref.url.startsWith('http') ? ref.url : `https://${ref.url}`;
@@ -1738,6 +2186,13 @@ export default function DetailPanel({ vuln, onClose, isAdmin = false, onSave }) 
                 onAddFix={handleAddFix}
                 onEditFix={handleEditFix}
                 onDeleteFix={handleDeleteFix}
+                onVoteFix={handleVoteFix}
+                sortOrder={sortOrder}
+                onSortChange={setSortOrder}
+                currentUser={currentUser}
+                hasMore={hasMoreFixes}
+                loadingMore={loadingMoreFixes}
+                onLoadMore={handleLoadMoreFixes}
               />
             </>
           )}

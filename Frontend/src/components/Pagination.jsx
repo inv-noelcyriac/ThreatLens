@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import React from 'react';
 
 const ChevronIcon = ({ direction }) => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     {direction === 'left'
       ? <polyline points="15 18 9 12 15 6"/>
       : <polyline points="9 6 15 12 9 18"/>
@@ -14,27 +14,24 @@ const btnBase = {
   background: 'var(--bg-input)',
   color: 'var(--text-secondary)',
 };
+
 const btnHover = {
   borderColor: 'var(--accent-blue)',
   color: 'var(--accent-blue)',
   background: 'var(--accent-blue-light)',
 };
 
-/** Calculates truncated page numbers array with ellipsis for clean navigation */
+/** Calculates truncated page numbers array: initially 5 pages, then 3 pages forward */
 function getVisiblePages(currentPage, totalPages) {
-  if (totalPages <= 7) {
+  if (totalPages <= 5) {
     return Array.from({ length: totalPages }, (_, i) => i + 1);
   }
 
-  if (currentPage <= 4) {
-    return [1, 2, 3, 4, 5, '...', totalPages];
+  if (currentPage <= 3) {
+    return [1, 2, 3, 4, 5, '...'];
   }
 
-  if (currentPage >= totalPages - 3) {
-    return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
-  }
-
-  return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+  return [1, '...', currentPage - 1, currentPage, currentPage + 1, currentPage + 2, currentPage + 3, '...'];
 }
 
 export default function Pagination({
@@ -44,63 +41,105 @@ export default function Pagination({
   onCardsPerPageChange,
   onPageChange,
 }) {
-  const [jumpPage, setJumpPage] = useState('');
-  const [jumpError, setJumpError] = useState('');
   const pages = totalPages && totalPages > 1 ? getVisiblePages(currentPage, totalPages) : [];
 
-  const handleJumpChange = (e) => {
-    // Only accept numeric digits 0-9
-    const rawVal = e.target.value;
-    const cleanVal = rawVal.replace(/\D/g, '');
-
-    setJumpPage(cleanVal);
-
-    if (!cleanVal) {
-      setJumpError('');
-      return;
-    }
-
-    const pageNum = parseInt(cleanVal, 10);
-    if (pageNum < 1) {
-      setJumpError('Page must be at least 1');
-    } else if (pageNum > totalPages) {
-      setJumpError(`Page cannot exceed ${totalPages.toLocaleString()}`);
-    } else {
-      setJumpError('');
-    }
-  };
-
-  const handleJumpSubmit = (e) => {
-    e.preventDefault();
-    if (!jumpPage || jumpError) return;
-    const pageNum = parseInt(jumpPage, 10);
-    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
-      onPageChange(pageNum);
-      setJumpPage('');
-      setJumpError('');
-    }
-  };
-
   return (
-    <nav className="flex flex-col items-center gap-3.5 pt-8 px-6" aria-label="Pagination">
-      <div className="flex items-center gap-4 flex-wrap justify-center">
-        {totalPages && totalPages > 1 && (
-          <span className="text-[0.8125rem]" style={{ color: 'var(--text-muted)' }}>
-            Page {currentPage.toLocaleString()} of {totalPages.toLocaleString()}
-          </span>
+    <nav className="flex items-center justify-center pt-11 pb-7 px-6" aria-label="Pagination">
+      {/* Centered borderless pagination container */}
+      <div className="flex items-center justify-center gap-3 sm:gap-4 flex-wrap max-w-full">
+        {/* Page navigation buttons */}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            {/* Prev Button */}
+            <button
+              id="pagination-prev-btn"
+              type="button"
+              className="flex items-center gap-1.5 h-[38px] px-3.5 rounded-[9px] border text-sm font-semibold cursor-pointer transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed select-none"
+              style={btnBase}
+              onMouseEnter={e => { if (!e.currentTarget.disabled) Object.assign(e.currentTarget.style, btnHover); }}
+              onMouseLeave={e => { Object.assign(e.currentTarget.style, btnBase); }}
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              aria-label="Previous page"
+            >
+              <ChevronIcon direction="left" />
+              <span>Prev</span>
+            </button>
+
+            {/* Page numbers with ellipsis */}
+            <div className="flex items-center gap-1.5">
+              {pages.map((p, idx) => {
+                if (p === '...') {
+                  return (
+                    <span
+                      key={`ellipsis-${idx}`}
+                      className="w-9 h-[38px] flex items-center justify-center text-sm font-semibold select-none"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      …
+                    </span>
+                  );
+                }
+
+                const isActive = p === currentPage;
+
+                return (
+                  <button
+                    key={p}
+                    id={`pagination-page-${p}-btn`}
+                    type="button"
+                    className="min-w-[36px] h-[38px] px-2.5 rounded-[9px] border text-sm font-semibold cursor-pointer flex items-center justify-center transition-all duration-150 select-none"
+                    style={
+                      isActive
+                        ? { background: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', color: '#ffffff', fontWeight: '700' }
+                        : btnBase
+                    }
+                    onMouseEnter={e => { if (!isActive) Object.assign(e.currentTarget.style, { borderColor: 'var(--accent-blue)', color: 'var(--accent-blue)', background: 'var(--bg-input)' }); }}
+                    onMouseLeave={e => { if (!isActive) Object.assign(e.currentTarget.style, btnBase); }}
+                    onClick={() => onPageChange(p)}
+                    aria-label={`Page ${p}`}
+                    aria-current={isActive ? 'page' : undefined}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Next Button */}
+            <button
+              id="pagination-next-btn"
+              type="button"
+              className="flex items-center gap-1.5 h-[38px] px-3.5 rounded-[9px] border text-sm font-semibold cursor-pointer transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed select-none"
+              style={btnBase}
+              onMouseEnter={e => { if (!e.currentTarget.disabled) Object.assign(e.currentTarget.style, btnHover); }}
+              onMouseLeave={e => { Object.assign(e.currentTarget.style, btnBase); }}
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              aria-label="Next page"
+            >
+              <span>Next</span>
+              <ChevronIcon direction="right" />
+            </button>
+          </div>
+        )}
+
+        {/* Vertical divider line */}
+        {totalPages > 1 && onCardsPerPageChange && (
+          <div className="h-6 w-[1px] hidden sm:block mx-1" style={{ background: 'var(--border-color)' }} />
         )}
 
         {/* Cards per page dropdown selector */}
         {onCardsPerPageChange && (
-          <div className="flex items-center gap-2 text-[0.8125rem]" style={{ color: 'var(--text-muted)' }}>
-            <label htmlFor="cards-per-page-select" className="font-medium whitespace-nowrap">
-              Cards per page:
+          <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+            <label htmlFor="cards-per-page-select" className="font-semibold whitespace-nowrap">
+              Per page:
             </label>
             <select
               id="cards-per-page-select"
               value={cardsPerPage}
               onChange={(e) => onCardsPerPageChange(Number(e.target.value))}
-              className="h-8 px-2.5 rounded-[8px] border-[1.5px] text-[0.8125rem] font-semibold cursor-pointer outline-none transition-all duration-150"
+              className="h-[38px] px-2.5 rounded-[9px] border text-sm font-semibold cursor-pointer outline-none transition-all duration-150"
               style={{
                 borderColor: 'var(--border-input)',
                 background: 'var(--bg-input)',
@@ -117,127 +156,7 @@ export default function Pagination({
             </select>
           </div>
         )}
-
-        {/* Direct "Go to page" input box with strict numeric validation & fixed width */}
-        {totalPages && totalPages > 1 && (
-          <div className="flex flex-col items-center sm:items-start gap-0.5 relative">
-            <form onSubmit={handleJumpSubmit} className="flex items-center gap-1.5 text-[0.8125rem]" style={{ color: 'var(--text-muted)' }}>
-              <label htmlFor="jump-to-page-input" className="font-medium whitespace-nowrap">
-                Go to page:
-              </label>
-              <input
-                id="jump-to-page-input"
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="#"
-                value={jumpPage}
-                onChange={handleJumpChange}
-                maxLength={String(totalPages).length + 2}
-                className="h-8 w-[60px] flex-shrink-0 px-2 text-center rounded-[8px] border-[1.5px] text-[0.8125rem] font-semibold outline-none transition-all duration-150"
-                style={{
-                  borderColor: jumpError ? '#ef4444' : (jumpPage ? 'var(--accent-blue)' : 'var(--border-input)'),
-                  background: 'var(--bg-input)',
-                  color: 'var(--text-primary)',
-                  boxShadow: jumpError ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
-                }}
-                onFocus={e => {
-                  if (!jumpError) e.currentTarget.style.borderColor = 'var(--accent-blue)';
-                }}
-                onBlur={e => {
-                  if (!jumpError) e.currentTarget.style.borderColor = jumpPage ? 'var(--accent-blue)' : 'var(--border-input)';
-                }}
-              />
-              <button
-                type="submit"
-                disabled={!jumpPage || Boolean(jumpError)}
-                className="h-8 px-2.5 rounded-[8px] border-[1.5px] text-[0.775rem] font-semibold cursor-pointer transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-                style={{
-                  borderColor: 'var(--accent-blue)',
-                  background: 'var(--accent-blue)',
-                  color: '#ffffff',
-                }}
-              >
-                Go
-              </button>
-            </form>
-            {jumpError && (
-              <span className="text-[0.725rem] font-bold text-red-500 flex items-center animate-fadeIn whitespace-nowrap pt-0.5">
-                {jumpError}
-              </span>
-            )}
-          </div>
-        )}
       </div>
-
-      {totalPages > 1 && (
-        <div className="flex items-center gap-1.5 flex-wrap justify-center">
-          {/* Prev Button */}
-          <button
-            id="pagination-prev-btn"
-            className="flex items-center gap-[5px] h-9 px-3.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-medium font-[inherit] cursor-pointer transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={btnBase}
-            onMouseEnter={e => { if (!e.currentTarget.disabled) Object.assign(e.currentTarget.style, btnHover); }}
-            onMouseLeave={e => { Object.assign(e.currentTarget.style, btnBase); }}
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            aria-label="Previous page"
-          >
-            <ChevronIcon direction="left" />
-            <span>Prev</span>
-          </button>
-
-          {/* Page numbers with ellipsis */}
-          {pages.map((p, idx) => {
-            if (p === '...') {
-              return (
-                <span
-                  key={`ellipsis-${idx}`}
-                  className="w-9 h-9 flex items-center justify-center text-[0.875rem] font-medium select-none"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  …
-                </span>
-              );
-            }
-
-            return (
-              <button
-                key={p}
-                id={`pagination-page-${p}-btn`}
-                className="min-w-[36px] h-9 px-2.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-medium font-[inherit] cursor-pointer flex items-center justify-center transition-all duration-200"
-                style={
-                  p === currentPage
-                    ? { background: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', color: '#ffffff', fontWeight: '600' }
-                    : btnBase
-                }
-                onMouseEnter={e => { if (p !== currentPage) Object.assign(e.currentTarget.style, { borderColor: 'var(--accent-blue)', color: 'var(--accent-blue)', background: 'var(--bg-input)' }); }}
-                onMouseLeave={e => { if (p !== currentPage) Object.assign(e.currentTarget.style, btnBase); }}
-                onClick={() => onPageChange(p)}
-                aria-label={`Page ${p}`}
-                aria-current={p === currentPage ? 'page' : undefined}
-              >
-                {p}
-              </button>
-            );
-          })}
-
-          {/* Next Button */}
-          <button
-            id="pagination-next-btn"
-            className="flex items-center gap-[5px] h-9 px-3.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-medium font-[inherit] cursor-pointer transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={btnBase}
-            onMouseEnter={e => { if (!e.currentTarget.disabled) Object.assign(e.currentTarget.style, btnHover); }}
-            onMouseLeave={e => { Object.assign(e.currentTarget.style, btnBase); }}
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            aria-label="Next page"
-          >
-            <span>Next</span>
-            <ChevronIcon direction="right" />
-          </button>
-        </div>
-      )}
     </nav>
   );
 }

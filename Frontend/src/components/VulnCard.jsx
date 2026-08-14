@@ -194,7 +194,7 @@ function ListViewEcosystemBadges({ vuln }) {
 }
 
 /* ── Card view (grid) — matches design spec ── */
-function CardView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
+function CardView({ vuln, onClick, activeQuery }) {
   if (!vuln) return null;
   const severityKey = (vuln.severity || 'MEDIUM').toUpperCase();
   const accent = SEVERITY_ACCENT[severityKey] || '#9e9e9e';
@@ -303,22 +303,20 @@ function CardView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
       </div>
 
       {/* Remediation — separated by hairline */}
-      {vuln.remediation && (
-        <div className="pt-1.5 mb-2" style={{ borderTop: '1px solid var(--border-card)' }}>
-          <p
-            className="text-[0.7rem] mb-0.5 truncate uppercase tracking-[0.04em] font-semibold"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            remediation
+      <div className="pt-1.5 mb-2" style={{ borderTop: '1px solid var(--border-card)' }}>
+        <p
+          className="text-[0.7rem] mb-0.5 truncate uppercase tracking-[0.04em] font-semibold"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          Official Fix
+        </p>
+        <div className="flex items-start gap-1.5 min-w-0" style={{ color: 'var(--text-secondary)' }}>
+          <span className="flex-shrink-0 mt-0.5" style={{ color: 'var(--text-muted)' }}><WrenchIcon /></span>
+          <p className="text-[0.8125rem] font-medium leading-snug line-clamp-2" title={typeof vuln.remediation === 'string' ? vuln.remediation : 'No official fix yet. Please check references.'}>
+            <HighlightText text={vuln.remediation || 'No official fix yet. Please check references.'} query={activeQuery} />
           </p>
-          <div className="flex items-start gap-1.5 min-w-0" style={{ color: 'var(--text-secondary)' }}>
-            <span className="flex-shrink-0 mt-0.5" style={{ color: 'var(--text-muted)' }}><WrenchIcon /></span>
-            <p className="text-[0.8125rem] font-medium leading-snug line-clamp-2" title={typeof vuln.remediation === 'string' ? vuln.remediation : undefined}>
-              <HighlightText text={vuln.remediation} query={activeQuery} />
-            </p>
-          </div>
         </div>
-      )}
+      </div>
 
       {/* Footer: source + date */}
       <div
@@ -336,7 +334,7 @@ function CardView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
 }
 
 /* ── List view (row) ── */
-function ListView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
+function ListView({ vuln, onClick, activeQuery }) {
   if (!vuln) return null;
   const severityKey = (vuln.severity || 'MEDIUM').toUpperCase();
   const accent = SEVERITY_ACCENT[severityKey] || '#9e9e9e';
@@ -389,10 +387,10 @@ function ListView({ vuln, onClick, activeQuery, isAdmin, onEdit }) {
 }
 
 /* ── Export ── */
-export default function VulnCard({ vuln, onClick, activeQuery, viewMode, isAdmin = false, onEdit }) {
+export default function VulnCard({ vuln, onClick, activeQuery, viewMode }) {
   if (!vuln) return null;
   if (viewMode === 'list') {
-    return <ListView vuln={vuln} onClick={onClick} activeQuery={activeQuery} isAdmin={isAdmin} onEdit={onEdit} />;
+    return <ListView vuln={vuln} onClick={onClick} activeQuery={activeQuery} />;
   }
-  return <CardView vuln={vuln} onClick={onClick} activeQuery={activeQuery} isAdmin={isAdmin} onEdit={onEdit} />;
+  return <CardView vuln={vuln} onClick={onClick} activeQuery={activeQuery} />;
 }

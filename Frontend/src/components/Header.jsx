@@ -34,6 +34,8 @@ export default function Header({
   theme,
   onToggleTheme,
   currentUser = null,
+  currentPath = '/',
+  onNavigate = () => {},
   hideGoogleLogin = false,
   onGoogleLoginSuccess = () => {},
   onGoogleLoginError = () => {},
@@ -74,26 +76,59 @@ export default function Header({
       style={{ background: 'var(--bg-header)', borderColor: 'var(--border-color)' }}
     >
       <div className="max-w-[1200px] mx-auto px-6 h-[46px] flex items-center justify-between gap-3">
-        {/* Brand */}
-        <div className="flex items-center gap-2">
-          <div
-            className="w-[28px] h-[28px] rounded-[7px] flex items-center justify-center text-white flex-shrink-0 transition-colors duration-300"
-            style={{ background: 'var(--accent-blue)' }}
+        {/* Brand & Navigation */}
+        <div className="flex items-center gap-4 sm:gap-6">
+          <button
+            type="button"
+            onClick={() => onNavigate('/')}
+            className="flex items-center gap-2 border-0 bg-transparent cursor-pointer p-0 text-left"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            </svg>
-          </div>
-          <span
-            className="text-[0.9375rem] font-bold tracking-tight transition-colors duration-300"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            ThreatLens
-          </span>
-          <span className="text-[0.8125rem]" style={{ color: 'var(--text-muted)' }}>/</span>
-          <span className="text-[0.8125rem] font-normal transition-colors duration-300 hidden sm:inline" style={{ color: 'var(--text-secondary)' }}>
-            Vulnerability Search
-          </span>
+            <div
+              className="w-[28px] h-[28px] rounded-[7px] flex items-center justify-center text-white flex-shrink-0 transition-colors duration-300"
+              style={{ background: 'var(--accent-blue)' }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+            </div>
+            <span
+              className="text-[0.9375rem] font-bold tracking-tight transition-colors duration-300"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              ThreatLens
+            </span>
+          </button>
+
+          {/* Nav Tabs for Logged-In User */}
+          {currentUser && (
+            <nav className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onNavigate('/')}
+                className="h-7 px-2.5 rounded-[6px] text-xs font-semibold cursor-pointer transition-all border-0 flex items-center gap-1.5"
+                style={{
+                  background: currentPath === '/' || currentPath === '' ? 'var(--bg-badge)' : 'transparent',
+                  color: currentPath === '/' || currentPath === '' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                }}
+              >
+                <span className="text-[0.8rem]">🛡️</span>
+                <span className="hidden sm:inline">Advisories</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onNavigate('/activity')}
+                className="h-7 px-2.5 rounded-[6px] text-xs font-semibold cursor-pointer transition-all border-0 flex items-center gap-1.5"
+                style={{
+                  background: currentPath === '/activity' ? 'var(--bg-badge)' : 'transparent',
+                  color: currentPath === '/activity' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                }}
+              >
+                <span className="text-[0.8rem]">💬</span>
+                <span>User Activity</span>
+              </button>
+            </nav>
+          )}
         </div>
 
         {/* Right side controls */}
@@ -160,6 +195,34 @@ export default function Header({
                       </span>
                     </div>
                   </div>
+                  <div className="flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onNavigate('/activity');
+                      }}
+                      className="w-full py-1.5 px-2 rounded-[8px] text-xs font-semibold cursor-pointer transition-all duration-200 flex items-center gap-2 border-0 hover:bg-black/5 dark:hover:bg-white/5"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      <span>💬</span>
+                      <span>User Activity Log</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onNavigate('/');
+                      }}
+                      className="w-full py-1.5 px-2 rounded-[8px] text-xs font-semibold cursor-pointer transition-all duration-200 flex items-center gap-2 border-0 hover:bg-black/5 dark:hover:bg-white/5"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      <span>🛡️</span>
+                      <span>Advisories Search</span>
+                    </button>
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => {

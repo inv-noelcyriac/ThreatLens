@@ -176,11 +176,6 @@ export default function ActivityPage({
         const nextUpvotes = act.upvotes + (newVote === 1 ? 1 : (act.user_vote === 1 ? -1 : 0));
         const nextDownvotes = act.downvotes + (newVote === -1 ? 1 : (act.user_vote === -1 ? -1 : 0));
 
-        showToast(
-          newVote === 1 ? 'Upvoted remediation note' : (newVote === -1 ? 'Downvoted remediation note' : 'Removed vote'),
-          'info'
-        );
-
         return {
           ...act,
           score: nextScore,
@@ -213,7 +208,7 @@ export default function ActivityPage({
     );
     setEditingId(null);
     setEditText('');
-    showToast('Your annotation has been updated', 'success');
+    showToast('Your suggestion has been updated', 'success');
   };
 
   // Delete activity comment with animation
@@ -222,7 +217,7 @@ export default function ActivityPage({
     setTimeout(() => {
       setActivities((prev) => prev.filter((a) => a.id !== id));
       setDeletingIds((prev) => prev.filter((d) => d !== id));
-      showToast('Annotation deleted from your log', 'info');
+      showToast('Suggestion deleted from your log', 'info');
     }, 300);
   };
 
@@ -256,14 +251,14 @@ export default function ActivityPage({
 
         {/* User-Centric Personal Stat Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {/* Stat 1: Total Comments */}
+          {/* Stat 1: Total Suggestions */}
           <div
             className="p-3.5 rounded-[12px] border flex flex-col justify-between transition-all shadow-xs hover:border-neutral-400 dark:hover:border-neutral-600"
             style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)' }}
           >
             <div className="flex items-center justify-between">
               <span className="text-[0.75rem] font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                Total Comments
+                Total Suggestions
               </span>
               <span
                 className="text-[0.72rem] px-[8px] py-[2px] rounded-[5px] border font-medium inline-block"
@@ -335,7 +330,7 @@ export default function ActivityPage({
             <div className="flex items-baseline gap-2 mt-2">
               <span className="text-2xl font-extrabold" style={{ color: 'var(--text-primary)' }}>{stats.uniqueAdvisories}</span>
               <span className="text-[0.7rem] font-medium" style={{ color: 'var(--text-muted)' }}>
-                Distinct advisories annotated
+                Distinct advisories with suggestions
               </span>
             </div>
           </div>
@@ -353,7 +348,7 @@ export default function ActivityPage({
             type="text"
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-            placeholder="Search your annotations by CVE ID, title, or guidance text..."
+            placeholder="Search your suggestions by CVE ID, title, or guidance text..."
             className="w-full h-9 pl-9 pr-8 rounded-[8px] border text-xs transition-all outline-none"
             style={{
               background: 'var(--bg-input)',
@@ -431,13 +426,13 @@ export default function ActivityPage({
           </span>
           <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
             {userActivities.length === 0
-              ? 'No Annotations Authored Yet'
-              : 'No Matching Annotations Found'}
+              ? 'No Suggestions Authored Yet'
+              : 'No Matching Suggestions Found'}
           </h3>
           <p className="text-xs max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
             {userActivities.length === 0
-              ? 'You have not added any technical guidance or verification notes to advisories yet.'
-              : 'No personal annotations match your active search or severity filter. Try clearing your active filters.'}
+              ? 'You have not added any technical guidance or verification suggestions to advisories yet.'
+              : 'No personal suggestions match your active search or severity filter. Try clearing your active filters.'}
           </p>
           {(searchQuery || selectedSeverity !== 'ALL') && (
             <button

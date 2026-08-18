@@ -31,7 +31,7 @@ const LogOutIcon = ({ size = 14 }) => (
 );
 
 const ChevronRightIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
     <polyline points="9 18 15 12 9 6" />
   </svg>
 );
@@ -41,11 +41,11 @@ export default function Header({
   onToggleTheme,
   currentUser = null,
   currentPath = '/',
-  onNavigate = () => {},
+  onNavigate = () => { },
   hideGoogleLogin = false,
-  onGoogleLoginSuccess = () => {},
-  onGoogleLoginError = () => {},
-  onUserLogout = () => {},
+  onGoogleLoginSuccess = () => { },
+  onGoogleLoginError = () => { },
+  onUserLogout = () => { },
   isLoggingIn = false,
 }) {
   const [showUserLogoutConfirm, setShowUserLogoutConfirm] = useState(false);
@@ -146,15 +146,14 @@ export default function Header({
 
               {showUserMenu && (
                 <div
-                  className="absolute right-0 top-full mt-1.5 w-[240px] z-[150] rounded-[10px] border p-1.5 shadow-xl animate-fade-in flex flex-col gap-0.5"
+                  className="absolute right-0 top-full mt-1.5 w-[240px] z-[150] rounded-[12px] border p-2 shadow-xl animate-fade-in flex flex-col gap-1.5"
                   style={{
                     background: 'var(--bg-card)',
                     borderColor: 'var(--border-card)',
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.12)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
                   }}
                 >
-                  {/* User Profile Header */}
-                  <div className="flex items-center gap-2.5 p-2 pb-2 border-b mb-0.5" style={{ borderColor: 'var(--border-color)' }}>
+                  <div className="flex items-center gap-2.5 pb-2 border-b" style={{ borderColor: 'var(--border-color)' }}>
                     <div
                       className="w-8 h-8 rounded-full font-extrabold text-xs flex items-center justify-center shadow-xs transition-colors duration-300 flex-shrink-0"
                       style={{
@@ -174,33 +173,31 @@ export default function Header({
                     </div>
                   </div>
 
-                  {/* My activity option */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      onNavigate('/activity');
-                    }}
-                    className="w-full py-1.5 px-2.5 rounded-[6px] text-[0.8125rem] font-semibold cursor-pointer transition-all duration-200 flex items-center justify-between border-0 hover:bg-black/5 dark:hover:bg-white/5 text-left"
-                    style={{ color: 'var(--text-primary)' }}
-                  >
-                    <span>My activity</span>
-                    <ChevronRightIcon />
-                  </button>
+                  <div className="flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onNavigate('/activity');
+                      }}
+                      className="w-full py-1.5 px-2.5 rounded-[8px] text-xs font-semibold cursor-pointer transition-all duration-200 flex items-center justify-between border-0 hover:bg-black/5 dark:hover:bg-white/5 text-left"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      <span>My Activity</span>
+                      <ChevronRightIcon />
+                    </button>
+                  </div>
 
-                  <div className="h-[1px] my-0" style={{ background: 'var(--border-color)', opacity: 0.5 }} />
-
-                  {/* Sign out option */}
                   <button
                     type="button"
                     onClick={() => {
                       setShowUserMenu(false);
                       setShowUserLogoutConfirm(true);
                     }}
-                    className="w-full py-1.5 px-2.5 rounded-[6px] text-[0.8125rem] font-semibold cursor-pointer transition-all duration-200 flex items-center justify-between border-0 text-red-600 dark:text-red-400 hover:bg-red-500/10 text-left"
+                    className="w-full py-1.5 rounded-[8px] text-xs font-bold cursor-pointer transition-all duration-200 flex items-center justify-center gap-1.5 border border-red-500/30 text-red-500 dark:text-red-400 hover:bg-red-600 hover:text-white hover:border-red-600 hover:shadow-md hover:shadow-red-500/20 active:scale-[0.98]"
                   >
-                    <span>Sign out</span>
-                    <LogOutIcon size={15} />
+                    <LogOutIcon />
+                    <span>Sign Out</span>
                   </button>
                 </div>
               )}

@@ -481,6 +481,7 @@ export default function App() {
             currentUser={currentUser}
             onSelectVuln={handleSelectActivityVuln}
             showToast={showToast}
+            onNavigateHome={() => navigateTo('/')}
           />
         </main>
 

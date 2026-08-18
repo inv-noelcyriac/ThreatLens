@@ -30,6 +30,12 @@ const LogOutIcon = ({ size = 14 }) => (
   </svg>
 );
 
+const ChevronRightIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+
 export default function Header({
   theme,
   onToggleTheme,
@@ -99,36 +105,7 @@ export default function Header({
             </span>
           </button>
 
-          {/* Nav Tabs for Logged-In User */}
-          {currentUser && (
-            <nav className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => onNavigate('/')}
-                className="h-7 px-2.5 rounded-[6px] text-xs font-semibold cursor-pointer transition-all border-0 flex items-center gap-1.5"
-                style={{
-                  background: currentPath === '/' || currentPath === '' ? 'var(--bg-badge)' : 'transparent',
-                  color: currentPath === '/' || currentPath === '' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                }}
-              >
-                <span className="text-[0.8rem]">🛡️</span>
-                <span className="hidden sm:inline">Advisories</span>
-              </button>
 
-              <button
-                type="button"
-                onClick={() => onNavigate('/activity')}
-                className="h-7 px-2.5 rounded-[6px] text-xs font-semibold cursor-pointer transition-all border-0 flex items-center gap-1.5"
-                style={{
-                  background: currentPath === '/activity' ? 'var(--bg-badge)' : 'transparent',
-                  color: currentPath === '/activity' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                }}
-              >
-                <span className="text-[0.8rem]">💬</span>
-                <span>User Activity</span>
-              </button>
-            </nav>
-          )}
         </div>
 
         {/* Right side controls */}
@@ -169,14 +146,15 @@ export default function Header({
 
               {showUserMenu && (
                 <div
-                  className="absolute right-0 top-full mt-1.5 w-[250px] z-[150] rounded-[12px] border p-3.5 shadow-xl animate-fade-in flex flex-col gap-3"
+                  className="absolute right-0 top-full mt-1.5 w-[240px] z-[150] rounded-[10px] border p-1.5 shadow-xl animate-fade-in flex flex-col gap-0.5"
                   style={{
                     background: 'var(--bg-card)',
                     borderColor: 'var(--border-card)',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.12)',
                   }}
                 >
-                  <div className="flex items-center gap-2.5 pb-2 border-b" style={{ borderColor: 'var(--border-color)' }}>
+                  {/* User Profile Header */}
+                  <div className="flex items-center gap-2.5 p-2 pb-2 border-b mb-0.5" style={{ borderColor: 'var(--border-color)' }}>
                     <div
                       className="w-8 h-8 rounded-full font-extrabold text-xs flex items-center justify-center shadow-xs transition-colors duration-300 flex-shrink-0"
                       style={{
@@ -195,44 +173,34 @@ export default function Header({
                       </span>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowUserMenu(false);
-                        onNavigate('/activity');
-                      }}
-                      className="w-full py-1.5 px-2 rounded-[8px] text-xs font-semibold cursor-pointer transition-all duration-200 flex items-center gap-2 border-0 hover:bg-black/5 dark:hover:bg-white/5"
-                      style={{ color: 'var(--text-primary)' }}
-                    >
-                      <span>💬</span>
-                      <span>User Activity Log</span>
-                    </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowUserMenu(false);
-                        onNavigate('/');
-                      }}
-                      className="w-full py-1.5 px-2 rounded-[8px] text-xs font-semibold cursor-pointer transition-all duration-200 flex items-center gap-2 border-0 hover:bg-black/5 dark:hover:bg-white/5"
-                      style={{ color: 'var(--text-primary)' }}
-                    >
-                      <span>🛡️</span>
-                      <span>Advisories Search</span>
-                    </button>
-                  </div>
+                  {/* My activity option */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      onNavigate('/activity');
+                    }}
+                    className="w-full py-1.5 px-2.5 rounded-[6px] text-[0.8125rem] font-semibold cursor-pointer transition-all duration-200 flex items-center justify-between border-0 hover:bg-black/5 dark:hover:bg-white/5 text-left"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    <span>My activity</span>
+                    <ChevronRightIcon />
+                  </button>
 
+                  <div className="h-[1px] my-0" style={{ background: 'var(--border-color)', opacity: 0.5 }} />
+
+                  {/* Sign out option */}
                   <button
                     type="button"
                     onClick={() => {
                       setShowUserMenu(false);
                       setShowUserLogoutConfirm(true);
                     }}
-                    className="w-full py-1.5 rounded-[8px] text-xs font-bold cursor-pointer transition-all duration-200 flex items-center justify-center gap-1.5 border border-red-500/30 text-red-500 dark:text-red-400 hover:bg-red-600 hover:text-white hover:border-red-600 hover:shadow-md hover:shadow-red-500/20 active:scale-[0.98]"
+                    className="w-full py-1.5 px-2.5 rounded-[6px] text-[0.8125rem] font-semibold cursor-pointer transition-all duration-200 flex items-center justify-between border-0 text-red-600 dark:text-red-400 hover:bg-red-500/10 text-left"
                   >
-                    <LogOutIcon />
-                    <span>Sign Out</span>
+                    <span>Sign out</span>
+                    <LogOutIcon size={15} />
                   </button>
                 </div>
               )}

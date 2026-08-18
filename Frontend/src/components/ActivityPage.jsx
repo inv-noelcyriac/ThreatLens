@@ -2,6 +2,18 @@ import React, { useState, useMemo } from 'react';
 import { INITIAL_MOCK_ACTIVITIES, formatRelativeTime } from '../mock/activityData';
 import Pagination from './Pagination';
 
+const ThumbsUpIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+  </svg>
+);
+
+const ThumbsDownIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
+  </svg>
+);
+
 const UpvoteIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 19V5M5 12l7-7 7 7" />
@@ -28,18 +40,28 @@ const DeleteIcon = () => (
   </svg>
 );
 
-const ExternalLinkIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-    <polyline points="15 3 21 3 21 9" />
-    <line x1="10" y1="14" x2="21" y2="3" />
+const SearchIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
   </svg>
 );
 
-const PlusIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" y1="5" x2="12" y2="19" />
-    <line x1="5" y1="12" x2="19" y2="12" />
+const FileTextIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="16" y1="13" x2="8" y2="13" />
+    <line x1="16" y1="17" x2="8" y2="17" />
+    <polyline points="10 9 9 9 8 9" />
+  </svg>
+);
+
+const ExternalLinkIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    <polyline points="15 3 21 3 21 9" />
+    <line x1="10" y1="14" x2="21" y2="3" />
   </svg>
 );
 
@@ -47,69 +69,67 @@ export default function ActivityPage({
   currentUser = null,
   onSelectVuln = () => {},
   showToast = () => {},
+  onNavigateHome = () => {},
 }) {
   const [activities, setActivities] = useState(INITIAL_MOCK_ACTIVITIES);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterTab, setFilterTab] = useState('all'); // 'all', 'my', 'top', 'critical'
+  const [selectedSeverity, setSelectedSeverity] = useState('ALL'); // 'ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'
   const [sortBy, setSortBy] = useState('newest'); // 'newest', 'oldest', 'score'
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
-
-  // New Comment Modal State
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newVulnId, setNewVulnId] = useState('CVE-2024-3094');
-  const [newVulnTitle, setNewVulnTitle] = useState('XZ Utils Backdoor in liblzma upstream tarballs');
-  const [newSeverity, setNewSeverity] = useState('HIGH');
-  const [newEcosystem, setNewEcosystem] = useState('npm');
-  const [newGuidanceText, setNewGuidanceText] = useState('');
 
   // Editing Comment State
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
 
+  // Confirm Delete ID state
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
   // Deleting Comment ID state for animated exit
   const [deletingIds, setDeletingIds] = useState([]);
 
-  // Stats calculation
-  const stats = useMemo(() => {
-    const total = activities.length;
-    const highImpact = activities.filter(a => a.severity === 'CRITICAL' || a.severity === 'HIGH').length;
-    const totalScore = activities.reduce((acc, a) => acc + (a.score || 0), 0);
-    const myComments = activities.filter(a => a.is_current_user || (currentUser?.email && a.author_email === currentUser.email)).length;
-    return { total, highImpact, totalScore, myComments };
-  }, [activities, currentUser]);
-
-  // Derived current user display name
+  // Derived current user metadata
   const currentUserName = currentUser?.first_name
     ? `${currentUser.first_name} ${currentUser.last_name || ''}`.trim()
     : (currentUser?.username || currentUser?.email?.split('@')[0] || 'Devon Vance');
 
   const currentUserEmail = currentUser?.email || 'devon.v@innovaturelabs.com';
+  const currentUserRole = currentUser?.role || 'AppSec Team Lead';
 
-  // Filter and sort activities
+  // Filter activities to strictly include only comments authored by the current logged-in user
+  const userActivities = useMemo(() => {
+    return activities.filter(
+      (a) => a.is_current_user || (currentUserEmail && a.author_email === currentUserEmail)
+    );
+  }, [activities, currentUserEmail]);
+
+  // Personal Stats calculation based on logged-in user's comments
+  const stats = useMemo(() => {
+    const total = userActivities.length;
+    const reputation = userActivities.reduce((acc, a) => acc + (a.score || 0), 0);
+    const uniqueAdvisories = new Set(userActivities.map(a => a.vuln_id)).size;
+    return { total, reputation, uniqueAdvisories };
+  }, [userActivities]);
+
+  // Filter and sort user's activities
   const filteredActivities = useMemo(() => {
-    return activities.filter((act) => {
+    return userActivities.filter((act) => {
       // Search text match
       const q = searchQuery.toLowerCase().trim();
       const matchesQuery = !q || (
         act.vuln_id.toLowerCase().includes(q) ||
         act.vuln_title.toLowerCase().includes(q) ||
-        act.author_name.toLowerCase().includes(q) ||
         act.guidance_text.toLowerCase().includes(q) ||
         act.ecosystem.toLowerCase().includes(q)
       );
 
       if (!matchesQuery) return false;
 
-      // Filter tab
-      if (filterTab === 'my') {
-        return act.is_current_user || act.author_email === currentUserEmail;
-      }
-      if (filterTab === 'top') {
-        return act.score >= 15;
-      }
-      if (filterTab === 'critical') {
-        return act.severity === 'CRITICAL' || act.severity === 'HIGH';
+      // Vulnerability Severity filter
+      if (selectedSeverity !== 'ALL') {
+        if ((act.severity || '').toUpperCase() !== selectedSeverity) {
+          return false;
+        }
       }
 
       return true;
@@ -125,7 +145,7 @@ export default function ActivityPage({
       }
       return 0;
     });
-  }, [activities, searchQuery, filterTab, sortBy, currentUserEmail]);
+  }, [userActivities, searchQuery, selectedSeverity, sortBy]);
 
   // Pagination calculation
   const totalPages = Math.max(1, Math.ceil(filteredActivities.length / itemsPerPage));
@@ -135,7 +155,7 @@ export default function ActivityPage({
     return filteredActivities.slice(start, start + itemsPerPage);
   }, [filteredActivities, safePage, itemsPerPage]);
 
-  // Vote handler
+  // Vote handler for user's own comments
   const handleVote = (id, direction) => {
     setActivities((prev) =>
       prev.map((act) => {
@@ -157,7 +177,7 @@ export default function ActivityPage({
         const nextDownvotes = act.downvotes + (newVote === -1 ? 1 : (act.user_vote === -1 ? -1 : 0));
 
         showToast(
-          newVote === 1 ? 'Upvoted remediation comment' : (newVote === -1 ? 'Downvoted remediation comment' : 'Removed vote'),
+          newVote === 1 ? 'Upvoted remediation note' : (newVote === -1 ? 'Downvoted remediation note' : 'Removed vote'),
           'info'
         );
 
@@ -170,37 +190,6 @@ export default function ActivityPage({
         };
       })
     );
-  };
-
-  // Add new comment activity
-  const handleAddActivity = (e) => {
-    e.preventDefault();
-    if (!newGuidanceText.trim()) return;
-
-    const newActivity = {
-      id: `act-${Date.now()}`,
-      vuln_id: newVulnId.trim().toUpperCase() || 'CVE-2024-3094',
-      vuln_title: newVulnTitle.trim() || 'Security Advisory Comment',
-      severity: newSeverity,
-      ecosystem: newEcosystem,
-      author_name: currentUserName,
-      author_email: currentUserEmail,
-      author_role: 'Security Engineer',
-      guidance_text: newGuidanceText.trim(),
-      score: 1,
-      upvotes: 1,
-      downvotes: 0,
-      user_vote: 1,
-      is_edited: false,
-      is_current_user: true,
-      created_at: new Date().toISOString(),
-      timestamp: Date.now(),
-    };
-
-    setActivities((prev) => [newActivity, ...prev]);
-    setNewGuidanceText('');
-    setShowAddModal(false);
-    showToast('Activity comment added successfully', 'success');
   };
 
   // Start inline editing
@@ -224,7 +213,7 @@ export default function ActivityPage({
     );
     setEditingId(null);
     setEditText('');
-    showToast('Comment updated', 'success');
+    showToast('Your annotation has been updated', 'success');
   };
 
   // Delete activity comment with animation
@@ -233,92 +222,127 @@ export default function ActivityPage({
     setTimeout(() => {
       setActivities((prev) => prev.filter((a) => a.id !== id));
       setDeletingIds((prev) => prev.filter((d) => d !== id));
-      showToast('Comment activity deleted', 'info');
+      showToast('Annotation deleted from your log', 'info');
     }, 300);
   };
 
   return (
     <div className="max-w-[1200px] mx-auto px-6 py-6 flex flex-col gap-6">
-      {/* ── Page Header & Stats Summary Bar ── */}
+      {/* ── Personal User Banner & Header Bar ── */}
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <span className="text-xl">💬</span>
-              <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: 'var(--text-heading)' }}>
-                User Activity & Comment Tracking
-              </h1>
-            </div>
-            <p className="text-sm mt-1 max-w-[650px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              Track technical remediation notes, verification logs, and community comments across ThreatLens vulnerability advisories.
-            </p>
-          </div>
-
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => setShowAddModal(true)}
-            className="px-4 py-2.5 rounded-[10px] text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 shadow-sm border-0 self-start sm:self-auto active:scale-[0.98]"
+            onClick={onNavigateHome}
+            className="h-8 px-2.5 rounded-[8px] border text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all hover:opacity-80 flex-shrink-0"
             style={{
-              background: 'var(--accent-blue)',
-              color: '#ffffff',
+              background: 'var(--bg-card)',
+              borderColor: 'var(--border-card)',
+              color: 'var(--text-primary)',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--accent-blue)'; }}
+            title="Back to Advisories Search"
           >
-            <PlusIcon />
-            <span>Post Activity Note</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12" />
+              <polyline points="12 19 5 12 12 5" />
+            </svg>
+            <span>Back</span>
           </button>
+
+          <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: 'var(--text-heading)' }}>
+            My Activity
+          </h1>
         </div>
 
-        {/* Stat Cards Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* User-Centric Personal Stat Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Stat 1: Total Comments */}
           <div
-            className="p-3.5 rounded-[12px] border flex flex-col justify-between transition-all"
+            className="p-3.5 rounded-[12px] border flex flex-col justify-between transition-all shadow-xs hover:border-neutral-400 dark:hover:border-neutral-600"
             style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)' }}
           >
-            <span className="text-[0.75rem] font-medium" style={{ color: 'var(--text-muted)' }}>Total Activities</span>
-            <div className="flex items-baseline gap-2 mt-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[0.75rem] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                Total Comments
+              </span>
+              <span
+                className="text-[0.72rem] px-[8px] py-[2px] rounded-[5px] border font-medium inline-block"
+                style={{
+                  background: 'var(--bg-badge)',
+                  color: 'var(--text-secondary)',
+                  borderColor: 'var(--border-card)',
+                }}
+              >
+                Activity
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 mt-2">
               <span className="text-2xl font-extrabold" style={{ color: 'var(--text-primary)' }}>{stats.total}</span>
-              <span className="text-[0.7rem] font-semibold text-emerald-500">Live feed</span>
+              <span className="text-[0.7rem] font-medium" style={{ color: 'var(--text-muted)' }}>
+                Posted across advisories
+              </span>
             </div>
           </div>
 
+          {/* Stat 2: Net Upvotes */}
           <div
-            className="p-3.5 rounded-[12px] border flex flex-col justify-between transition-all"
+            className="p-3.5 rounded-[12px] border flex flex-col justify-between transition-all shadow-xs hover:border-neutral-400 dark:hover:border-neutral-600"
             style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)' }}
           >
-            <span className="text-[0.75rem] font-medium" style={{ color: 'var(--text-muted)' }}>High-Impact Guidance</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-extrabold text-amber-500">{stats.highImpact}</span>
-              <span className="text-[0.7rem]" style={{ color: 'var(--text-secondary)' }}>Crit / High CVEs</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[0.75rem] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                Net Upvotes
+              </span>
+              <span
+                className="text-[0.72rem] px-[8px] py-[2px] rounded-[5px] border font-medium inline-block"
+                style={{
+                  background: 'var(--bg-badge)',
+                  color: 'var(--text-secondary)',
+                  borderColor: 'var(--border-card)',
+                }}
+              >
+                Score
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-2xl font-extrabold" style={{ color: 'var(--text-primary)' }}>+{stats.reputation}</span>
+              <span className="text-[0.7rem] font-medium" style={{ color: 'var(--text-muted)' }}>
+                Upvotes earned on your notes
+              </span>
             </div>
           </div>
 
+          {/* Stat 3: Unique CVEs Covered */}
           <div
-            className="p-3.5 rounded-[12px] border flex flex-col justify-between transition-all"
+            className="p-3.5 rounded-[12px] border flex flex-col justify-between transition-all shadow-xs hover:border-neutral-400 dark:hover:border-neutral-600"
             style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)' }}
           >
-            <span className="text-[0.75rem] font-medium" style={{ color: 'var(--text-muted)' }}>Total Upvotes</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-extrabold" style={{ color: 'var(--accent-blue)' }}>+{stats.totalScore}</span>
-              <span className="text-[0.7rem]" style={{ color: 'var(--text-secondary)' }}>Reputation score</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[0.75rem] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                Unique CVEs
+              </span>
+              <span
+                className="text-[0.72rem] px-[8px] py-[2px] rounded-[5px] border font-medium inline-block"
+                style={{
+                  background: 'var(--bg-badge)',
+                  color: 'var(--text-secondary)',
+                  borderColor: 'var(--border-card)',
+                }}
+              >
+                Coverage
+              </span>
             </div>
-          </div>
-
-          <div
-            className="p-3.5 rounded-[12px] border flex flex-col justify-between transition-all"
-            style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)' }}
-          >
-            <span className="text-[0.75rem] font-medium" style={{ color: 'var(--text-muted)' }}>My Annotations</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-extrabold" style={{ color: 'var(--text-primary)' }}>{stats.myComments}</span>
-              <span className="text-[0.7rem]" style={{ color: 'var(--text-secondary)' }}>Authored by you</span>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-2xl font-extrabold" style={{ color: 'var(--text-primary)' }}>{stats.uniqueAdvisories}</span>
+              <span className="text-[0.7rem] font-medium" style={{ color: 'var(--text-muted)' }}>
+                Distinct advisories annotated
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Filters & Controls Bar ── */}
+      {/* ── Search & Tab Refinement Controls ── */}
       <div
         className="p-4 rounded-[14px] border flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 shadow-xs"
         style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)' }}
@@ -329,7 +353,7 @@ export default function ActivityPage({
             type="text"
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-            placeholder="Search activities by CVE ID, title, author, or guidance..."
+            placeholder="Search your annotations by CVE ID, title, or guidance text..."
             className="w-full h-9 pl-9 pr-8 rounded-[8px] border text-xs transition-all outline-none"
             style={{
               background: 'var(--bg-input)',
@@ -337,7 +361,9 @@ export default function ActivityPage({
               color: 'var(--text-primary)',
             }}
           />
-          <span className="absolute left-3 top-2.5 text-xs opacity-50">🔍</span>
+          <span className="absolute left-3 top-2.5 opacity-50" style={{ color: 'var(--text-primary)' }}>
+            <SearchIcon />
+          </span>
           {searchQuery && (
             <button
               type="button"
@@ -350,33 +376,27 @@ export default function ActivityPage({
           )}
         </div>
 
-        {/* Segmented Filter Tabs & Sort Dropdown */}
+        {/* Severity Filter & Sort Dropdown */}
         <div className="flex flex-wrap items-center gap-2.5 justify-between lg:justify-end">
-          {/* Tabs */}
-          <div
-            className="p-1 rounded-[8px] border flex items-center gap-1 text-xs font-semibold"
-            style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}
-          >
-            {[
-              { id: 'all', label: 'All Activity' },
-              { id: 'my', label: 'My Comments' },
-              { id: 'top', label: 'Top Voted' },
-              { id: 'critical', label: 'High Impact' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => { setFilterTab(tab.id); setCurrentPage(1); }}
-                className="px-2.5 py-1 rounded-[6px] transition-all cursor-pointer border-0"
-                style={{
-                  background: filterTab === tab.id ? 'var(--bg-card)' : 'transparent',
-                  color: filterTab === tab.id ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  boxShadow: filterTab === tab.id ? 'var(--shadow-sm)' : 'none',
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
+          {/* Severity Dropdown Filter */}
+          <div className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+            <span>Severity:</span>
+            <select
+              value={selectedSeverity}
+              onChange={(e) => { setSelectedSeverity(e.target.value); setCurrentPage(1); }}
+              className="h-8 px-2 rounded-[6px] border text-xs font-semibold outline-none cursor-pointer"
+              style={{
+                background: 'var(--bg-input)',
+                borderColor: 'var(--border-input)',
+                color: 'var(--text-primary)',
+              }}
+            >
+              <option value="ALL">All Severities</option>
+              <option value="CRITICAL">CRITICAL</option>
+              <option value="HIGH">HIGH</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="LOW">LOW</option>
+            </select>
           </div>
 
           {/* Sort Dropdown */}
@@ -400,23 +420,31 @@ export default function ActivityPage({
         </div>
       </div>
 
-      {/* ── Activity Feed List ── */}
+      {/* ── User Activity Feed List ── */}
       {filteredActivities.length === 0 ? (
         <div
           className="py-16 px-6 rounded-[14px] border text-center flex flex-col items-center gap-3"
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)' }}
         >
-          <span className="text-4xl">💬</span>
-          <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>No Activity Comments Found</h3>
-          <p className="text-xs max-w-[400px]" style={{ color: 'var(--text-secondary)' }}>
-            No comments match your active search or tab filter. Try adjusting your query or posting a new activity note.
+          <span className="opacity-40" style={{ color: 'var(--text-primary)' }}>
+            <FileTextIcon />
+          </span>
+          <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
+            {userActivities.length === 0
+              ? 'No Annotations Authored Yet'
+              : 'No Matching Annotations Found'}
+          </h3>
+          <p className="text-xs max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
+            {userActivities.length === 0
+              ? 'You have not added any technical guidance or verification notes to advisories yet.'
+              : 'No personal annotations match your active search or severity filter. Try clearing your active filters.'}
           </p>
-          {(searchQuery || filterTab !== 'all') && (
+          {(searchQuery || selectedSeverity !== 'ALL') && (
             <button
               type="button"
-              onClick={() => { setSearchQuery(''); setFilterTab('all'); }}
+              onClick={() => { setSearchQuery(''); setSelectedSeverity('ALL'); }}
               className="mt-2 px-4 py-1.5 rounded-[8px] border text-xs font-semibold cursor-pointer"
-              style={{ borderColor: 'var(--border-input)', background: 'var(--bg-secondary)', color: 'var(--accent-blue)' }}
+              style={{ borderColor: 'var(--border-input)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
             >
               Clear filters
             </button>
@@ -424,12 +452,11 @@ export default function ActivityPage({
         </div>
       ) : (
         <div className="flex flex-col gap-3.5">
-          {displayedActivities.map((act) => {
+          <hr className="border-t mb-1 transition-colors duration-300" style={{ borderColor: 'var(--border-color)' }} />
+          {displayedActivities.map((act, index) => {
             const isDeleting = deletingIds.includes(act.id);
             const isEditing = editingId === act.id;
-            const isAuthor = act.is_current_user || act.author_email === currentUserEmail;
 
-            // Get badge severity class
             const sevLower = (act.severity || 'medium').toLowerCase();
             const badgeClass = `badge-${sevLower}`;
 
@@ -437,102 +464,152 @@ export default function ActivityPage({
               <div
                 key={act.id}
                 className={`comment-item-wrapper ${isDeleting ? 'comment-item-deleting' : ''}`}
+                style={isDeleting ? { animation: 'none' } : { animation: 'var(--animate-fade-slide-in)' }}
               >
                 <div className="comment-item-inner">
                   <div
-                    className="p-4 sm:p-5 rounded-[14px] border transition-all duration-200 shadow-xs flex flex-col gap-3"
+                    className="p-4 sm:p-4.5 rounded-[12px] border transition-all duration-200 shadow-xs flex flex-col gap-2"
                     style={{
                       background: 'var(--bg-card)',
                       borderColor: 'var(--border-card)',
                     }}
                   >
-                    {/* Activity Item Header: Author Info, Timestamp, CVE & Severity */}
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      {/* Left: Author details */}
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-9 h-9 rounded-full font-bold text-xs flex items-center justify-center uppercase shadow-xs transition-colors duration-300 flex-shrink-0"
-                          style={{
-                            background: isAuthor ? 'var(--user-avatar-bg)' : 'var(--avatar-bg)',
-                            color: isAuthor ? 'var(--user-avatar-text)' : 'var(--avatar-text)',
-                          }}
-                        >
-                          {(act.author_name?.[0] || 'U').toUpperCase()}
-                        </div>
-
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
-                              {act.author_name}
-                            </span>
-                            {isAuthor && (
-                              <span
-                                className="px-1.5 py-0.5 rounded-[4px] text-[0.65rem] font-bold uppercase tracking-wider"
-                                style={{ background: 'var(--accent-blue-light)', color: 'var(--accent-blue)' }}
-                              >
-                                You
-                              </span>
-                            )}
-                            <span className="text-[0.72rem] font-medium" style={{ color: 'var(--text-muted)' }}>
-                              • {formatRelativeTime(act.timestamp)}
-                            </span>
-                            {act.is_edited && (
-                              <span className="text-[0.68rem] italic" style={{ color: 'var(--text-muted)' }}>
-                                (edited)
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[0.72rem]" style={{ color: 'var(--text-secondary)' }}>
-                            {act.author_role || act.author_email}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Right: Advisory & Severity Badges */}
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {/* Severity chip */}
-                        <span className={`px-2 py-0.5 rounded-[6px] text-[0.68rem] font-extrabold uppercase tracking-wide ${badgeClass}`}>
-                          {act.severity}
-                        </span>
-
-                        {/* CVE Button linking to advisory detail */}
+                    {/* Header: Badges & Identifiers on Left, Upvote/Downvote on Right */}
+                    <div className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+                      {/* Left Metadata */}
+                      <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                        {/* CVE Link Button */}
                         <button
                           type="button"
                           onClick={() => onSelectVuln(act.vuln_id)}
-                          className="h-6 px-2 rounded-[6px] border text-[0.72rem] font-mono font-bold flex items-center gap-1 cursor-pointer transition-all hover:opacity-80"
+                          className="h-6 px-2 rounded-[6px] border text-[0.72rem] font-mono font-bold flex items-center gap-1 cursor-pointer transition-all hover:opacity-80 flex-shrink-0"
                           style={{
                             background: 'var(--bg-secondary)',
                             borderColor: 'var(--border-input)',
-                            color: 'var(--accent-blue)',
+                            color: 'var(--text-primary)',
                           }}
                           title={`Click to view advisory details for ${act.vuln_id}`}
                         >
                           <span>{act.vuln_id}</span>
                           <ExternalLinkIcon />
                         </button>
+
+                        {/* Severity Chip */}
+                        <span className={`px-2 py-0.5 rounded-[6px] text-[0.68rem] font-extrabold uppercase tracking-wide flex-shrink-0 ${badgeClass}`}>
+                          {act.severity}
+                        </span>
+
+                        {/* Timestamp inline */}
+                        <span className="text-[0.72rem] flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
+                          {formatRelativeTime(act.timestamp)}
+                          {act.is_edited && <span className="ml-1 font-medium opacity-80">(edited)</span>}
+                        </span>
+                      </div>
+
+                      {/* Right Actions: Edit & Delete + Upvote / Downvote */}
+                      <div className="flex items-center gap-1 flex-shrink-0 flex-nowrap">
+                        {/* Inline Edit & Delete Controls */}
+                        {!isEditing && (
+                          confirmDeleteId === act.id ? (
+                            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs flex-shrink-0 animate-fade-in" style={{ background: 'var(--bg-badge)' }}>
+                              <span className="text-[0.68rem] font-medium" style={{ color: 'var(--text-secondary)' }}>
+                                Delete note?
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => { setConfirmDeleteId(null); handleDeleteActivity(act.id); }}
+                                className="px-2 py-0.5 rounded-full text-[0.65rem] font-bold cursor-pointer border-0 text-white transition-opacity hover:opacity-90 flex-shrink-0"
+                                style={{ background: '#ef4444' }}
+                              >
+                                Yes
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteId(null)}
+                                className="px-1.5 py-0.5 rounded-full text-[0.65rem] font-medium cursor-pointer border-0 bg-transparent transition-colors flex-shrink-0"
+                                style={{ color: 'var(--text-muted)' }}
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-0.5 flex-shrink-0 mr-1">
+                              <button
+                                type="button"
+                                onClick={() => handleStartEdit(act)}
+                                title="Edit note"
+                                className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent flex-shrink-0"
+                                style={{ color: 'var(--text-muted)' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-badge)'; e.currentTarget.style.color = 'var(--accent-blue)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                              >
+                                <EditIcon />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteId(act.id)}
+                                title="Delete note"
+                                className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border-0 bg-transparent flex-shrink-0"
+                                style={{ color: 'var(--text-muted)' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#ef4444'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                              >
+                                <DeleteIcon />
+                              </button>
+                            </div>
+                          )
+                        )}
+
+                        {/* Vertical Divider between Edit/Delete and Voting */}
+                        {!isEditing && (
+                          <div className="h-3.5 w-[1px] mx-1 flex-shrink-0" style={{ background: 'var(--border-color)' }} />
+                        )}
+
+                        {/* Upvote */}
+                        <button
+                          type="button"
+                          onClick={() => handleVote(act.id, 1)}
+                          title={act.user_vote === 1 ? 'Remove Upvote' : 'Upvote'}
+                          className="flex items-center justify-center gap-1 min-w-[36px] px-1.5 py-0.5 text-xs font-semibold border-0 bg-transparent cursor-pointer transition-all duration-150 whitespace-nowrap active:scale-90 active:translate-y-[1px] select-none"
+                          style={{
+                            color: act.user_vote === 1 ? '#10b981' : 'var(--text-muted)',
+                          }}
+                          onMouseEnter={e => { if (act.user_vote !== 1) e.currentTarget.style.color = '#10b981'; }}
+                          onMouseLeave={e => { if (act.user_vote !== 1) e.currentTarget.style.color = 'var(--text-muted)'; }}
+                        >
+                          <ThumbsUpIcon />
+                          <span className="tabular-nums min-w-[12px] text-center inline-block">{act.upvotes || 0}</span>
+                        </button>
+
+                        {/* Downvote */}
+                        <button
+                          type="button"
+                          onClick={() => handleVote(act.id, -1)}
+                          title={act.user_vote === -1 ? 'Remove Downvote' : 'Downvote'}
+                          className="flex items-center justify-center gap-1 min-w-[36px] px-1.5 py-0.5 text-xs font-semibold border-0 bg-transparent cursor-pointer transition-all duration-150 whitespace-nowrap active:scale-90 active:translate-y-[1px] select-none"
+                          style={{
+                            color: act.user_vote === -1 ? '#ef4444' : 'var(--text-muted)',
+                          }}
+                          onMouseEnter={e => { if (act.user_vote !== -1) e.currentTarget.style.color = '#ef4444'; }}
+                          onMouseLeave={e => { if (act.user_vote !== -1) e.currentTarget.style.color = 'var(--text-muted)'; }}
+                        >
+                          <ThumbsDownIcon />
+                          <span className="tabular-nums min-w-[12px] text-center inline-block">{act.downvotes || 0}</span>
+                        </button>
                       </div>
                     </div>
 
-                    {/* Advisory Title Context Line */}
-                    <div className="text-xs font-medium flex items-center gap-1.5 opacity-90" style={{ color: 'var(--text-secondary)' }}>
-                      <span>Ref:</span>
-                      <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{act.vuln_title}</span>
-                      <span className="text-[0.68rem] px-1.5 py-0.2 rounded" style={{ background: 'var(--bg-badge)', color: 'var(--text-muted)' }}>
-                        {act.ecosystem}
-                      </span>
-                    </div>
-
-                    {/* Guidance Text or Inline Edit Form */}
+                    {/* Body Content / Edit Textarea */}
                     {isEditing ? (
                       <div className="flex flex-col gap-2 pt-1">
                         <textarea
                           value={editText}
                           onChange={(e) => setEditText(e.target.value)}
                           rows={3}
-                          className="w-full p-2.5 rounded-[8px] border text-xs leading-relaxed outline-none resize-y"
+                          className="w-full px-3 py-2 rounded-[8px] border-[1.5px] text-xs sm:text-[0.8rem] leading-relaxed outline-none resize-y"
                           style={{
                             background: 'var(--bg-input)',
-                            borderColor: 'var(--accent-blue)',
+                            borderColor: 'var(--border-input)',
                             color: 'var(--text-primary)',
                           }}
                         />
@@ -540,15 +617,15 @@ export default function ActivityPage({
                           <button
                             type="button"
                             onClick={() => setEditingId(null)}
-                            className="px-3 py-1 rounded-[6px] text-xs font-medium border cursor-pointer"
-                            style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
+                            className="h-7 px-3 rounded-[6px] border text-xs font-semibold cursor-pointer"
+                            style={{ borderColor: 'var(--border-input)', background: 'transparent', color: 'var(--text-secondary)' }}
                           >
                             Cancel
                           </button>
                           <button
                             type="button"
                             onClick={() => handleSaveEdit(act.id)}
-                            className="px-3 py-1 rounded-[6px] text-xs font-bold text-white cursor-pointer border-0"
+                            className="h-7 px-3 rounded-[6px] border-0 text-white text-xs font-semibold cursor-pointer"
                             style={{ background: 'var(--accent-blue)' }}
                           >
                             Save Changes
@@ -556,84 +633,13 @@ export default function ActivityPage({
                         </div>
                       </div>
                     ) : (
-                      <div
-                        className="p-3 rounded-[10px] text-xs leading-relaxed transition-colors border"
-                        style={{
-                          background: 'var(--bg-secondary)',
-                          borderColor: 'var(--border-color)',
-                          color: 'var(--text-primary)',
-                        }}
+                      <p
+                        className="text-xs sm:text-[0.8rem] leading-relaxed break-words whitespace-pre-wrap"
+                        style={{ color: 'var(--text-secondary)' }}
                       >
                         {act.guidance_text}
-                      </div>
+                      </p>
                     )}
-
-                    {/* Footer Actions: Votes & Author Controls */}
-                    <div className="flex items-center justify-between gap-3 pt-1 border-t" style={{ borderColor: 'var(--border-color)' }}>
-                      {/* Vote Score Pill */}
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleVote(act.id, 1)}
-                          className="h-7 px-2 rounded-[6px] border text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
-                          style={{
-                            borderColor: act.user_vote === 1 ? 'rgba(37, 99, 235, 0.4)' : 'var(--border-color)',
-                            background: act.user_vote === 1 ? 'var(--accent-blue-light)' : 'var(--bg-secondary)',
-                            color: act.user_vote === 1 ? 'var(--accent-blue)' : 'var(--text-secondary)',
-                          }}
-                          title="Upvote guidance note"
-                        >
-                          <UpvoteIcon />
-                          <span>{act.upvotes}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleVote(act.id, -1)}
-                          className="h-7 px-2 rounded-[6px] border text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
-                          style={{
-                            borderColor: act.user_vote === -1 ? 'rgba(239, 68, 68, 0.4)' : 'var(--border-color)',
-                            background: act.user_vote === -1 ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-secondary)',
-                            color: act.user_vote === -1 ? '#ef4444' : 'var(--text-secondary)',
-                          }}
-                          title="Downvote guidance note"
-                        >
-                          <DownvoteIcon />
-                          <span>{act.downvotes}</span>
-                        </button>
-
-                        <span className="ml-1 text-[0.72rem] font-semibold" style={{ color: 'var(--text-muted)' }}>
-                          Score: <strong style={{ color: act.score >= 0 ? 'var(--text-primary)' : '#ef4444' }}>{act.score}</strong>
-                        </span>
-                      </div>
-
-                      {/* Author Edit/Delete Buttons */}
-                      {isAuthor && !isEditing && (
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleStartEdit(act)}
-                            className="h-7 px-2 rounded-[6px] border text-[0.72rem] font-medium flex items-center gap-1 cursor-pointer transition-all hover:border-blue-500 hover:text-blue-500"
-                            style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)', background: 'transparent' }}
-                            title="Edit this comment"
-                          >
-                            <EditIcon />
-                            <span>Edit</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteActivity(act.id)}
-                            className="h-7 px-2 rounded-[6px] border text-[0.72rem] font-medium flex items-center gap-1 cursor-pointer transition-all hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/30"
-                            style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)', background: 'transparent' }}
-                            title="Delete this comment"
-                          >
-                            <DeleteIcon />
-                            <span>Delete</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
                   </div>
                 </div>
               </div>
@@ -653,109 +659,6 @@ export default function ActivityPage({
         />
       )}
 
-      {/* ── Post New Activity Note Modal ── */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 animate-fade-in">
-          <div
-            className="w-full max-w-[500px] rounded-[16px] border p-6 shadow-2xl animate-fade-slide-in flex flex-col gap-4"
-            style={{
-              background: 'var(--bg-card)',
-              borderColor: 'var(--border-card)',
-            }}
-          >
-            <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border-color)' }}>
-              <div className="flex items-center gap-2">
-                <span className="text-lg">✏️</span>
-                <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Post Advisory Activity Note</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                className="text-xs opacity-60 hover:opacity-100 cursor-pointer border-0 bg-transparent"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleAddActivity} className="flex flex-col gap-3.5">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>Vulnerability ID (CVE)</label>
-                  <input
-                    type="text"
-                    required
-                    value={newVulnId}
-                    onChange={(e) => setNewVulnId(e.target.value)}
-                    placeholder="e.g. CVE-2024-3094"
-                    className="h-9 px-3 rounded-[8px] border text-xs font-mono outline-none"
-                    style={{ background: 'var(--bg-input)', borderColor: 'var(--border-input)', color: 'var(--text-primary)' }}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>Severity</label>
-                  <select
-                    value={newSeverity}
-                    onChange={(e) => setNewSeverity(e.target.value)}
-                    className="h-9 px-2.5 rounded-[8px] border text-xs font-bold outline-none cursor-pointer"
-                    style={{ background: 'var(--bg-input)', borderColor: 'var(--border-input)', color: 'var(--text-primary)' }}
-                  >
-                    <option value="CRITICAL">CRITICAL</option>
-                    <option value="HIGH">HIGH</option>
-                    <option value="MEDIUM">MEDIUM</option>
-                    <option value="LOW">LOW</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>Advisory Title / Tech Summary</label>
-                <input
-                  type="text"
-                  required
-                  value={newVulnTitle}
-                  onChange={(e) => setNewVulnTitle(e.target.value)}
-                  placeholder="e.g. XZ Utils Backdoor in liblzma upstream"
-                  className="h-9 px-3 rounded-[8px] border text-xs outline-none"
-                  style={{ background: 'var(--bg-input)', borderColor: 'var(--border-input)', color: 'var(--text-primary)' }}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>Remediation Guidance / Verification Comment</label>
-                <textarea
-                  required
-                  rows={4}
-                  value={newGuidanceText}
-                  onChange={(e) => setNewGuidanceText(e.target.value)}
-                  placeholder="Describe patch validation steps, mitigation workarounds, or deployment advice..."
-                  className="w-full p-3 rounded-[8px] border text-xs leading-relaxed outline-none resize-y"
-                  style={{ background: 'var(--bg-input)', borderColor: 'var(--border-input)', color: 'var(--text-primary)' }}
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t" style={{ borderColor: 'var(--border-color)' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 rounded-[8px] text-xs font-semibold border cursor-pointer"
-                  style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)', background: 'transparent' }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-[8px] text-xs font-bold text-white cursor-pointer border-0 shadow-sm"
-                  style={{ background: 'var(--accent-blue)' }}
-                >
-                  Post Activity Note
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

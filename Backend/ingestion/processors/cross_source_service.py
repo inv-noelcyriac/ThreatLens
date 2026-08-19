@@ -42,6 +42,7 @@ class CrossSourceService:
     Guarantees:
     - Zero data loss: Tags and references across ALL source advisories for a display_id are combined (unionized).
     - Source Precedence & Highest Severity: Severity and published_at are resolved deterministically.
+    - Vendor Precedence: Authoritative vendor updates overwrite AI-enriched placeholders.
     - Idempotency & Atomicity: All database operations for a CVE group execute inside an atomic transaction.
     """
 
@@ -78,17 +79,20 @@ class CrossSourceService:
         # 2. Resolve Earliest Published At
         earliest_published_at = cls._resolve_published_at(advisories_with_parsed)
 
-        # 3. Aggregate Tags (Union across all sources)
+        # 3. Resolve Best Description
+        vendor_description = cls._resolve_description(advisories_with_parsed)
+
+        # 4. Aggregate Tags (Union across all sources)
         aggregated_tags = cls._aggregate_tags(advisories_with_parsed)
 
-        # 4. Aggregate References (Union across all sources)
+        # 5. Aggregate References (Union across all sources)
         aggregated_references = cls._aggregate_references(advisories_with_parsed)
 
         now = timezone.now()
 
         with transaction.atomic():
-            # Step A: Upsert MasterVulnerability
-            master, created = MasterVulnerability.objects.update_or_create(
+            # Step A: Get or Create MasterVulnerability
+            master, _ = MasterVulnerability.objects.get_or_create(
                 display_id=display_id,
                 defaults={
                     "severity": best_severity,
@@ -97,13 +101,36 @@ class CrossSourceService:
                 },
             )
 
-            # Step B: Sync Aggregated Tags (Deduplicated Union)
+            # Update core vendor metadata
+            master.severity = best_severity
+            master.published_at = earliest_published_at or now
+            master.meilisearch_synced = False
+
+            # Step B: Apply Vendor Description Overwrite Rule & Rejection Detection
+            rej_keywords = ["rejected or withdrawn", "rejected reason", "** reject **", "issued in error"]
+            if vendor_description:
+                if any(kw in vendor_description.lower() for kw in rej_keywords):
+                    master.is_hidden = True
+                    master.is_ai_enriched = False
+                else:
+                    # If existing record was enriched by AI, replace AI description with vendor data
+                    if master.is_ai_enriched and isinstance(master.ai_enriched_fields, dict):
+                        master.ai_enriched_fields.pop("description", None)
+                        if not master.ai_enriched_fields:
+                            master.is_ai_enriched = False
+                    
+                    if hasattr(master, "description"):
+                        master.description = vendor_description
+
+            master.save()
+
+            # Step C: Sync Aggregated Tags (Deduplicated Union + AI Tag Replacement)
             cls._sync_tags(master, aggregated_tags)
 
-            # Step C: Sync Aggregated References (Deduplicated Union)
+            # Step D: Sync Aggregated References (Deduplicated Union)
             cls._sync_references(master, aggregated_references)
 
-            # Step D: Stamp normalized_at on all advisories in this group
+            # Step E: Stamp normalized_at on all advisories in this group
             for advisory, _ in advisories_with_parsed:
                 advisory.normalized_at = now
                 advisory.save(update_fields=["normalized_at"])
@@ -158,6 +185,28 @@ class CrossSourceService:
         return min(valid_dates) if valid_dates else None
 
     @classmethod
+    def _resolve_description(
+        cls, advisories_with_parsed: list[tuple[SourceAdvisory, NormalizedVulnerability]]
+    ) -> str | None:
+        """
+        Resolves description from vendor advisories using source priority precedence.
+        """
+        best_desc = None
+        best_src_rank = -1
+
+        for advisory, parsed in advisories_with_parsed:
+            desc = (parsed.description or "").strip() if hasattr(parsed, "description") else ""
+            if not desc:
+                continue
+
+            src_rank = SOURCE_PRIORITY.get(advisory.source.lower(), 0)
+            if src_rank > best_src_rank:
+                best_src_rank = src_rank
+                best_desc = desc
+
+        return best_desc
+
+    @classmethod
     def _aggregate_tags(
         cls, advisories_with_parsed: list[tuple[SourceAdvisory, NormalizedVulnerability]]
     ) -> list[NormalizedTag]:
@@ -204,8 +253,12 @@ class CrossSourceService:
     def _sync_tags(cls, master: MasterVulnerability, tags: list[NormalizedTag]) -> None:
         """
         Safely upserts tags for the MasterVulnerability.
-        Preserves existing tags from other sources and upserts non-duplicate tags.
+        Replaces AI-enriched placeholder tags when authoritative vendor tags arrive.
         """
+        if tags:
+            # Authoritative vendor tags arrived: clear out any AI-enriched placeholder tags
+            VulnerabilityTag.objects.filter(master_vuln=master, is_ai_enriched=True).delete()
+
         for tag in tags:
             tech_clean = str(tag.tech_name or "unknown").strip()[:99]
             eco_clean = str(tag.ecosystem or "generic").strip()[:99]
@@ -221,6 +274,7 @@ class CrossSourceService:
                 defaults={
                     "introduced_version": intro_clean,
                     "fixed_version": fixed_clean,
+                    "is_ai_enriched": False,  # Vendor-provided tags are authoritative
                 },
             )
 

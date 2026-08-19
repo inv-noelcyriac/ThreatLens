@@ -111,6 +111,9 @@ class MasterVulnerability(models.Model):
         help_text="If checked, this vulnerability will be hidden from the public API."
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    is_ai_enriched = models.BooleanField(default=False, db_index=True)
+    ai_enriched_fields = models.JSONField(default=dict, blank=True)
+    # Stores metadata e.g. {"description": {"enriched_at": "2026-08-17", "confidence": 0.95}}
 
     class Meta:
         db_table = 'master_vulnerabilities'
@@ -133,7 +136,7 @@ class VulnerabilityTag(models.Model):
     # Increased from 100 to 512 — CPE strings and complex
     # version expressions regularly exceed 100 characters.
     raw_version_expression = models.CharField(max_length=512, null=True, blank=True)
-
+    is_ai_enriched = models.BooleanField(default=False, db_index=True)
     class Meta:
         db_table = 'vulnerability_tags'
         constraints = [

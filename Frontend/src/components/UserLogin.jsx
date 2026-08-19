@@ -123,34 +123,27 @@ const SEV_COLORS = {
 };
 
 // Inline ghost card (no absolute positioning — used inside marquee strips)
-function GhostCard({ vuln, theme }) {
-  const isDark = theme === 'dark';
+function GhostCard({ vuln }) {
   const sevKey = (vuln.severity || 'MEDIUM').toUpperCase();
   const sev = SEV_COLORS[sevKey] || SEV_COLORS.MEDIUM;
-
-  const cardBg    = isDark ? 'rgba(22,23,29,0.88)'    : 'rgba(255,255,255,0.88)';
-  const borderCol = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.13)';
-  const headingCol   = isDark ? 'rgba(255,255,255,0.88)' : 'rgba(0,0,0,0.78)';
-  const secondaryCol = isDark ? 'rgba(255,255,255,0.58)' : 'rgba(0,0,0,0.52)';
-  const badgeBg      = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.06)';
-  const badgeBorder  = isDark ? 'rgba(255,255,255,0.15)'  : 'rgba(0,0,0,0.12)';
 
   return (
     <div
       className="flex-shrink-0 pointer-events-none select-none rounded-[12px] border"
       style={{
         width: '220px',
-        background: cardBg,
-        borderColor: borderCol,
+        background: 'var(--ghost-card-bg)',
+        borderColor: 'var(--ghost-card-border)',
         padding: '10px 14px',
-        boxShadow: isDark ? '0 8px 28px rgba(0,0,0,0.55)' : '0 4px 20px rgba(0,0,0,0.14)',
+        boxShadow: 'var(--ghost-card-shadow)',
+        contain: 'layout',
       }}
     >
       {/* Ecosystem badge */}
       <div className="mb-1.5">
         <span
           className="text-[0.62rem] font-medium px-2 py-0.5 rounded-[4px] border"
-          style={{ background: badgeBg, borderColor: badgeBorder, color: secondaryCol }}
+          style={{ background: 'var(--ghost-card-badge-bg)', borderColor: 'var(--ghost-card-badge-border)', color: 'var(--ghost-card-secondary)' }}
         >
           ecosystem: {vuln.ecosystem}
         </span>
@@ -159,7 +152,7 @@ function GhostCard({ vuln, theme }) {
       {/* CVE ID */}
       <div
         className="text-[0.85rem] font-bold mb-0.5 truncate"
-        style={{ color: headingCol, fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace" }}
+        style={{ color: 'var(--ghost-card-heading)', fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace" }}
       >
         {vuln.id}
       </div>
@@ -168,7 +161,7 @@ function GhostCard({ vuln, theme }) {
       <div
         className="text-[0.72rem] leading-snug mb-2"
         style={{
-          color: secondaryCol,
+          color: 'var(--ghost-card-secondary)',
           display: '-webkit-box',
           WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical',
@@ -184,20 +177,20 @@ function GhostCard({ vuln, theme }) {
           className="flex-1 px-2 py-1 rounded-[6px]"
           style={{ background: sev.bg, border: `1px solid ${sev.border}` }}
         >
-          <div className="text-[0.56rem] uppercase tracking-widest font-semibold" style={{ color: secondaryCol }}>severity</div>
+          <div className="text-[0.56rem] uppercase tracking-widest font-semibold" style={{ color: 'var(--ghost-card-secondary)' }}>severity</div>
           <div className="text-[0.75rem] font-bold uppercase" style={{ color: sev.text }}>{sevKey}</div>
         </div>
         <div
           className="px-2 py-1 rounded-[6px] border min-w-[52px]"
-          style={{ background: badgeBg, borderColor: badgeBorder }}
+          style={{ background: 'var(--ghost-card-badge-bg)', borderColor: 'var(--ghost-card-badge-border)' }}
         >
-          <div className="text-[0.56rem] uppercase tracking-widest" style={{ color: secondaryCol }}>cvss</div>
-          <div className="text-[0.75rem] font-bold" style={{ color: headingCol }}>{vuln.cvss}</div>
+          <div className="text-[0.56rem] uppercase tracking-widest" style={{ color: 'var(--ghost-card-secondary)' }}>cvss</div>
+          <div className="text-[0.75rem] font-bold" style={{ color: 'var(--ghost-card-heading)' }}>{vuln.cvss}</div>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between text-[0.62rem]" style={{ color: secondaryCol }}>
+      <div className="flex items-center justify-between text-[0.62rem]" style={{ color: 'var(--ghost-card-secondary)' }}>
         <span className="truncate">source: {vuln.source}</span>
         <span className="flex-shrink-0">{vuln.date}</span>
       </div>
@@ -206,7 +199,7 @@ function GhostCard({ vuln, theme }) {
 }
 
 // Horizontal marquee strip — direction: 'right' | 'left'
-function MarqueeStrip({ vulns, direction, theme }) {
+function MarqueeStrip({ vulns, direction }) {
   // Duplicate for seamless loop: animation moves exactly 50% of total width.
   // IMPORTANT: use marginRight (not gap) so each copy has a trailing space,
   // making both halves exactly equal width — no seam jump at loop boundary.
@@ -215,11 +208,9 @@ function MarqueeStrip({ vulns, direction, theme }) {
     <div style={{
       overflow: 'hidden',
       width: '100%',
-      /* Promote the clipping container to its own GPU layer so the
-         inner animation never triggers a main-thread repaint */
-      transform: 'translateZ(0)',
-      isolation: 'isolate',
-      perspective: '1000px',
+      /* Single compositor layer for the clip container — no 3D context
+         so Firefox doesn't composite each child card separately */
+      contain: 'layout paint',
     }}>
       <div
         style={{
@@ -228,15 +219,11 @@ function MarqueeStrip({ vulns, direction, theme }) {
           animation: `marquee-${direction} 65s linear infinite`,
           opacity: 0.85,
           willChange: 'transform',
-          transform: 'translateZ(0)',
-          backfaceVisibility: 'hidden',
-          WebkitBackfaceVisibility: 'hidden',
-          transformStyle: 'preserve-3d',
         }}
       >
         {items.map((vuln, i) => (
           <div key={i} style={{ marginRight: '16px', flexShrink: 0 }}>
-            <GhostCard vuln={vuln} theme={theme} />
+            <GhostCard vuln={vuln} />
           </div>
         ))}
       </div>
@@ -245,9 +232,7 @@ function MarqueeStrip({ vulns, direction, theme }) {
 }
 
 // Floating ghost vulnerability cards background
-function BackgroundVulnCards({ theme }) {
-  const isDark = theme === 'dark';
-
+function BackgroundVulnCards() {
   // Use all cards for both strips — wider coverage on large displays
   const topVulns    = MOCK_VULNS;
   const bottomVulns = [...MOCK_VULNS].reverse();
@@ -258,8 +243,7 @@ function BackgroundVulnCards({ theme }) {
       <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <pattern id="dot-grid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-            <circle cx="1" cy="1" r="1"
-              fill={isDark ? 'rgba(96,165,250,0.08)' : 'rgba(37,99,235,0.06)'} />
+            <circle cx="1" cy="1" r="1" fill="var(--ghost-grid-dot)" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#dot-grid)" />
@@ -269,37 +253,31 @@ function BackgroundVulnCards({ theme }) {
       <div className="absolute w-[500px] h-[500px] rounded-full"
         style={{
           top: '-5%', left: '-10%',
-          background: isDark
-            ? 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)'
-            : 'radial-gradient(circle, rgba(37,99,235,0.06) 0%, transparent 70%)',
+          background: 'var(--ghost-glow-top)',
         }}
       />
       <div className="absolute w-[400px] h-[400px] rounded-full"
         style={{
           bottom: '-5%', right: '-5%',
-          background: isDark
-            ? 'radial-gradient(circle, rgba(239,68,68,0.06) 0%, transparent 70%)'
-            : 'radial-gradient(circle, rgba(220,38,38,0.04) 0%, transparent 70%)',
+          background: 'var(--ghost-glow-bottom)',
         }}
       />
 
       {/* Top strip — scrolls right — sits in top ~22% of viewport */}
       <div className="absolute left-0 right-0" style={{ top: '10%' }}>
-        <MarqueeStrip vulns={topVulns} direction="right" theme={theme} />
+        <MarqueeStrip vulns={topVulns} direction="right" />
       </div>
 
       {/* Bottom strip — scrolls left — sits in bottom ~22% of viewport */}
       <div className="absolute left-0 right-0" style={{ bottom: '10%' }}>
-        <MarqueeStrip vulns={bottomVulns} direction="left" theme={theme} />
+        <MarqueeStrip vulns={bottomVulns} direction="left" />
       </div>
 
       {/* Centre radial fade — masks cards behind the login panel */}
       <div
         className="absolute inset-0"
         style={{
-          background: isDark
-            ? 'radial-gradient(ellipse 55% 50% at 50% 50%, rgba(13,14,17,0.82) 0%, transparent 100%)'
-            : 'radial-gradient(ellipse 55% 50% at 50% 50%, rgba(238,240,246,0.85) 0%, transparent 100%)',
+          background: 'var(--ghost-center-mask)',
         }}
       />
     </div>
@@ -326,7 +304,7 @@ export default function UserLogin({
       }}
     >
       {/* Animated ghost vuln cards background */}
-      <BackgroundVulnCards theme={theme} />
+      <BackgroundVulnCards />
 
       {/* Floating theme toggle — top-right corner */}
       <button
@@ -347,7 +325,7 @@ export default function UserLogin({
       {/* Main Login Card — always centred by grid on the outer wrapper */}
       <main className="relative z-10 w-full flex items-center justify-center px-4">
         <div
-          className="w-full max-w-[420px] rounded-[16px] border p-8 sm:p-9 shadow-2xl transition-all duration-300 animate-fade-in flex flex-col items-center text-center gap-5"
+          className="w-full max-w-[420px] rounded-[16px] border p-8 sm:p-9 shadow-2xl flex flex-col items-center text-center gap-5"
           style={{
             background: 'var(--bg-card)',
             borderColor: 'var(--border-card)',

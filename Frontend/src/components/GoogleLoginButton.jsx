@@ -108,7 +108,6 @@ export default function GoogleLoginButton({
             style={{ colorScheme: activeThemeMode === 'dark' ? 'dark' : 'light' }}
           >
             <GoogleLogin
-              key={googleButtonTheme}
               onSuccess={handleGoogleSuccess}
               onError={handleGoogleError}
               useOneTap={false}

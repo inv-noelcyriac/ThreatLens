@@ -273,7 +273,7 @@ class BaseIngestionTask:
 def is_worker_running(source_name: str) -> bool:
     """
     Checks if an ingestion run for the given source is active.
-    
+
     1. If DatabaseError is raised, an active Python process currently holds the lock -> return True (skip).
     2. If lock acquisition succeeds and a 'RUNNING' record exists, it means the previous process died.
        We immediately mark it as FAILED and return False (run immediately).
@@ -374,33 +374,86 @@ def run_docker_ingestion():
 
 
 # =============================================================================
-# NORMALIZATION & SEARCH SYNC PIPELINE ENTRYPOINT
+# NORMALIZATION, ENRICHMENT & SEARCH SYNC PIPELINE ENTRYPOINT
 # =============================================================================
 
 def run_normalization_pipeline():
     """
     Executes sequentially:
-    1. Relational DB Normalization (python manage.py normalize_vault)
-    2. Meilisearch Index Batch Sync (python manage.py sync_meilisearch)
+    1. Relational DB Cross-Source Normalization (python manage.py normalize_cross_source)
+    2. AI-Assisted Field Enrichment (python manage.py enrich_vulnerabilities_ai)
+    3. Meilisearch Index Batch Sync (python manage.py sync_meilisearch)
     """
-    logger.info("[APSCHEDULER] Starting Normalization & Meilisearch Sync Pipeline...")
+    logger.info("[APSCHEDULER] Starting Normalization, AI Enrichment & Sync Pipeline...")
 
-    # Step 1: Normalize database records
+    # Step 1: Normalize raw source advisory records into MasterVulnerability with cross-source tag aggregation
     try:
-        logger.info("[APSCHEDULER] Step 1/2: Running database normalization...")
-        call_command("normalize_vault")
-        logger.info("[APSCHEDULER] Database normalization completed successfully!")
+        logger.info("[APSCHEDULER] Step 1/3: Running cross-source database normalization...")
+        call_command("normalize_cross_source")
+        logger.info("[APSCHEDULER] Cross-source database normalization completed successfully!")
     except Exception as e:
-        logger.error(f"[APSCHEDULER] Database normalization failed: {e}", exc_info=True)
+        logger.error(f"[APSCHEDULER] Cross-source database normalization failed: {e}", exc_info=True)
         return "FAILED_NORMALIZATION"
 
-    # Step 2: Sync normalized MasterVulnerability records to Meilisearch
+    # Step 2: Immediate Meilisearch Index Sync (Unblocks search UI with baseline data instantly)
     try:
-        logger.info("[APSCHEDULER] Step 2/2: Triggering Meilisearch index sync...")
+        logger.info("[APSCHEDULER] Step 2/3: Triggering immediate Meilisearch index sync...")
         call_command("sync_meilisearch", batch_size=1000)
-        logger.info("[APSCHEDULER] Meilisearch index sync completed successfully!")
+        logger.info("[APSCHEDULER] Initial Meilisearch index sync completed successfully!")
     except Exception as e:
         logger.error(f"[APSCHEDULER] Meilisearch index sync failed: {e}", exc_info=True)
         return "FAILED_MEILISEARCH_SYNC"
 
+    # Step 3: Decoupled AI Field Enrichment & Re-Sync (Runs asynchronously without blocking search)
+    try:
+        logger.info("[APSCHEDULER] Step 3/3: Running background AI-assisted field enrichment (last 24h incoming)...")
+        call_command("enrich_vulnerabilities_ai", limit=50, hours=24)
+        # Re-sync any newly AI-enriched records to Meilisearch
+        call_command("sync_meilisearch", batch_size=1000)
+        logger.info("[APSCHEDULER] Background AI enrichment and re-sync completed successfully!")
+    except Exception as e:
+        logger.warning(
+            f"[APSCHEDULER] Background AI enrichment phase encountered an error (search remains fully functional): {e}",
+            exc_info=True,
+        )
+
+    return "SUCCESS"
+
+
+# =============================================================================
+# CONSOLIDATED MASTER DAILY PIPELINE ENTRYPOINT
+# =============================================================================
+
+def run_full_daily_pipeline():
+    """
+    Consolidated master daily workflow:
+    1. Runs all ingestion tasks sequentially (NVD -> GHSA -> OSV -> AWS -> Docker).
+    2. Runs normalization, AI enrichment & Meilisearch sync pipeline immediately after ingestions complete.
+    """
+    logger.info("=== [MASTER PIPELINE] STARTING FULL DAILY PIPELINE EXECUTION ===")
+
+    ingestion_sequence = [
+        ("NVD", run_nvd_ingestion),
+        ("GHSA", run_ghsa_ingestion),
+        ("OSV", run_osv_ingestion),
+        ("AWS", run_aws_ingestion),
+        ("Docker", run_docker_ingestion),
+    ]
+
+    for source_name, task_func in ingestion_sequence:
+        try:
+            logger.info(f"=== [MASTER PIPELINE] Executing {source_name} Ingestion ===")
+            result = task_func()
+            logger.info(f"=== [MASTER PIPELINE] {source_name} Ingestion status: {result} ===")
+        except Exception as e:
+            logger.error(
+                f"=== [MASTER PIPELINE] {source_name} Ingestion failed with unhandled error: {e} ===",
+                exc_info=True,
+            )
+
+    logger.info("=== [MASTER PIPELINE] All ingestions finished. Starting Normalization & Sync Pipeline ===")
+    norm_status = run_normalization_pipeline()
+    logger.info(f"=== [MASTER PIPELINE] Normalization & Sync status: {norm_status} ===")
+
+    logger.info("=== [MASTER PIPELINE] FULL DAILY PIPELINE EXECUTION FINISHED ===")
     return "SUCCESS"

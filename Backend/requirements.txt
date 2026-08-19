@@ -42,3 +42,5 @@ pytz==2026.6.post1
 meilisearch==0.4.2
 djangorestframework-simplejwt==5.5.1
 google-auth==2.56.2
+groq==1.6.0
+mistralai==2.9.3

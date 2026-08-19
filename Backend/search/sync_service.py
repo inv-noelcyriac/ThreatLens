@@ -152,12 +152,13 @@ def parse_raw_payload(raw_payload) -> dict:
     if not isinstance(raw_payload, dict):
         return {"descriptions": descriptions, "vendor_remediations": remediations}
 
-    # --- 1. Extract Descriptions ---
-    # OSV / GHSA Format
+    # OSV / GHSA / AWS Format
     if raw_payload.get("details"):
         descriptions.append(str(raw_payload["details"]))
     elif raw_payload.get("summary"):
         descriptions.append(str(raw_payload["summary"]))
+    elif raw_payload.get("description") and isinstance(raw_payload["description"], str):
+        descriptions.append(str(raw_payload["description"]))
 
     # NVD CVE Format (handles both 'cve' and 'CVE' keys)
     cve_node = raw_payload.get("cve") or raw_payload.get("CVE") or {}
@@ -169,52 +170,6 @@ def parse_raw_payload(raw_payload) -> dict:
         for d in raw_payload["descriptions"]:
             if isinstance(d, dict) and d.get("value"):
                 descriptions.append(str(d["value"]))
-
-    # --- 2. Extract Vendor Remediations / Fix Info ---
-    # Check if admin manually saved a vendor remediation note
-    if raw_payload.get("custom_vendor_remediation"):
-        remediations.append(str(raw_payload["custom_vendor_remediation"]))
-
-    affected_list = []
-    if isinstance(cve_node, dict) and "affected" in cve_node:
-        affected_list = cve_node.get("affected", [])
-    elif "affected" in raw_payload and isinstance(raw_payload["affected"], list):
-        affected_list = raw_payload["affected"]
-
-    if isinstance(affected_list, list):
-        for item in affected_list:
-            if not isinstance(item, dict):
-                continue
-            product_targets = item.get("affectedData", [item]) if "affectedData" in item else [item]
-            for target in product_targets:
-                if not isinstance(target, dict):
-                    continue
-                ranges = target.get("ranges", [])
-                if isinstance(ranges, list):
-                    for r in ranges:
-                        if not isinstance(r, dict):
-                            continue
-                        events = r.get("events", [])
-                        if isinstance(events, list):
-                            for event in events:
-                                if isinstance(event, dict) and "fixed" in event:
-                                    pkg_info = target.get("package", {})
-                                    pkg_name = (
-                                        pkg_info.get("name")
-                                        if isinstance(pkg_info, dict)
-                                        else target.get("product") or target.get("packageName") or "package"
-                                    )
-                                    remediations.append(f"Upgrade {pkg_name} to fixed version: {event['fixed']}")
-
-                versions = target.get("versions", [])
-                if isinstance(versions, list):
-                    for v in versions:
-                        if not isinstance(v, dict):
-                            continue
-                        fixed_val = v.get("lessThan") or v.get("lessThanOrEqual")
-                        if fixed_val and str(fixed_val).strip() not in ("*", ""):
-                            pkg_name = target.get("packageName") or target.get("product") or "package"
-                            remediations.append(f"Upgrade {pkg_name} to fixed version: {fixed_val}")
 
     return {
         "descriptions": list(dict.fromkeys(descriptions)),

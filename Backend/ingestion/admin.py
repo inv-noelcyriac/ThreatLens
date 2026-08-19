@@ -21,7 +21,7 @@ from ingestion.forms import (
     ManualRemediationForm,
 )
 from django.contrib import admin
-admin.site.site_url = "http://10.10.13.83:5173/"  # Or your frontend app URL
+admin.site.site_url = None  # Removes the VIEW SITE button from admin header (decoupled API setup)
 
 # 1. Changes the header text on the login page and top of admin pages (e.g., replaces "Django administration")
 admin.site.site_header = "ThreatLens Administration"

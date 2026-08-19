@@ -162,23 +162,58 @@ class PrimaryGeneratorClient:
 class SecondaryJudgeClient:
     """
     Model B (LLM-as-a-Judge Verifier):
-    Uses Mistral API (mistral-small-latest) as an independent verifier
-    to confirm factual grounding and prevent hallucinations.
+    Uses Mistral API (mistral-small-latest) as primary verifier.
+    If Mistral encounters an error (e.g. 503 Service Unavailable), automatically
+    fails over to OpenRouter (openrouter/free dynamic pool) for high availability.
     """
 
     def __init__(self):
-        self.api_key = os.environ.get("MISTRAL_API_KEY")
-        self.model = "mistral-small-latest"
-        self.client = Mistral(api_key=self.api_key) if self.api_key else None
+        self.mistral_key = os.environ.get("MISTRAL_API_KEY")
+        self.openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+        self.mistral_model = "mistral-small-latest"
+        self.mistral_client = Mistral(api_key=self.mistral_key) if self.mistral_key else None
+
+    def _verify_with_openrouter(self, prompt: str) -> dict:
+        """Fallback judge execution using OpenRouter dynamic free pool."""
+        if not self.openrouter_key:
+            logger.warning("[AI Judge Fallback] OPENROUTER_API_KEY missing. Cannot execute fallback verification.")
+            return {"is_grounded": False, "confidence": 0.0, "reasoning": "Missing OpenRouter API key for fallback judge"}
+
+        headers = {
+            "Authorization": f"Bearer {self.openrouter_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": "openrouter/free",
+            "messages": [{"role": "user", "content": prompt}],
+            "response_format": {"type": "json_object"},
+        }
+        try:
+            logger.info("[AI Judge] Executing Fallback Judge via OpenRouter (openrouter/free)...")
+            res = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=20)
+            if res.status_code == 200:
+                data = res.json()
+                content = data["choices"][0]["message"]["content"]
+                result = json.loads(content)
+                model_used = data.get("model", "openrouter/free")
+                logger.info(f"[AI Judge Fallback] Successfully verified using OpenRouter ({model_used})")
+                return result
+            else:
+                err_msg = f"OpenRouter API returned HTTP {res.status_code}: {res.text[:200]}"
+                logger.error(f"[AI Judge Fallback Error] {err_msg}")
+                return {"is_grounded": False, "confidence": 0.0, "reasoning": err_msg}
+        except Exception as e:
+            logger.error(f"[AI Judge Fallback Exception] OpenRouter verification failed: {str(e)}")
+            return {"is_grounded": False, "confidence": 0.0, "reasoning": str(e)}
 
     def verify_grounding(self, raw_context: str, generated_candidates: dict) -> dict:
         """
         Evaluates Model A's candidates against original source text.
-        Returns dict: {"is_grounded": bool, "confidence": float, "reasoning": str}
+        Primary: Mistral API -> Fallback: OpenRouter (openrouter/free).
         """
-        if not self.client:
-            logger.warning("[AI Judge] MISTRAL_API_KEY missing. Returning unverified state.")
-            return {"is_grounded": False, "confidence": 0.0, "reasoning": "Missing Mistral API key"}
+        if not self.mistral_client and not self.openrouter_key:
+            logger.warning("[AI Judge] Neither MISTRAL_API_KEY nor OPENROUTER_API_KEY found. Returning unverified state.")
+            return {"is_grounded": False, "confidence": 0.0, "reasoning": "Missing Judge API keys"}
 
         prompt = f"""
                     Original Advisory Context:
@@ -199,15 +234,20 @@ class SecondaryJudgeClient:
                         "reasoning": "<short string justification of pass or failure>"
                     }}
                     """
-        try:
-            response = self.client.chat.complete(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"},
-            )
-            raw_content = response.choices[0].message.content
-            return json.loads(raw_content) if raw_content else {"is_grounded": False, "confidence": 0.0, "reasoning": "Empty judge response"}
 
-        except Exception as e:
-            logger.error(f"[AI Judge Error] Mistral API execution failed: {str(e)}")
-            return {"is_grounded": False, "confidence": 0.0, "reasoning": str(e)}
+        # Step 1: Try Primary Judge (Mistral) if available
+        if self.mistral_client:
+            try:
+                response = self.mistral_client.chat.complete(
+                    model=self.mistral_model,
+                    messages=[{"role": "user", "content": prompt}],
+                    response_format={"type": "json_object"},
+                )
+                raw_content = response.choices[0].message.content
+                if raw_content:
+                    return json.loads(raw_content)
+            except Exception as e:
+                logger.warning(f"[AI Judge Primary Failed] Mistral API execution failed: {str(e)}. Triggering OpenRouter Fallback Judge...")
+
+        # Step 2: Fallback Judge (OpenRouter openrouter/free pool)
+        return self._verify_with_openrouter(prompt)

@@ -13,12 +13,23 @@ class Command(BaseCommand):
             default=1000,
             help='Number of records to sync per batch'
         )
+        parser.add_argument(
+            '--force',
+            action='store_true',
+            help='Force re-syncing all records from PostgreSQL to Meilisearch even if already marked as synced.'
+        )
 
     def handle(self, *args, **options):
         self.stdout.write("Configuring Meilisearch index settings...")
         configure_vulnerabilities_index()
         
         batch_size = options['batch_size']
+        force = options['force']
+
+        if force:
+            self.stdout.write(self.style.WARNING("Force flag set: Resetting meilisearch_synced status on all records..."))
+            MasterVulnerability.objects.all().update(meilisearch_synced=False)
+
         self.stdout.write(self.style.WARNING(f"Starting Meilisearch batch sync (Batch Size: {batch_size})..."))
         
         result = run_meilisearch_batch_sync(MasterVulnerability, batch_size=batch_size)

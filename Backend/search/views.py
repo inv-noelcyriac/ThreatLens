@@ -109,6 +109,29 @@ def escape_filter_val(value: str) -> str:
     return value.replace("'", "''")
 
 
+# Fields kept in list/search responses (dashboard card view).
+_LIST_FIELDS = {
+    "display_id",
+    "severity",
+    "descriptions",
+    "cvss_score",
+    "published_at",
+    "source",
+    "filter_ecosystems",
+    "vendor_remediations",
+}
+
+
+def slim_hit(hit: dict) -> dict:
+    """Returns only the fields required by the dashboard list card.
+
+    Heavy fields (references, affected_components, filter_comp_matrix,
+    vulnerable_components, filter_tech_names, severity_score, id, …)
+    are intentionally excluded to keep the payload small.
+    """
+    return {k: v for k, v in hit.items() if k in _LIST_FIELDS}
+
+
 def parse_multi_value_param(request, param_name: str, uppercase: bool = False) -> list[str]:
     """Extracts query parameter values supporting both repeated keys and comma-separated strings."""
     raw_list = request.GET.getlist(param_name)
@@ -187,7 +210,7 @@ class MasterVulnerabilityListView(APIView):
                     "page": page,
                     "hitsPerPage": limit,
                     "sort": sort_params,
-                    "filter": "is_hidden = false",
+                    "filter": "NOT is_hidden = true",
                 },
             )
 
@@ -214,7 +237,7 @@ class MasterVulnerabilityListView(APIView):
                     formatted_hit["published_at"] = format_timestamp(
                         formatted_hit["published_at"], fmt="%d-%m-%Y"
                     )
-                formatted_hits.append(formatted_hit)
+                formatted_hits.append(slim_hit(formatted_hit))
 
             return Response(
                 {
@@ -286,7 +309,7 @@ class VulnerabilitySearchView(APIView):
         raw_sort_param = request.GET.get("sort", "published_at:desc")
         sort_params = parse_sort_params(raw_sort_param)
 
-        filters = ["is_hidden = false"]
+        filters = ["NOT is_hidden = true"]
         
         if ecosystems:
             escaped_eco = [f"'{escape_filter_val(v)}'" for v in ecosystems]
@@ -363,7 +386,7 @@ class VulnerabilitySearchView(APIView):
                     formatted_hit["published_at"] = format_timestamp(
                         formatted_hit["published_at"], fmt="%d-%m-%Y"
                     )
-                formatted_hits.append(formatted_hit)
+                formatted_hits.append(slim_hit(formatted_hit))
 
             return Response(
                 {

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 
-const GoogleGIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" className="flex-shrink-0">
+const GoogleGIcon = ({ size = 22 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" className="flex-shrink-0">
     <path
       fill="#4285F4"
       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -31,6 +31,7 @@ export default function GoogleLoginButton({
   text = 'continue_with',
   width = undefined,
   theme = undefined,
+  variant = 'default', // 'default' | 'pill'
 }) {
   const [authError, setAuthError] = useState(null);
 
@@ -56,6 +57,96 @@ export default function GoogleLoginButton({
     setAuthError(err);
     if (onError) onError(err);
   };
+
+  if (variant === 'pill') {
+    return (
+      <div
+        className={`relative flex items-center ${className}`}
+        style={{ colorScheme: activeThemeMode === 'dark' ? 'dark' : 'light' }}
+      >
+        {isLoading ? (
+          <div
+            className="h-8 px-2.5 rounded-[8px] border flex items-center justify-center gap-2 text-xs font-semibold shadow-xs select-none"
+            style={{
+              borderColor: 'var(--border-input, rgba(255, 255, 255, 0.2))',
+              background: 'var(--bg-card)',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            <div className="w-3.5 h-3.5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--accent-blue)', borderTopColor: 'transparent' }} />
+            <span>Signing in...</span>
+          </div>
+        ) : (
+          <div
+            className="group relative h-8 px-2.5 rounded-[8px] border flex items-center gap-2 transition-all duration-150 ease-out cursor-pointer select-none overflow-hidden shadow-xs"
+            style={{
+              borderColor: 'var(--border-input, rgba(255, 255, 255, 0.2))',
+              background: 'var(--bg-card)',
+              color: 'var(--text-primary)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--accent-blue)';
+              e.currentTarget.style.boxShadow = '0 2px 8px rgba(59, 130, 246, 0.18)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-input, rgba(255, 255, 255, 0.2))';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+            title="Sign in with Google"
+          >
+            {/* Circular avatar badge with Google G Icon */}
+            <div
+              className="w-[22px] h-[22px] rounded-full flex items-center justify-center flex-shrink-0 shadow-xs"
+              style={{
+                background: activeThemeMode === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.06)',
+              }}
+            >
+              <GoogleGIcon size={16} />
+            </div>
+
+            {/* Text Label */}
+            <span className="text-xs font-semibold tracking-tight transition-colors duration-200" style={{ color: 'var(--text-primary)' }}>
+              Sign In
+            </span>
+
+            {/* Right Symbol — Chevron Right Icon */}
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="flex-shrink-0 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+
+            {/* Invisible Google GIS OAuth Overlay */}
+            <div
+              className="absolute inset-0 opacity-0 cursor-pointer overflow-hidden flex items-center justify-center scale-150 pointer-events-auto"
+              style={{ colorScheme: activeThemeMode === 'dark' ? 'dark' : 'light' }}
+            >
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                useOneTap={false}
+                shape="rectangular"
+                theme={googleButtonTheme}
+                size="small"
+                text="signin"
+                width="200"
+                locale="en"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const buttonWidth = width ? `${width}px` : '340px';
 
@@ -97,7 +188,7 @@ export default function GoogleLoginButton({
           }}
         >
           {/* Authentic 4-color Google G Icon */}
-          <GoogleGIcon />
+          <GoogleGIcon size={22} />
           <span className="text-[0.9375rem] font-semibold tracking-tight transition-colors duration-200">
             Continue with Google
           </span>

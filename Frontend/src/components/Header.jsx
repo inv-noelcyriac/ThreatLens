@@ -203,9 +203,10 @@ export default function Header({
               )}
             </div>
           ) : !hideGoogleLogin ? (
-            /* Google Sign-In Button */
+            /* Google Sign-In Pill Button matching user pill design */
             <GoogleLoginButton
               theme={theme}
+              variant="pill"
               onSuccess={onGoogleLoginSuccess}
               onError={onGoogleLoginError}
               isLoading={isLoggingIn}

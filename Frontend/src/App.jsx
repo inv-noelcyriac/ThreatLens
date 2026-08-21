@@ -33,6 +33,7 @@ export default function App() {
 
   // Standard User Auth State
   const [currentUser, setCurrentUser] = useState(() => getStoredUser());
+  const [isGuest, setIsGuest] = useState(() => localStorage.getItem('threatlens-guest-mode') === 'true');
   const [isUserAuthLoading, setIsUserAuthLoading] = useState(false);
   const [isSessionChecking, setIsSessionChecking] = useState(() => !!getAccessToken() && !getStoredUser());
 
@@ -202,8 +203,13 @@ export default function App() {
       const data = await googleAuthLogin(credential);
       const user = data.user || data;
       setCurrentUser(user);
+      setIsGuest(false);
+      localStorage.removeItem('threatlens-guest-mode');
       const email = user.email || 'corporate account';
       showToast(`Signed in successfully as ${email}`, 'success');
+      if (currentPath.toLowerCase().replace(/\/$/, '') === '/login') {
+        navigateTo('/');
+      }
     } catch (err) {
       console.error('[Google Auth Login Error]:', err);
       showToast(err.message || 'Login failed. Could not authenticate corporate account.', 'error');
@@ -220,10 +226,22 @@ export default function App() {
     try {
       clearAuthTokens();
       setCurrentUser(null);
+      setIsGuest(false);
+      localStorage.removeItem('threatlens-guest-mode');
       showToast('Signed out of corporate account.', 'info');
+      navigateTo('/login');
     } catch (err) {
       console.error('[Logout Error]:', err);
       showToast('Logout failed. Could not terminate session.', 'error');
+    }
+  };
+
+  const handleSkipLogin = () => {
+    setIsGuest(true);
+    localStorage.setItem('threatlens-guest-mode', 'true');
+    showToast('Browsing in guest mode. Sign in anytime for full access.', 'info');
+    if (currentPath.toLowerCase().replace(/\/$/, '') === '/login') {
+      navigateTo('/');
     }
   };
 
@@ -442,8 +460,8 @@ export default function App() {
     );
   }
 
-  // Gate 1: Require User authentication before entering search dashboard or activity page
-  if (!currentUser) {
+  // Gate 1: Require User authentication or explicit guest skip before entering search dashboard
+  if (!currentUser && !isGuest) {
     if (normalizedPath === '' || normalizedPath === '/' || normalizedPath === '/login' || normalizedPath === '/activity') {
       return (
         <>
@@ -453,6 +471,7 @@ export default function App() {
             onGoogleLoginSuccess={handleGoogleLoginSuccess}
             onGoogleLoginError={handleGoogleLoginError}
             isLoggingIn={isUserAuthLoading}
+            onSkipLogin={handleSkipLogin}
           />
           {renderToast()}
         </>
@@ -460,8 +479,31 @@ export default function App() {
     }
   }
 
-  // Route 2: Activity Tracking Page
+  // Explicit /login path shows login screen (allows signing in or skipping)
+  if (!currentUser && normalizedPath === '/login') {
+    return (
+      <>
+        <UserLogin
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          onGoogleLoginSuccess={handleGoogleLoginSuccess}
+          onGoogleLoginError={handleGoogleLoginError}
+          isLoggingIn={isUserAuthLoading}
+          onSkipLogin={handleSkipLogin}
+        />
+        {renderToast()}
+      </>
+    );
+  }
+
+  // Route 2: Activity Tracking Page (Requires authentication)
   if (normalizedPath === '/activity') {
+    if (!currentUser) {
+      window.history.replaceState({}, '', '/');
+      setCurrentPath('/');
+      showToast('Please sign in to access the Activity page.', 'error');
+      return null;
+    }
     return (
       <div className="min-h-screen flex flex-col">
         <Header
@@ -672,6 +714,9 @@ export default function App() {
           vuln={selectedVuln}
           onClose={() => setSelectedVuln(null)}
           currentUser={currentUser}
+          theme={theme}
+          onGoogleLoginSuccess={handleGoogleLoginSuccess}
+          onGoogleLoginError={handleGoogleLoginError}
         />
       )}
 

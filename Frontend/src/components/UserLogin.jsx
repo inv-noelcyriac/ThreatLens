@@ -290,6 +290,7 @@ export default function UserLogin({
   onGoogleLoginSuccess,
   onGoogleLoginError,
   isLoggingIn,
+  onSkipLogin,
 }) {
   return (
     <div
@@ -325,7 +326,7 @@ export default function UserLogin({
       {/* Main Login Card — always centred by grid on the outer wrapper */}
       <main className="relative z-10 w-full flex items-center justify-center px-4">
         <div
-          className="w-full max-w-[420px] rounded-[16px] border p-8 sm:p-9 shadow-2xl flex flex-col items-center text-center gap-5"
+          className="w-full max-w-[365px] rounded-[16px] border p-6 sm:p-7 shadow-2xl flex flex-col items-center text-center gap-3.5"
           style={{
             background: 'var(--bg-card)',
             borderColor: 'var(--border-card)',
@@ -334,29 +335,26 @@ export default function UserLogin({
         >
           {/* Logo Badge Icon */}
           <div
-            className="w-12 h-12 rounded-[12px] flex items-center justify-center text-white flex-shrink-0 shadow-md mb-1"
+            className="w-[44px] h-[44px] rounded-[11px] flex items-center justify-center text-white flex-shrink-0 shadow-md mb-0.5"
             style={{ background: 'var(--accent-blue)' }}
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
           </div>
 
           {/* Title & Subtitle */}
-          <div className="flex flex-col gap-1.5">
-            <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-heading)' }}>
+          <div className="flex flex-col gap-1">
+            <h1 className="text-[1.4rem] font-bold tracking-tight" style={{ color: 'var(--text-heading)' }}>
               Welcome to ThreatLens
             </h1>
-            <p className="text-xs sm:text-[0.8125rem] leading-relaxed max-w-[320px]" style={{ color: 'var(--text-secondary)' }}>
-              Sign in with your Google account to access security advisories and vulnerability intelligence.
+            <p className="text-xs sm:text-[0.8125rem] leading-[1.5] max-w-[310px] mx-auto text-center" style={{ color: 'var(--text-secondary)' }}>
+              Sign in for full access to security advisories<br className="hidden sm:inline" /> and vulnerability intelligence.
             </p>
           </div>
 
-          {/* Divider Line */}
-          <div className="w-full border-t my-0.5" style={{ borderColor: 'var(--border-color)' }} />
-
           {/* Google Sign-In Button Container */}
-          <div className="w-full flex justify-center pt-1">
+          <div className="w-full flex justify-center pt-0.5">
             <GoogleLoginButton
               theme={theme}
               onSuccess={onGoogleLoginSuccess}
@@ -364,9 +362,38 @@ export default function UserLogin({
               isLoading={isLoggingIn}
               size="large"
               text="continue_with"
-              width="340"
+              width="300"
             />
           </div>
+
+          {/* Divider Line */}
+          <div className="w-full border-t my-0.5" style={{ borderColor: 'var(--border-color)' }} />
+
+          {/* Skip Login / Guest Mode Option */}
+          {onSkipLogin && (
+            <div className="w-full flex items-center justify-center pt-0.5 text-center pl-2">
+              <button
+                type="button"
+                onClick={onSkipLogin}
+                className="group text-xs sm:text-[0.84rem] font-semibold flex items-center justify-center text-center gap-1.5 cursor-pointer border-0 bg-transparent transition-all duration-200 hover:underline py-0.5 px-2 select-none"
+                style={{
+                  color: 'var(--text-secondary)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'var(--accent-blue)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                }}
+              >
+                <span>Skip for now & browse advisories</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="opacity-80 transition-transform duration-200 group-hover:translate-x-0.5">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
       </main>
 

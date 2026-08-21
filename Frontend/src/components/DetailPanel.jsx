@@ -8,6 +8,7 @@ import {
   voteRemediation,
 } from '../services/api';
 import CustomDatePicker from './CustomDatePicker';
+import GoogleLoginButton from './GoogleLoginButton';
 import { getEcosystemList, formatEcosystemName } from './VulnCard';
 
 /* ─── Ecosystem Tag Manager Component ─── */
@@ -204,8 +205,30 @@ function FixThread({
   hasMore = false,
   loadingMore = false,
   onLoadMore = null,
+  theme = undefined,
+  onGoogleLoginSuccess = null,
+  onGoogleLoginError = null,
 }) {
   const sentinelRef = useRef(null);
+  const promptRef = useRef(null);
+  const [isPromptHighlighted, setIsPromptHighlighted] = useState(false);
+
+  const handleUnauthenticatedVoteAttempt = () => {
+    setIsPromptHighlighted(true);
+    if (promptRef.current) {
+      promptRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const scrollParent = promptRef.current.closest('.overflow-y-auto');
+      if (scrollParent) {
+        scrollParent.scrollTo({
+          top: scrollParent.scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+    }
+    setTimeout(() => {
+      setIsPromptHighlighted(false);
+    }, 1200);
+  };
 
   useEffect(() => {
     if (!hasMore || loadingMore || !onLoadMore) return;
@@ -502,7 +525,13 @@ function FixThread({
                           {/* Upvote Button */}
                           <button
                             type="button"
-                            onClick={() => onVoteFix(fix.id, 1)}
+                            onClick={() => {
+                              if (!currentUser) {
+                                handleUnauthenticatedVoteAttempt();
+                              } else {
+                                onVoteFix(fix.id, 1);
+                              }
+                            }}
                             title={userVote === 1 ? 'Remove Upvote' : 'Upvote'}
                             className="flex items-center justify-center gap-1 min-w-[36px] px-1.5 py-0.5 text-xs font-semibold border-0 bg-transparent cursor-pointer transition-all duration-150 whitespace-nowrap active:scale-90 active:translate-y-[1px] select-none"
                             style={{
@@ -518,7 +547,13 @@ function FixThread({
                           {/* Downvote Button */}
                           <button
                             type="button"
-                            onClick={() => onVoteFix(fix.id, -1)}
+                            onClick={() => {
+                              if (!currentUser) {
+                                handleUnauthenticatedVoteAttempt();
+                              } else {
+                                onVoteFix(fix.id, -1);
+                              }
+                            }}
                             title={userVote === -1 ? 'Remove Downvote' : 'Downvote'}
                             className="flex items-center justify-center gap-1 min-w-[36px] px-1.5 py-0.5 text-xs font-semibold border-0 bg-transparent cursor-pointer transition-all duration-150 whitespace-nowrap active:scale-90 active:translate-y-[1px] select-none"
                             style={{
@@ -639,77 +674,110 @@ function FixThread({
           )}
         </div>
 
-        {/* ── Compose / Post Remediation Form Row (Fixed below comments) ── */}
-        <div className="flex gap-3 pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
-          {/* Live avatar preview */}
-          <div className="flex-shrink-0 pt-[3px]" style={{ width: '36px' }}>
+        {/* ── Compose / Post Remediation Form Row or Sign-In Prompt ── */}
+        <div className="pt-3 border-t mt-3" style={{ borderColor: 'var(--border-color)' }}>
+          {!currentUser ? (
             <div
-              className="w-9 h-9 rounded-full border-[1.5px] text-[0.875rem] font-bold flex items-center justify-center select-none transition-all duration-200"
-              style={author.trim()
-                ? { background: 'var(--accent-blue)', borderColor: 'transparent', color: '#fff' }
-                : { background: 'var(--bg-input)', borderColor: 'var(--border-input)', color: 'var(--text-muted)' }}
+              ref={promptRef}
+              className={`w-full flex items-center justify-between gap-3 px-3.5 py-3 rounded-[10px] border-[1.5px] transition-all duration-500 ease-out select-none ${
+                isPromptHighlighted
+                  ? 'border-[var(--accent-blue)] bg-[var(--accent-blue-light)] shadow-xs'
+                  : 'bg-transparent'
+              }`}
+              style={{
+                borderColor: isPromptHighlighted ? 'var(--accent-blue)' : 'var(--border-input)',
+              }}
             >
-              {author.trim() ? author.trim().charAt(0).toUpperCase() : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+              <div className="flex items-center gap-2.5 min-w-0">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="flex-shrink-0 transition-colors"
+                  style={{ color: isPromptHighlighted ? 'var(--accent-blue)' : 'var(--text-secondary)' }}
+                >
+                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                  <polyline points="10 17 15 12 10 7" />
+                  <line x1="15" y1="12" x2="3" y2="12" />
                 </svg>
-              )}
+                <span
+                  className="text-sm font-semibold truncate transition-colors"
+                  style={{ color: isPromptHighlighted ? 'var(--accent-blue)' : 'var(--text-primary)' }}
+                >
+                  Sign in to post suggestions and vote
+                </span>
+              </div>
+
+              {/* Inline Sign In Action */}
+              <GoogleLoginButton
+                theme={theme}
+                variant="pill"
+                onSuccess={onGoogleLoginSuccess}
+                onError={onGoogleLoginError}
+              />
             </div>
-          </div>
+          ) : (
+            <div className="flex gap-3">
+            {/* Live avatar preview */}
+            <div className="flex-shrink-0 pt-[3px]" style={{ width: '36px' }}>
+              <div
+                className="w-9 h-9 rounded-full border-[1.5px] text-[0.875rem] font-bold flex items-center justify-center select-none transition-all duration-200"
+                style={author.trim()
+                  ? { background: 'var(--accent-blue)', borderColor: 'transparent', color: '#fff' }
+                  : { background: 'var(--bg-input)', borderColor: 'var(--border-input)', color: 'var(--text-muted)' }}
+              >
+                {author.trim() ? author.trim().charAt(0).toUpperCase() : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                  </svg>
+                )}
+              </div>
+            </div>
 
-          {/* Form */}
-          <form className="flex-1 min-w-0 flex flex-col gap-2.5 pt-[3px]" onSubmit={handleSubmit} noValidate>
-            {fixes.length === 0 && !description && (
-              <p className="text-[0.875rem] italic mb-0.5" style={{ color: 'var(--text-muted)' }}>No user suggestions yet. Be the first to share guidance.</p>
-            )}
+            {/* Form */}
+            <form className="flex-1 min-w-0 flex flex-col gap-2.5 pt-[3px]" onSubmit={handleSubmit} noValidate>
+              {fixes.length === 0 && !description && (
+                <p className="text-[0.875rem] italic mb-0.5" style={{ color: 'var(--text-muted)' }}>No user suggestions yet. Be the first to share guidance.</p>
+              )}
 
-            {!currentUser && (
-              <input
-                id="fix-author-input"
-                type="text"
-                placeholder="Your name"
-                value={author}
-                maxLength={40}
-                onChange={(e) => { setAuthor(e.target.value); setError(''); }}
-                aria-label="Author name"
-                className="h-10 px-3.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-[inherit] outline-none transition-all duration-200"
+              <textarea
+                id="fix-desc-input"
+                placeholder="Add user suggestion note or technical fix..."
+                value={description}
+                maxLength={1000}
+                onChange={(e) => { setDescription(e.target.value); setError(''); }}
+                rows={3}
+                aria-label="Fix description"
+                className="px-3.5 py-2.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-[inherit] outline-none resize-y min-h-[72px] leading-[1.5] transition-all duration-200 w-full"
                 style={inputStyle}
                 onFocus={focusStyle}
                 onBlur={blurStyle}
               />
-            )}
-
-            <textarea
-              id="fix-desc-input"
-              placeholder="Add user suggestion note or technical fix..."
-              value={description}
-              maxLength={1000}
-              onChange={(e) => { setDescription(e.target.value); setError(''); }}
-              rows={3}
-              aria-label="Fix description"
-              className="px-3.5 py-2.5 rounded-[10px] border-[1.5px] text-[0.875rem] font-[inherit] outline-none resize-y min-h-[72px] leading-[1.5] transition-all duration-200 w-full"
-              style={inputStyle}
-              onFocus={focusStyle}
-              onBlur={blurStyle}
-            />
-            {error && (
-              <p className="text-[0.8125rem] rounded-[6px] px-3 py-2" style={{ color: '#ef4444', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>{error}</p>
-            )}
-            <div className="flex justify-end">
-              <button
-                id="fix-submit-btn"
-                type="submit"
-                disabled={isSubmitting}
-                aria-label="Submit fix note"
-                className="flex items-center gap-[7px] h-9 px-4 rounded-[20px] border-0 text-white text-[0.85rem] font-semibold font-[inherit] cursor-pointer flex-shrink-0 whitespace-nowrap transition-all duration-200 hover:-translate-y-px active:translate-y-0 disabled:opacity-50"
-                style={{ background: 'var(--accent-blue)' }}
-                onMouseEnter={e => { if (!isSubmitting) e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
-                onMouseLeave={e => { if (!isSubmitting) e.currentTarget.style.background = 'var(--accent-blue)'; }}
-              >
-                <SendIcon /><span>{isSubmitting ? 'Posting...' : 'Post Note'}</span>
-              </button>
-            </div>
-          </form>
+              {error && (
+                <p className="text-[0.8125rem] rounded-[6px] px-3 py-2" style={{ color: '#ef4444', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>{error}</p>
+              )}
+              <div className="flex justify-end">
+                <button
+                  id="fix-submit-btn"
+                  type="submit"
+                  disabled={isSubmitting}
+                  aria-label="Submit fix note"
+                  className="flex items-center gap-[7px] h-9 px-4 rounded-[20px] border-0 text-white text-[0.85rem] font-semibold font-[inherit] cursor-pointer flex-shrink-0 whitespace-nowrap transition-all duration-200 hover:-translate-y-px active:translate-y-0 disabled:opacity-50"
+                  style={{ background: 'var(--accent-blue)' }}
+                  onMouseEnter={e => { if (!isSubmitting) e.currentTarget.style.background = 'var(--accent-blue-hover)'; }}
+                  onMouseLeave={e => { if (!isSubmitting) e.currentTarget.style.background = 'var(--accent-blue)'; }}
+                >
+                  <SendIcon /><span>{isSubmitting ? 'Posting...' : 'Post Note'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
         </div>
       </div>
     </section>
@@ -864,7 +932,15 @@ function MinimalEcosystemList({ ecosystems }) {
 }
 
 /* ─── Main export ─── */
-export default function DetailPanel({ vuln, onClose, currentUser = null, onSave }) {
+export default function DetailPanel({
+  vuln,
+  onClose,
+  currentUser = null,
+  onSave,
+  theme,
+  onGoogleLoginSuccess,
+  onGoogleLoginError,
+}) {
 
   const [detailData, setDetailData] = useState(vuln);
   const displayId = vuln?.display_id || vuln?.id;
@@ -1178,7 +1254,7 @@ export default function DetailPanel({ vuln, onClose, currentUser = null, onSave 
   };
 
   const handleVoteFix = async (fixId, voteType) => {
-    if (!fixId || String(fixId).startsWith('local-')) return;
+    if (!currentUser || !fixId || String(fixId).startsWith('local-')) return;
 
     // Optimistic UI update
     setFixes((prev) =>
@@ -2193,6 +2269,9 @@ export default function DetailPanel({ vuln, onClose, currentUser = null, onSave 
                 hasMore={hasMoreFixes}
                 loadingMore={loadingMoreFixes}
                 onLoadMore={handleLoadMoreFixes}
+                theme={theme}
+                onGoogleLoginSuccess={onGoogleLoginSuccess}
+                onGoogleLoginError={onGoogleLoginError}
               />
             </>
           )}
